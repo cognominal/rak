@@ -436,7 +436,7 @@ require a longer lookahead or a different syntax altogether.
 
 **Challenge**: `2>` is NOT a `>` preceded by a number — in Raku, `2 >file`
 (with space before `>`) is a comparison `2 > file`. The digit before `>`
-needs to directly touch the `>` (no space): `2>file`. But then `2` looks
+needs to directlyorg/prizes/literature/2005/pinter/lecture/ touch the `>` (no space): `2>file`. But then `2` looks
 like a term, and `>file` is a redirection. The grammar would need to parse
 `N>` as a file-descriptor-number prefix before the `>`. This is hard because
 `2` in `2>file` is already a valid Raku term (an integer literal), so the

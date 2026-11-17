@@ -1,12 +1,13 @@
 # modes
 
-rak supports two modes, standard and shell. We mostly describe the shell mode 
+rak supports two modes, standard and shell. We mostly describe the shell mode
 here because the standard mode is mostly raku with some changes.
 
 ## shell mode
 
 Mode is autorecognized at the level of a statement or a parenthesized instruction.
-Shell mode supports the classic shell features, starting by implicitely launching commands.
+Shell mode supports the classic shell features,
+starting by implicitely launching commands.
 Builtins are raku/rak functions or are their something else. functions defined by rak itself ?
 Naked strings, globbing and redirections are supported in both modes.
 
@@ -17,7 +18,7 @@ Shell mode occupy the place that was an error "two terms in a row."
 ### type builtin
 
 we will support the type buildin. Below is an example of its use
-in bash 
+in bash
 
 ```
 rak rak ❯ type ls

@@ -1,3 +1,13 @@
+# Rak
+
+This an ongoing work on rak, an extension of rakudo that
+will support shell mode in addition to standard mode.
+See [Glossary](./GLOSSARY.md) for new concepts. 
+[adrs](./docs/adr) are Architectural decision records.
+From now on, I will try to stick to Matt Pokock [skills](https://github.com/mattpocock/skills) 
+conventions that are brand new to me.
+Below is the original README.md. It should be mostly relevant for rak.
+
 # Rakudo
 
 This is Rakudo, a Raku Programming Language compiler for the MoarVM, JVM and Javascript virtual machines.
@@ -8,7 +18,7 @@ details, see the full text of the license in the file LICENSE.
 
 This directory contains only the Rakudo compiler itself; it
 does not contain any of the modules, documentation, or other items
-that would normally come with a full Raku distribution.  If you're
+that would normally come with a full Raku distribution.  Irf you're
 after more than just the bare compiler, please download [the latest
 Rakudo Star package](http://rakudo.org/downloads/star).
 

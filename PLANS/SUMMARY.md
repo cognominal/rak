@@ -49,14 +49,15 @@ Three frontends share a single binary (`rakudo-m`), selected by env vars:
 |---|---|---|---|
 | *(none)* | `Perl6::Grammar` (legacy) | `Perl6::Actions` | Legacy QAST |
 | `RAKUDO_RAKUAST=1` | `Raku::Grammar` | `Raku::Actions` | RakuAST |
-| `RAKUDO_RAK_FRONTEND=1 RAKU_RAK_MODE=1` | `Raku::Grammar` | `Raku::Actions` | RakuAST + rak features |
+| `RAKUDO_RAK_FRONTEND=1 RAKU_RAK_MODE=1` | `Rak::Grammar` | `Rak::Actions` | RakuAST + rak features |
 
 The `rak` wrapper sets both env vars and runs the same binary.
 
 ## The `$*RAK-SEMANTICS` gate
 
-All rak features are gated by a single dynamic variable `$*RAK-SEMANTICS`,
-set in `Raku::Actions.comp-unit-prologue`:
+All rak features are gated by a single dynamic variable `$*RAK-SEMANTICS`, set
+per compilation unit in the frontend's `comp-unit-prologue` (`Rak::Actions` for
+the rak frontend, `Raku::Actions` for the plain one):
 
 - `.rak` file extension → **1**
 - `.raku`, `.rakumod`, `.pm6`, `.nqp` → **0**
@@ -78,36 +79,42 @@ token or alternative has `<?{ $*RAK-SEMANTICS }>` guarding it.
 
 ## Tests
 
-All 82 tests pass across 9 test files:
+`t/14-redirection/` holds seven files, all passing with no failures: `basic.rak`
+(10), `append.rak` (11), `binary-ops.rak` (4), `edge-cases.rak` (4),
+`statement-stream.rak` (13), `input.rak` (7), and `gating.raku` (3, run against
+the plain frontend because the wrapper's rak-mode variable would leak into its
+`EVAL`).
 
-| File | Assertions |
-|------|-----------|
-| `t/02-rakudo/new-sigil-int.t` | 18 |
-| `t/02-rakudo/new-sigil-str.t` | 18 |
-| `t/02-rakudo/dot-subscript-numeric.t` | 7 |
-| `t/02-rakudo/dot-subscript-sigil.t` | 8 |
-| `t/02-rakudo/dot-subscript-name.t` | 11 |
-| `t/14-redirection/basic.rak` | 10 |
-| `t/14-redirection/binary-ops.rak` | 4 |
-| `t/14-redirection/edge-cases.rak` | 4 |
-| `t/14-redirection/gating.raku` | 2 |
+The `.t` feature tests under `t/02-rakudo/` keep their pre-existing shortfall:
+2 of 18 in `new-sigil-int.t` (re-measured at 16/18 after the rak frontend
+switch), 2 of 18 in `new-sigil-str.t`, 1 of 7 in `dot-subscript-numeric.t`.
 
-The redirection tests were rewritten to use `->` method calls (the natural
-consequence of the dotty sugar in `.rak` files) and to assert only
-implementable invariants (input redirection `<file` remains future work).
+The redirection tests use `->` method calls (the natural consequence of the dotty
+sugar in `.rak` files) and assert the statement-stream model: a statement keeps
+its own writing behaviour, and the binding ends with the statement.
 
-## Standalone fork (not yet used)
+## The Rak frontend (in use)
 
-`src/Rak/Grammar.nqp` and `src/Rak/Actions.nqp` are fully-namespaced,
-all-gates-removed forks that compile independently. They are **not** used
-by the current rak frontend because the sub-grammars (`Rak::QGrammar`,
-`Rak::RegexGrammar`) have a composition issue — NQP's `create-quote-lang-type`
-fails on the forked grammar types. When that's resolved, the standing
-can switch from delegating to the shared grammar to loading the standalone
-files, and `src/Raku/Grammar.nqp` can be stripped of all rak-related code
-(`$*RAK-SEMANTICS`, `statement-mod-redir`, `after-ws`, dotty-name-sugar,
-the `!$*RAK-SEMANTICS ||` guard, `term:sym<rak-string>`, sigils `~#`,
-tightened `comment:sym<#>`, escape handlers, i1/t1 roles).
+`src/Rak/Grammar.nqp` and `src/Rak/Actions.nqp` are namespaced twins of the
+RakuAST pair, regenerated with `sed 's/Raku::/Rak::/g'`, so they keep the same
+`$*RAK-SEMANTICS` gates instead of removing them. The `rak` wrapper selects them
+through `RAKUDO_RAK_FRONTEND=1`; both pairs are built into the single binary
+(`blib/Raku`, `blib/Rak`), and which one is live is observable through
+`nqp::gethllsym('Raku','Grammar')`.
+
+An earlier account in this file blamed an NQP composition failure — NQP's
+`create-quote-lang-type` supposedly rejecting the forked grammar types — for
+leaving the pair unused. What actually happened was a stale
+`gen/moar/Raku{Actions,Grammar}.nqp` concatenation reused after the source
+variables moved, which produced `Merging GLOBAL symbols failed: duplicate
+definition of symbol Actions` at link time. The wiring and the trap are recorded
+in `docs/adr/0003-rak-keeps-its-own-grammar-and-actions.md`.
+
+Still to do: strip the rak code out of `src/Raku/*` (`$*RAK-SEMANTICS`,
+`statement-mod-redir`, `after-ws`, dotty-name-sugar, the `!$*RAK-SEMANTICS ||`
+guards, `term:sym<rak-string>`, sigils `~#`, tightened `comment:sym<#>`, escape
+handlers, i1/t1 roles), which waits on deciding whether a `.rak` file compiled
+through a plain `RAKUDO_RAKUAST` run must keep parsing as rak.
 
 ## Git log (current branch `rak`)
 
