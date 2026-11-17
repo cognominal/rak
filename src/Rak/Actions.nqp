@@ -425,7 +425,31 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         # Be ready to report locations in the source.
         $*ORIGIN-SOURCE := Nodify('Origin::Source').new(:orig($/.target()));
 
-                $*RAK-SEMANTICS := 1;
+        # Set the .rak extension gate: source files ending in .rak get
+        # rak semantics (new sigils, dotty sugar, redirection, naked strings,
+        # etc.). Every other extension (.raku, .rakumod, .pm6, .nqp, or
+        # -e/STDIN with no filename) keeps today's behavior exactly, unless
+        # RAKU_RAK_MODE=1 is set (REPL use via the `rak` executable).
+        my str $source-name := %*COMPILING<%?OPTIONS><source-name> // '';
+        my int $name-len := nqp::chars($source-name);
+        my int $is-real-file := $name-len
+          && !nqp::eqat($source-name, '-', 0);
+
+        my int $is-rak := $name-len >= 4
+          && nqp::eqat($source-name, '.rak', $name-len - 4);
+
+        if $is-rak {
+            $*RAK-SEMANTICS := 1;
+        }
+        elsif $is-real-file {
+            $*RAK-SEMANTICS := 0;
+        }
+        elsif nqp::getenvhash<RAKU_RAK_MODE> {
+            $*RAK-SEMANTICS := 1;
+        }
+        else {
+            $*RAK-SEMANTICS := 0;
+        }
 
         # Set up the base resolver
         my %OPTIONS       := %*OPTIONS;
@@ -1066,46 +1090,18 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             $statement.replace-loop-modifier($<statement-mod-loop>.ast)
               if $<statement-mod-loop>;
 
-            # Handle output redirection (.rak syntax)
-            if $<statement-mod-redir> {
-                my $filename-ast := $<statement-mod-redir>.ast;
+            # Handle output redirection (.rak syntax). The statement itself is
+            # kept intact and wrapped in a statement-scoped binding of the
+            # output stream, so the routine it invokes keeps its own writing
+            # behaviour (see docs/adr/0002-redirection-binds-the-statement-stream.md).
+            if $<statement-mod-redir> && $*RAK-SEMANTICS {
                 my $mode := ~$<statement-mod-redir><op> eq '>>' ?? 'a' !! 'w';
-                my $open-args := Nodify('ArgList').new(
-                    $filename-ast,
-                    Nodify('ColonPair::True').new($mode)
-                );
-                my $open-call := Nodify('Call::Name').new(
-                    name => Nodify('Name').from-identifier('open'),
-                    args => $open-args
-                );
-                # Extract the content from the original expression.
-                # If it's a Call::Name (like say("...")), use its args directly.
-                # Otherwise wrap the whole expression.
-                my $expr-ast := $<EXPR>.ast;
-                my $content-args;
-                if nqp::istype($expr-ast, Nodify('Call')) {
-                    my $old-args := $expr-ast.args;
-                    my int $n := $old-args.arity;
-                    $content-args := Nodify('ArgList').new;
-                    my int $i := 0;
-                    while $i < $n {
-                        $content-args.push($old-args.arg-at-pos($i));
-                        $i := $i + 1;
-                    }
-                }
-                else {
-                    $content-args := Nodify('ArgList').new($expr-ast);
-                }
-                my $call-method := Nodify('Call::Method').new(
-                    name => Nodify('Name').from-identifier('say'),
-                    args => $content-args
-                );
-                my $redirect-ast := Nodify('ApplyPostfix').new(
-                    operand => $open-call,
-                    postfix => $call-method
-                );
-                $statement := Nodify('Statement::Expression').new(
-                    :expression($redirect-ast.to-begin-time($*R, $context))
+                $statement := self.redirected-statement(
+                    $/,
+                    $statement,
+                    $<statement-mod-redir>.ast,
+                    $mode,
+                    'OUT'
                 );
             }
         }
@@ -1115,10 +1111,16 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             $statement := $<statement-control>.ast;
         }
 
-        # Handle input redirection (.rak syntax) — NYI, stub
-        elsif $<redir-filename> && !$<EXPR> {
-            $/.panic('Input redirection with < is not yet implemented');
-            $statement := Nodify('Statement::Empty').new;
+        # Handle input redirection (.rak syntax): `<file STMT` binds $*IN for
+        # the statement, the mirror image of the output redirection above.
+        elsif $<redir-filename> && !$<EXPR> && $*RAK-SEMANTICS {
+            $statement := self.redirected-statement(
+                $/,
+                $<statement>.ast,
+                $<redir-filename>.ast,
+                'r',
+                'IN'
+            );
         }
 
         # Handle an empty statement
@@ -1697,6 +1699,62 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
 
 #-------------------------------------------------------------------------------
 # Redirection statement modifier (rak syntax only)
+
+    # Wrap a statement so that a dynamic stream variable ($*OUT for output
+    # redirection, $*IN for input redirection) is bound to the redirection
+    # target for the duration of that statement alone. The statement itself is
+    # left alone, so the routine it invokes keeps its own writing behaviour:
+    # `print` keeps its missing newline, and a routine writing to $*ERR is not
+    # captured by an output redirection. The handle is released when the
+    # wrapping block's frame goes away, which flushes the bytes to disk.
+    method redirected-statement($/, $statement, $filename-ast, str $mode, str $stream) {
+        my $stream-name := '$*' ~ $stream;
+        my $open-call := Nodify('Call::Name').new(
+            name => Nodify('Name').from-identifier('open'),
+            args => Nodify('ArgList').new(
+                $filename-ast,
+                Nodify('ColonPair::True').new($mode)
+            )
+        );
+        my $binding := Nodify('VarDeclaration::Simple').new(
+            :scope('my'),
+            :sigil('$'),
+            :twigil('*'),
+            :desigilname(Nodify('Name').from-identifier($stream)),
+            :initializer(Nodify('Initializer::Assign').new($open-call))
+        );
+        # open() returns a Failure instead of throwing, and a Failure bound to
+        # the stream variable would stay hidden until the first write, which
+        # then fails with a confusing "cannot resolve caller" error. Surface it
+        # here: `.defined` throws the file error itself, and if a revision ever
+        # makes `.defined` answer False instead, `die` throws the same error.
+        my $guard := Nodify('Statement::Expression').new(
+            :expression(Nodify('Call::Name').new(
+                name => Nodify('Name').from-identifier('die'),
+                args => Nodify('ArgList').new(
+                    Nodify('Var::Dynamic').new($stream-name)
+                )
+            )),
+            :condition-modifier(Nodify('StatementModifier::Unless').new(
+                Nodify('ApplyPostfix').new(
+                    :operand(Nodify('Var::Dynamic').new($stream-name)),
+                    :postfix(Nodify('Call::Method').new(
+                        name => Nodify('Name').from-identifier('defined')
+                    ))
+                )
+            ))
+        );
+        my $body := Nodify('StatementList').new(
+            Nodify('Statement::Expression').new(:expression($binding)),
+            $guard,
+            $statement
+        );
+        Nodify('Statement::Expression').new(
+            :expression(Nodify('Block').new(
+                :body(Nodify('Blockoid').new($body))
+            ).to-begin-time($*R, $*CU.context))
+        )
+    }
 
     method statement-mod-redir($/) {
         my $ast := $<redir-filename>.ast;

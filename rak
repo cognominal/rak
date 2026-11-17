@@ -1,12 +1,13 @@
 #!/bin/bash
 # rak — invoke rakudo with .rak-mode semantics by default.
-# Uses RakuAST frontend + RAKU_RAK_MODE to enable all rak features
-# (new sigils, dotty subscript sugar, redirection, naked strings).
+# Uses the Rak frontend (Rak::Grammar/Rak::Actions) and RAKU_RAK_MODE to
+# enable all rak features (new sigils, dotty subscript sugar, redirection,
+# naked strings).
 #
 # Usage: rak [-- raku-options] [file.rak] [args...]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export RAKUDO_RAKUAST=1
+export RAKUDO_RAK_FRONTEND=1
 export RAKU_RAK_MODE=1
 
 exec "$SCRIPT_DIR/rakudo-m" "$@"

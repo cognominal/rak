@@ -1,5 +1,5 @@
 use NQPP5QRegex;
-use Raku::Actions;
+use Rak::Actions;
 
 sub p6ize_recursive($x) {
     if nqp::islist($x) {
@@ -1202,9 +1202,9 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     # takes its grammar from here.
     method standard-slangs() {
         nqp::hash(
-          'Quote',   [Raku::QGrammar,       Rak::QActions],
-          'Regex',   [Raku::RegexGrammar,   Rak::RegexActions],
-          'P5Regex', [Raku::P5RegexGrammar, Rak::P5RegexActions],
+          'Quote',   [Rak::QGrammar,       Rak::QActions],
+          'Regex',   [Rak::RegexGrammar,   Rak::RegexActions],
+          'P5Regex', [Rak::P5RegexGrammar, Rak::P5RegexActions],
         )
     }
 
@@ -1358,7 +1358,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         :my $*R;               # current RakuAST::Resolver::xxx object
         :my $*LANGUAGE-REVISION;  # language revision of this compilation unit
         # Set from this file's extension in comp-unit-prologue (1 for .rak, 0 otherwise).
-        :my $*RAK-SEMANTICS := 1;
+        :my $*RAK-SEMANTICS;
         :my $*LITERALS;        # current RakuAST::LiteralBuilder object
         :my &*DD;              # debug helper to dd()
         {
@@ -1468,11 +1468,11 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         [
           | <label> <statement>
           | <statement-control>
-          | '<' <?{ !self.after-ws($/) }> <redir-filename> <.ws> <statement>
+          | <?{ $*RAK-SEMANTICS }> '<' <?{ !self.after-ws($/) }> <redir-filename> <.ws> <statement>
           | <EXPR>
             :dba('statement end')
             [
-              || <statement-mod-redir>
+              || <?{ $*RAK-SEMANTICS }> <statement-mod-redir>
               || <?MARKED('end-statement')>
               || :dba('statement modifier')
                  <.ws>
@@ -2481,7 +2481,8 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     # <<foo>>
     token infix-circumfix-meta-operator:sym«<< >>» {
         $<opening>=[ '<<' | '>>' ]
-        <?{ ~$<opening> ne '>>'
+        <?{ !$*RAK-SEMANTICS
+            || ~$<opening> ne '>>'
             || $/.pos() >= nqp::chars(self.target())
             || !(nqp::ordat(self.target(), $/.pos()) >= 97
                   && nqp::ordat(self.target(), $/.pos()) <= 122)
@@ -2546,7 +2547,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           # `||` branch below and its ordinary <OPER=dotty> method-call
           # path, unaffected. False outside `.rak` mode, so this never
           # matches at all there.
-          || '.' <OPER=dotty-name-sugar>
+          || <?{ $*RAK-SEMANTICS }> '.' <OPER=dotty-name-sugar>
 
           || [
           | <OPER=postfix>
@@ -2596,7 +2597,8 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     token postfix-prefix-meta-operator:sym<»> {
         [ <sym> | $<sym> = '>>' ]
         [ <!{ $*QSIGIL }> || <![(]> ]
-        <?{ $/.pos() >= nqp::chars(self.target())
+        <?{ !$*RAK-SEMANTICS
+            || $/.pos() >= nqp::chars(self.target())
             || !(nqp::ordat(self.target(), $/.pos()) >= 97
                   && nqp::ordat(self.target(), $/.pos()) <= 122)
             && !(nqp::ordat(self.target(), $/.pos()) >= 65
@@ -2857,7 +2859,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           # shape, so `->[`/`->{`/`->(` fall through to the existing
           # obsolete-syntax branches below even in `.rak` mode (deliberately
           # left erroring, per the spec).
-          |
+          | <?{ $*RAK-SEMANTICS }>
             <.unspace>?
             <methodop(Mu)>
 
@@ -3136,8 +3138,8 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     token infix:sym«≤»      { <sym> }
     token infix:sym«>=»     { <sym> }
     token infix:sym«≥»      { <sym> }
-    token infix:sym«<»      { <sym> <?{ $/.pos() >= nqp::chars(self.target()) || nqp::ordat(self.target(), $/.pos()) == 32 }> }
-    token infix:sym«>»      { <sym> <?{ $/.pos() >= nqp::chars(self.target()) || nqp::ordat(self.target(), $/.pos()) == 32 }> }
+    token infix:sym«<»      { <sym> <?{ !$*RAK-SEMANTICS || $/.pos() >= nqp::chars(self.target()) || nqp::ordat(self.target(), $/.pos()) == 32 }> }
+    token infix:sym«>»      { <sym> <?{ !$*RAK-SEMANTICS || $/.pos() >= nqp::chars(self.target()) || nqp::ordat(self.target(), $/.pos()) == 32 }> }
     token infix:sym«=:=»    { <sym> }
     token infix:sym<===>    { <sym> }
     token infix:sym<⩶>      { <sym> }
@@ -3471,7 +3473,11 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
 
     token term:sym<colonpair> { :my $*COLONPAIR-AS-TERM := 1; <colonpair> }
 
+    # In rak mode ($*RAK-SEMANTICS), a bare identifier is a naked string
+    # literal (not a function call), unless it looks like a number or is a
+    # known name (a declared lexical / setting routine like say or print).
     token term:sym<rak-string> {
+        <?{ $*RAK-SEMANTICS }>
         <identifier>
         <!before '('>
         <?{ !$*R.is-identifier-known(~$<identifier>) }>
@@ -6699,11 +6705,11 @@ grammar Rak::QGrammar is HLL::Grammar does Rak::Common {
     # tweaks that can NOT be negated
     method tweak_q($v) {
         self.truly($v, ':q');
-        self.apply_tweak(Raku::QGrammar::q)
+        self.apply_tweak(Rak::QGrammar::q)
     }
     method tweak_qq($v) {
         self.truly($v, ':qq');
-        self.apply_tweak(Raku::QGrammar::qq)
+        self.apply_tweak(Rak::QGrammar::qq)
     }
     method tweak_regex($v) {
         self.truly($v, ':regex');
@@ -6711,7 +6717,7 @@ grammar Rak::QGrammar is HLL::Grammar does Rak::Common {
     }
     method tweak_cc($v) {
         self.truly($v, ':cc');
-        self.apply_tweak(Raku::QGrammar::cc);
+        self.apply_tweak(Rak::QGrammar::cc);
     }
     method tweak_to($v) {
         self.truly($v, ':to');

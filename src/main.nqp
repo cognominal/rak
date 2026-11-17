@@ -2,6 +2,8 @@ use Perl6::Grammar;
 use Perl6::Actions;
 use Raku::Grammar;
 use Raku::Actions;
+use Rak::Grammar;
+use Rak::Actions;
 use Perl6::Compiler;
 use Perl6::SysConfig;
 
@@ -15,12 +17,15 @@ nqp::bindhllsym('default', 'SysConfig', Perl6::SysConfig.new(%rakudo-build-confi
 # Create and configure compiler object.
 my $comp := Perl6::Compiler.new();
 $comp.language('Raku');
+my $rak-frontend := 0;
 if +nqp::getenvhash()<RAKUDO_RAK_FRONTEND> {
-    # Rak frontend — uses the shared RakuAST grammar with RAKU_RAK_MODE=1,
-    # which enables all rak features. The `rak` wrapper sets both env vars.
+    # Rak frontend — uses the Rak pair (Rak::Grammar/Rak::Actions), which
+    # still tells .rak from .rakumod through $*RAK-SEMANTICS. The `rak`
+    # wrapper sets this together with RAKU_RAK_MODE=1.
     nqp::bindhllsym('Raku', 'COMPILER-FRONTEND', 'rakuast');
-    $comp.parsegrammar(Raku::Grammar);
-    $comp.parseactions(Raku::Actions);
+    $rak-frontend := 1;
+    $comp.parsegrammar(Rak::Grammar);
+    $comp.parseactions(Rak::Actions);
     $comp.addstage('syntaxcheck', :before<ast>);
     $comp.addstage('qast', :after<ast>);
     $comp.addstage('optimize', :before<qast>);
@@ -60,7 +65,11 @@ my @clo := $comp.commandline_options();
 
 # Make the selected grammar / actions visible to HLL
 my $fend := nqp::gethllsym('Raku', 'COMPILER-FRONTEND');
-if $fend eq 'rakuast' {
+if $rak-frontend {
+    nqp::bindhllsym('Raku', 'Grammar', Rak::Grammar);
+    nqp::bindhllsym('Raku', 'Actions', Rak::Actions);
+}
+elsif $fend eq 'rakuast' {
     nqp::bindhllsym('Raku', 'Grammar', Raku::Grammar);
     nqp::bindhllsym('Raku', 'Actions', Raku::Actions);
 }
