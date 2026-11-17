@@ -15,8 +15,19 @@ _Avoid_: rak semantics, shell mode, extended Raku.
 **irak**:
 An interactive rak session: the execution context in which rak evaluates statements with
 no source file (REPL, `-e`, standard input). An execution context, not a mode: its
-statements still parse in the standard or shell strategy.
+statements still parse in the standard or shell strategy. Pronounced "eye-rak".
 _Avoid_: interactive mode, irak mode, REPL mode.
+
+**irak submission**:
+The text entered at the irak prompt and evaluated as a unit: one line, or several when
+the first is incomplete and irak asks for more with its continuation prompt. The `[N]`
+in the prompt counts submissions.
+_Avoid_: line, statement, command, cell.
+
+**irak topic**:
+At the start of an irak submission, `$_` holds the value of the previous submission, so a
+leading dotty subscript reaches into it. A submission that fails, returns `Nil`, or
+prints output instead of a value leaves `$_` unchanged.
 
 **naked string**:
 An unquoted word that denotes a string literal: it starts with a letter or underscore and
@@ -34,7 +45,9 @@ addition to Raku's existing sigils.
 **dotty subscript**:
 A leading `.` spelling a subscript without brackets: `.name` is the hash subscript
 `<name>`, and `.1` / `.~expr` / `.#expr` subscript by an expression. The `->name`
-spelling instead calls a parameterless method.
+spelling instead calls a parameterless method. With nothing before it, a leading `.`
+subscripts the topic `$_` (`.name` is `$_<name>`), and a leading `->name` calls the method
+on `$_`.
 _Avoid_: dot syntax, method sugar.
 
 **redirection**:
