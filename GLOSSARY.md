@@ -12,6 +12,12 @@ subscript, the new sigils and redirection are available. A source with any other
 extension compiles as ordinary Raku, and the feature set must not leak into it.
 _Avoid_: rak semantics, shell mode, extended Raku.
 
+**irak**:
+An interactive rak session: the execution context in which rak evaluates statements with
+no source file (REPL, `-e`, standard input). An execution context, not a mode: its
+statements still parse in the standard or shell strategy.
+_Avoid_: interactive mode, irak mode, REPL mode.
+
 **naked string**:
 An unquoted word that denotes a string literal: it starts with a letter or underscore and
 contains no whitespace. A word is not a naked string when it is a keyword (`if`, `given`,
