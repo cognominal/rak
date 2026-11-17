@@ -107,7 +107,7 @@ syntax gets freshly written test files:
 
 - `t/02-rakudo/rak/002-new-sigil-int.t`, `003-new-sigil-str.t`,
   `001-dot-subscript-numeric.t`, `004-dot-subscript-sigil.t`,
-  `005-dot-subscript-name.t` (new-sigils)
+  `005-dot-subscript-name.t`, `006-dotty-semantics.t` (new-sigils)
 - `t/14-redirection/rak/*.rak` + `007-gating.raku` (redirection; rewritten on this
   branch to use `->` method calls — the natural consequence of the dotty
   sugar — and to test only the implementable invariants)

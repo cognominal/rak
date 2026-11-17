@@ -80,7 +80,10 @@ token or alternative has `<?{ $*RAK-SEMANTICS }>` guarding it.
 ## Tests
 
 Rak-specific tests live in a `rak/` subfolder of their test group, numbered from
-the most basic to the most complex.
+the most basic to the most complex. `make rak-test` runs them all — `.rak` and
+`.t` through the `./rak` wrapper, `.raku` gating tests against the plain
+frontend — and `t/harness6` skips `rak/` folders, so `make test` stays
+plain-frontend only.
 
 `t/14-redirection/rak/` holds seven files, all passing with no failures:
 `001-basic.rak` (10), `002-append.rak` (11), `003-binary-ops.rak` (4),
@@ -91,8 +94,9 @@ rak-mode variable would leak into its `EVAL`).
 The `.t` feature tests under `t/02-rakudo/rak/` keep their pre-existing
 shortfall: 2 of 18 in `002-new-sigil-int.t` (re-measured at 16/18 after the rak
 frontend switch), 2 of 18 in `003-new-sigil-str.t`, 1 of 7 in
-`001-dot-subscript-numeric.t`; `004-dot-subscript-sigil.t` (8) and
-`005-dot-subscript-name.t` (11) pass whole.
+`001-dot-subscript-numeric.t`; `004-dot-subscript-sigil.t` (8),
+`005-dot-subscript-name.t` (11) and `006-dotty-semantics.t` (2, the old
+`t/test-dotty-semantics.rak` demo turned into a fixture test) pass whole.
 
 The redirection tests use `->` method calls (the natural consequence of the dotty
 sugar in `.rak` files) and assert the statement-stream model: a statement keeps

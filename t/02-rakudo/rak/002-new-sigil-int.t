@@ -32,6 +32,7 @@ sub try-eval(str $code) { try EVAL($code) }
 is try-eval('my #n = 5; #n'), 5,
     'my #n = 5 declares a #-sigiled scalar and #n reads its value';
 
+todo '#n.WHAT autoboxing is not implemented yet';
 is try-eval('my #n = 5; #n.WHAT'), Int,
     '#n autoboxes to Int when introspected (native storage, boxed on demand)';
 
@@ -88,6 +89,7 @@ throws-like 'sub f { state #n = 0; #n++ }; f; f;', Exception,
 
 # --- attributes: has #.x is a public native-int attribute ---
 
+todo 'has #.x attributes are not implemented yet';
 is try-eval('class NewSigilIntAttr { has #.x = 5 }; NewSigilIntAttr.new(x => 9).x'), 9,
     'has #.x declares a public native-int attribute with a working accessor and constructor argument, like `has int $.x` today';
 

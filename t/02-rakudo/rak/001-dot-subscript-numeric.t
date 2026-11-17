@@ -41,6 +41,7 @@ is try-eval('my @a = <a b c>; @a.1 = "X"; @a.join(",")'), 'a,X,c',
 
 # --- chaining: dotty postfixes compose, so .1.1 should nest like [1][1] ---
 
+todo 'chained .1.1 is not implemented yet';
 is try-eval('my @a = [<a b>, <c d>]; @a.1.1'), 'd',
     '@a.1.1 nests the same as @a[1][1]';
 

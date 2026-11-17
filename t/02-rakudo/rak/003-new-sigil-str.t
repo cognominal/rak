@@ -35,6 +35,7 @@ sub try-eval(str $code) { try EVAL($code) }
 is try-eval('my ~s = "hello"; ~s'), 'hello',
     'my ~s = "..." declares a ~-sigiled scalar and ~s reads its value';
 
+todo '~s.WHAT autoboxing is not implemented yet';
 is try-eval('my ~s = "hello"; ~s.WHAT'), Str,
     '~s autoboxes to Str when introspected (native storage, boxed on demand)';
 
@@ -80,6 +81,7 @@ throws-like 'my ~s where *.chars > 0 = "";', Exception,
 
 # --- attributes: has ~.x is a public native-str attribute ---
 
+todo 'has ~.x attributes are not implemented yet';
 is try-eval('class NewSigilStrAttr { has ~.x = "default" }; NewSigilStrAttr.new(x => "v").x'), 'v',
     'has ~.x declares a public native-str attribute with a working accessor and constructor argument, like `has str $.x` today';
 

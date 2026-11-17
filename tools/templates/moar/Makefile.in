@@ -201,6 +201,23 @@ MOAR        = @nfpq(@moar::bindir@/moar@moar::exe@)@
 @backend_prefix@-coretest6: @backend_prefix@-all
 	@bpm(HARNESS6)@ $(COMMON_TEST_DIRS) @bsm(SPECIFIC_TEST_DIRS)@
 
+# Run the rak-specific tests: every `t/*/rak/` folder. `.rak` and `.t` files
+# go through the ./rak wrapper (rak frontend); `.raku` gating tests run against
+# the plain RakuAST frontend, whose EVALs must not inherit rak mode.
+@bpv(RAK_WRAPPER)@ = @nfp(@base_dir@/rak)@
+
+@backend_prefix@-rak-test: @backend_prefix@-all
+	@fail=0; \
+	for f in @nfp(t)@/*/rak/*.rak @nfp(t)@/*/rak/*.t; do \
+	    echo "$$f"; \
+	    @bpm(RAK_WRAPPER)@ -Ilib "$$f" || fail=1; \
+	done; \
+	for f in @nfp(t)@/*/rak/*.raku; do \
+	    echo "$$f"; \
+	    RAKUDO_RAKUAST=1 @nfp(@base_dir@/@bpm(RUNNER)@)@ -Ilib "$$f" || fail=1; \
+	done; \
+	test $$fail -eq 0
+
 # Run the spectests that we know work.
 @backend_prefix@-spectest6: @backend_prefix@-testable
 	@bpm(HARNESS6_WITH_FUDGE)@ --tests-from-file=$(SPECTEST_DATA)

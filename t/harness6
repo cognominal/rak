@@ -127,7 +127,10 @@ sub MAIN(
             state $test = none($*SPEC.updir, $*SPEC.curdir, '.git');
             for $start.dir(:$test) -> $file {
                 if $file.d {
-                    listdir($file);
+                    # `rak/` holds the rak-specific tests, which need the rak
+                    # frontend (`make rak-test`); the plain harness cannot run
+                    # them.
+                    listdir($file) unless $file.basename eq 'rak';
                 }
                 elsif $file ~~ / \. [t | rakutest] $ / {
                     take ~$file;
