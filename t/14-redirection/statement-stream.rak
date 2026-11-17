@@ -1,0 +1,101 @@
+use Test;
+
+plan 13;
+
+# ---------------------------------------------------------------------------
+# Output redirection binds the statement's output stream for the duration of
+# that statement alone (docs/adr/0002-redirection-binds-the-statement-stream.md).
+# The statement itself is left alone, so redirection is not `say`-shaped: the
+# invoked routine keeps its own writing behaviour.
+# ---------------------------------------------------------------------------
+
+# 1. `print` keeps its missing newline.
+{
+    print foo >print_no_newline.txt;
+    is 'print_no_newline.txt'->IO->slurp, 'foo',
+        '1: print writes no trailing newline';
+    'print_no_newline.txt'->IO->unlink;
+}
+
+# 2. `say` keeps its newline.
+{
+    say foo >say_newline.txt;
+    is 'say_newline.txt'->IO->slurp, "foo\n", '2: say keeps its newline';
+    'say_newline.txt'->IO->unlink;
+}
+
+# 3. Multiple arguments are all written, in order.
+{
+    print 'foo', 'bar' >two_args.txt;
+    is 'two_args.txt'->IO->slurp, 'foobar', '3: both arguments written';
+    'two_args.txt'->IO->unlink;
+}
+
+# 4. A statement writing to standard error is not captured by `>`.
+{
+    my $*ERR = open('err_capture.txt', :w);
+    note trouble >stderr_untouched.txt;
+    is 'stderr_untouched.txt'->IO->s, 0,
+        '4: stderr output does not land in the target file';
+}
+is 'err_capture.txt'->IO->slurp->trim, 'trouble',
+    '4b: the statement still wrote to standard error';
+'err_capture.txt'->IO->unlink;
+'stderr_untouched.txt'->IO->unlink;
+
+# 5. The binding ends with the statement: the next statement writes where it
+#    would have written without the redirection.
+{
+    my $*OUT = open('outer.txt', :w);
+    say alpha >inner.txt;
+    say beta;
+}
+is 'inner.txt'->IO->slurp, "alpha\n", '5: redirected statement wrote to the file';
+is 'outer.txt'->IO->slurp, "beta\n", '5b: the binding did not outlive the statement';
+'inner.txt'->IO->unlink;
+'outer.txt'->IO->unlink;
+
+# 6. The wrapping does not hide the enclosing topic.
+{
+    for 1..3 { say $_ >>loop_append.txt }
+    is 'loop_append.txt'->IO->lines->elems, 3,
+        '6: the enclosing $_ is still visible inside a redirected statement';
+    'loop_append.txt'->IO->unlink;
+}
+
+# 7. An unwritable target fails, naming the target, instead of succeeding
+#    silently.
+{
+    my $error;
+    try {
+        say foo >'/nonexistent-dir-omp/out.txt';
+        CATCH { default { $error = $_ } }
+    }
+    ok $error->defined, '7: writing to an unwritable target throws';
+    ok $error->message->contains('nonexistent-dir-omp'),
+        '7b: the error names the target';
+}
+
+# 8. The bytes are on disk as soon as the statement is over.
+{
+    say flushed >flushed.txt;
+    is 'flushed.txt'->IO->slurp, "flushed\n",
+        '8: the target is complete and readable right after the statement';
+    'flushed.txt'->IO->unlink;
+}
+
+# 9. Content written before the statement throws still reaches disk.
+{
+    sub boom() { say written; die 'boom' }
+    my $caught = False;
+    try {
+        boom() >exception_flush.txt;
+        CATCH { default { $caught = True } }
+    }
+    ok $caught, '9: the exception left the redirected statement';
+    is 'exception_flush.txt'->IO->slurp, "written\n",
+        '9b: bytes written before the throw reached disk';
+    'exception_flush.txt'->IO->unlink;
+}
+
+done-testing();

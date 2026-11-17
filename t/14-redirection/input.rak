@@ -1,0 +1,66 @@
+use Test;
+
+plan 7;
+
+# ---------------------------------------------------------------------------
+# Input redirection: `<file STMT` binds $*IN to the file for the duration of
+# that statement alone (docs/adr/0002). The statement itself is left alone, so
+# it reads from the file exactly as it would have read from standard input.
+# ---------------------------------------------------------------------------
+
+'input_source.txt'->IO->spurt("hello\n");
+
+# 1. A statement that prints what it reads.
+{
+    my $*OUT = open('input_captured.txt', :w);
+    <input_source.txt say $*IN->slurp;
+}
+is 'input_captured.txt'->IO->slurp->trim, 'hello',
+    '1: the statement read its input from the file';
+'input_captured.txt'->IO->unlink;
+
+# 2. Assignment to a variable declared outside the statement still works.
+{
+    my $got;
+    <input_source.txt $got = $*IN->slurp;
+    is $got->trim, 'hello', '2: the statement can store what it read';
+}
+
+# 3. Multi-line input is the whole file.
+{
+    'input_lines.txt'->IO->spurt("one\ntwo\nthree\n");
+    my $count;
+    <input_lines.txt $count = $*IN->lines->elems;
+    is $count, 3, '3: the statement reads the whole file';
+    'input_lines.txt'->IO->unlink;
+}
+
+# 4. The binding ends with the statement.
+{
+    my $before = $*IN;
+    <input_source.txt $*IN->slurp;
+    ok $*IN === $before, '4: $*IN is restored after the statement';
+}
+
+# 5. A missing file fails, naming the file.
+{
+    my $error;
+    try {
+        <input_missing.txt $*IN->slurp;
+        CATCH { default { $error = $_ } }
+    }
+    ok $error->defined, '5: reading a missing file throws';
+    ok $error->message->contains('input_missing.txt'),
+        '5b: the error names the file';
+}
+
+# 6. `<` with a variable is still a comparison.
+{
+    my $a = 1;
+    my $b = 2;
+    ok $a < $b, '6: < between values stays a comparison';
+}
+
+'input_source.txt'->IO->unlink;
+
+done-testing();

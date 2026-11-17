@@ -1,6 +1,6 @@
 use Test;
 
-plan 2;
+plan 3;
 
 # ---------------------------------------------------------------------------
 # Gating test: a .raku file must NOT interpret `>` as redirection.
@@ -27,6 +27,17 @@ plan 2;
     nok 'output_raku2.txt'.IO.e,
         '2: .raku file: "> filename" with space is comparison, no file written';
     'output_raku2.txt'.IO.unlink if 'output_raku2.txt'.IO.e;
+}
+
+# 3. `<file` at the start of a statement is not input redirection in a .raku
+#    file either: the spelling does not compile as Raku.
+{
+    my $threw = False;
+    try {
+        EVAL '<gating_input.txt say 1;';
+        CATCH { default { $threw = True } }
+    }
+    ok $threw, '3: .raku file does not accept input redirection syntax';
 }
 
 done-testing();
