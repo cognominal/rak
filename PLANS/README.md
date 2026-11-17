@@ -105,8 +105,9 @@ Rakudo.** Breaking changes are accepted by design; tests that assert old
 behavior for deliberately changed syntax are omitted. Only genuinely new
 syntax gets freshly written test files:
 
-- `t/02-rakudo/new-sigil-int.t`, `new-sigil-str.t`, `dot-subscript-*.t`
-  (new-sigils)
-- `t/14-redirection/*.rak` + `gating.raku` (redirection; rewritten on this
+- `t/02-rakudo/rak/002-new-sigil-int.t`, `003-new-sigil-str.t`,
+  `001-dot-subscript-numeric.t`, `004-dot-subscript-sigil.t`,
+  `005-dot-subscript-name.t` (new-sigils)
+- `t/14-redirection/rak/*.rak` + `007-gating.raku` (redirection; rewritten on this
   branch to use `->` method calls — the natural consequence of the dotty
   sugar — and to test only the implementable invariants)

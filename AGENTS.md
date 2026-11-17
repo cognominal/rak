@@ -14,9 +14,12 @@ which sets those and execs `rakudo-m`. Branch design docs live in `PLANS/`;
 ```bash
 perl Configure.pl --gen-moar --gen-nqp --backends=moar --prefix="$PWD/install"
 make -j"$(nproc)"                       # ~7 min cold, ~50 s after a src/Raku/*.nqp edit
-./rak -Ilib t/14-redirection/basic.rak  # .rak tests go through the wrapper
-RAKUDO_RAKUAST=1 ./rakudo-m -Ilib t/14-redirection/gating.raku
+./rak -Ilib t/14-redirection/rak/001-basic.rak  # .rak tests go through the wrapper
+RAKUDO_RAKUAST=1 ./rakudo-m -Ilib t/14-redirection/rak/007-gating.raku
 ```
+
+Rak-specific tests live in a `rak/` subfolder of the test group they belong to,
+numbered from the most basic to the most complex (`001-`, `002-`, …).
 
 `--with-nqp=/path/to/installed-nqp` is rejected ("could not get backend information"), so
 the build fetches and builds nqp and MoarVM itself. Test files need `-Ilib` for `Test`.

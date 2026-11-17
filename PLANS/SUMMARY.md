@@ -79,15 +79,20 @@ token or alternative has `<?{ $*RAK-SEMANTICS }>` guarding it.
 
 ## Tests
 
-`t/14-redirection/` holds seven files, all passing with no failures: `basic.rak`
-(10), `append.rak` (11), `binary-ops.rak` (4), `edge-cases.rak` (4),
-`statement-stream.rak` (13), `input.rak` (7), and `gating.raku` (3, run against
-the plain frontend because the wrapper's rak-mode variable would leak into its
-`EVAL`).
+Rak-specific tests live in a `rak/` subfolder of their test group, numbered from
+the most basic to the most complex.
 
-The `.t` feature tests under `t/02-rakudo/` keep their pre-existing shortfall:
-2 of 18 in `new-sigil-int.t` (re-measured at 16/18 after the rak frontend
-switch), 2 of 18 in `new-sigil-str.t`, 1 of 7 in `dot-subscript-numeric.t`.
+`t/14-redirection/rak/` holds seven files, all passing with no failures:
+`001-basic.rak` (10), `002-append.rak` (11), `003-binary-ops.rak` (4),
+`004-edge-cases.rak` (4), `005-input.rak` (7), `006-statement-stream.rak` (13),
+and `007-gating.raku` (3, run against the plain frontend because the wrapper's
+rak-mode variable would leak into its `EVAL`).
+
+The `.t` feature tests under `t/02-rakudo/rak/` keep their pre-existing
+shortfall: 2 of 18 in `002-new-sigil-int.t` (re-measured at 16/18 after the rak
+frontend switch), 2 of 18 in `003-new-sigil-str.t`, 1 of 7 in
+`001-dot-subscript-numeric.t`; `004-dot-subscript-sigil.t` (8) and
+`005-dot-subscript-name.t` (11) pass whole.
 
 The redirection tests use `->` method calls (the natural consequence of the dotty
 sugar in `.rak` files) and assert the statement-stream model: a statement keeps
