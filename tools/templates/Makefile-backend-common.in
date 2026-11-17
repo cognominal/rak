@@ -53,6 +53,7 @@
 @bsv(RAKUDO_RAKU_AST_SRC)@ = @nfp(gen/@backend@/ast.nqp)@
 
 @bpv(NQP_VERSION_FILE)@ = @nfp(@bpm(BUILD_DIR)@/nqp-version)@
+@bpv(RAK_BUILD_INFO_FORCE)@ = @backend_prefix@-rak-build-info-force
 
 @bsv(METAMODEL_ALL_SOURCES)@ = $(COMMON_METAMODEL_SOURCES) \
 						@bsm(METAMODEL_SOURCES)@
@@ -199,7 +200,14 @@
 @gencat(@nfp(@bpm(BUILD_DIR)@/Optimizer.nqp)@:   	@nfp(src/Perl6/Optimizer.nqp)@)@
 @gencat(@nfp(@bpm(BUILD_DIR)@/Pod.nqp)@:   			@nfp(src/Perl6/Pod.nqp)@)@
 @gencat(@nfp(@bpm(BUILD_DIR)@/World.nqp)@: 			@nfp(src/Perl6/World.nqp)@)@
-@gencat(@nfp(@bpm(BUILD_DIR)@/rakudo.nqp)@:			@nfp(@bpm(BUILD_DIR)@/main-version.nqp)@ @nfp(src/main.nqp)@)@
+# Rak repository URL and HEAD for the irak banner. Runs on every build, but
+# only touches the file when HEAD (or the dirty flag) changes.
+@nfp(@bpm(BUILD_DIR)@/rak-build-info.nqp)@: @bpm(RAK_BUILD_INFO_FORCE)@
+	$(NOECHO)$(PERL5) @shquot(@script(gen-rak-build-info.pl)@)@ @nfpq(@bpm(BUILD_DIR)@/rak-build-info.nqp)@
+
+@bpm(RAK_BUILD_INFO_FORCE)@:
+
+@gencat(@nfp(@bpm(BUILD_DIR)@/rakudo.nqp)@:			@nfp(@bpm(BUILD_DIR)@/main-version.nqp)@ @nfp(@bpm(BUILD_DIR)@/rak-build-info.nqp)@ @nfp(src/main.nqp)@)@
 @gencat(@nfp(@bpm(BUILD_DIR)@/rakudo-debug.nqp)@:	@nfp(src/rakudo-debug.nqp)@ @nfp(@bpm(BUILD_DIR)@/main-version.nqp)@)@
 
 # compile Raku AST specs into NQP
