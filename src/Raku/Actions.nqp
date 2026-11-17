@@ -1139,10 +1139,17 @@ class Raku::Actions is HLL::Actions does Raku::CommonActions {
             $statement := $<statement-control>.ast;
         }
 
-        # Handle input redirection (.rak syntax) — NYI, stub
+        # Handle input redirection (.rak syntax): `<file STATEMENT` runs
+        # STATEMENT with $*IN/$*ARGFILES reading from file.
         elsif $<redir-filename> && !$<EXPR> && $*RAK-SEMANTICS {
-            $/.panic('Input redirection with < is not yet implemented');
-            $statement := Nodify('Statement::Empty').new;
+            my $context := $*CU ?? $*CU.context !! Nodify('IMPL::QASTContext');
+            my $redirect := Nodify('StatementPrefix::RedirectIn').new(
+                filename => $<redir-filename>.ast,
+                blorst   => $<statement>.ast
+            );
+            $statement := Nodify('Statement::Expression').new(
+                :expression($redirect.to-begin-time($*R, $context))
+            );
         }
 
         # Handle an empty statement

@@ -81,8 +81,9 @@ uncompilable. The combined branch drops `:exact`.
   used `self.pos()`, which returns the start of the whole parse (always 0 in
   practice), so the "is there whitespace after `>`?" check never worked and
   every `>` became ambiguous. The combined branch uses the match position.
-- Input redirection (`<file` → read) is **not implemented** — see
-  `redirection/RAKFILE.md` for its future design.
+- `say x >>f` appends (`open('f', :a)`).
+- `<f STATEMENT` runs STATEMENT once with `$*IN`/`$*ARGFILES` reading `f`
+  (`lines()`, `get()`, `slurp()`); see `redirection/RAKFILE.md` §3.
 
 ### One-pass compilation / `#COMPILER::` (`onepass-compile`)
 

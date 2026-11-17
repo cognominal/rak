@@ -1,0 +1,110 @@
+use Test;
+
+plan 15;
+
+# ---------------------------------------------------------------------------
+# Input redirection `<file STATEMENT` — the `<` must directly touch the
+# filename, and whitespace must separate the filename from the statement.
+# The statement runs with $*IN and $*ARGFILES reading from the file, so
+# `lines()`, `get()` and `slurp()` read it; both are restored afterwards.
+# ---------------------------------------------------------------------------
+
+'in_basic.txt'->IO->spurt("alpha\nbeta\ngamma\n");
+
+# 1. lines() reads the redirected file
+{
+    my @l;
+    <in_basic.txt @l = lines();
+    is-deeply @l, [<alpha beta gamma>], '1: lines() reads from <file';
+}
+
+# 2. get() reads one line
+{
+    my $first;
+    <in_basic.txt $first = get();
+    is $first, 'alpha', '2: get() reads the first line of <file';
+}
+
+# 3. slurp() with no args reads the whole file
+{
+    my $all;
+    <in_basic.txt $all = slurp();
+    is $all, "alpha\nbeta\ngamma\n", '3: slurp() reads the whole <file';
+}
+
+# 4. $*IN itself is bound to the file
+{
+    my $via-in;
+    <in_basic.txt $via-in = $*IN->get;
+    is $via-in, 'alpha', '4: $*IN is the redirected handle';
+}
+
+# 5. $*IN is restored after the statement
+{
+    my $orig = $*IN;
+    my $x;
+    <in_basic.txt $x = get();
+    ok $*IN === $orig, '5: $*IN restored after the redirected statement';
+}
+
+# 6. Quoted filename
+{
+    my @l;
+    <'in_basic.txt' @l = lines();
+    is @l->elems, 3, '6: <\'quoted\' filename works';
+}
+
+# 7. Scalar variable filename
+{
+    my $f = 'in_basic.txt';
+    my @l;
+    <$f @l = lines();
+    is @l->elems, 3, '7: <$var filename works';
+}
+
+# 8. A for loop as the redirected statement
+{
+    my @got;
+    <in_basic.txt for lines() { @got.push($_) }
+    is @got->elems, 3, '8: for loop over lines() of <file';
+}
+
+# 9. The statement's value is returned (lazy Seq reified before close)
+{
+    my @l = do { <in_basic.txt lines() };
+    is @l->elems, 3, '9: redirected statement value survives the close';
+}
+
+# 10-11. Stacked with output redirection: `<in STATEMENT >out`
+{
+    <in_basic.txt say lines()->elems >in_count.txt;
+    ok 'in_count.txt'->IO->e, '10: <in ... >out creates the output file';
+    is 'in_count.txt'->IO->slurp->trim, '3', '11: <in ... >out writes the result';
+    'in_count.txt'->IO->unlink;
+}
+
+# 12. A missing input file dies
+{
+    my $x;
+    dies-ok { <in_missing_file.txt $x = get() }, '12: missing <file dies';
+}
+
+# 13-14. Word lists at statement start are not input redirections
+{
+    my @w;
+    <x y>.map({ @w.push($_) });
+    is @w->elems, 2, '13: <x y> at statement start is still a word list';
+    my @v;
+    <z>.map({ @v.push($_) });
+    is @v[0], 'z', '14: <z> at statement start is still a word list';
+}
+
+# 15. `<` followed by a space is not an input redirection
+{
+    my $r = EVAL 'my $a = 1; $a < 2';
+    ok $r, '15: spaced < is still less-than';
+}
+
+'in_basic.txt'->IO->unlink;
+
+done-testing();

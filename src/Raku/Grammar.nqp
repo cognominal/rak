@@ -1468,7 +1468,11 @@ grammar Raku::Grammar is HLL::Grammar does Raku::Common {
         [
           | <label> <statement>
           | <statement-control>
-          | <?{ $*RAK-SEMANTICS }> '<' <?{ !self.after-ws($/) }> <redir-filename> <.ws> <statement>
+          # Input redirection: `<file STATEMENT`. A `<...>` closed on the same
+          # line by a `>` that touches its last word and isn't itself an
+          # output redirection (`>file`) is a word list, not a redirection.
+          | <?{ $*RAK-SEMANTICS }> <!before '<' <-[<>\n]>*? <-[<>\s]> '>' <![a..zA..Z_/'$]> >
+            '<' <?{ !self.after-ws($/) }> <redir-filename> \h+ <statement>
           | <EXPR>
             :dba('statement end')
             [

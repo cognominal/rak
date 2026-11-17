@@ -382,4 +382,18 @@ multi sub symlink(IO() $target, IO() $name, Bool :$absolute = True) {
 proto sub link($, $, *%) {*}
 multi sub link(IO() $target, IO() $name) { $target.link($name) }
 
+
+# Runtime support for rak input redirection (`<file STATEMENT`): run the
+# thunked statement with $*IN and $*ARGFILES reading from the file. A lazy
+# Seq result is reified before the handle is closed.
+sub RAK-REDIRECT-IN(Str() $filename, &code) is implementation-detail {
+    my $fh := open($filename, :r);
+    $fh.throw if nqp::istype($fh, Failure);
+    my $*IN       := $fh;
+    my $*ARGFILES := $fh;
+    LEAVE $fh.close;
+    my \result = code();
+    nqp::istype(result, Seq) ?? result.eager !! result
+}
+
 # vim: expandtab shiftwidth=4

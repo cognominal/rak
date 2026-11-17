@@ -7,8 +7,8 @@
 > the naked-string guard now uses `is-identifier-known` *without* `:exact`
 > (so setting routines like `say` still parse as calls), and the
 > whitespace-after-`>` checks use the current match position `$/.pos()`
-> rather than `self.pos()`. Input redirection (`<file`) remains future
-> work as this document says.
+> rather than `self.pos()`. Append (`>>file`) and input redirection
+> (`<file STATEMENT`) are implemented too (see §2, §3).
 >
 > **Context:** The original `RAKFILE.md` was written for the **`new-sigils`** branch, which implemented new dotty semantics (`.name → <name>`, `->name → real method call`) gated to files with a `.rak` extension.
 >
@@ -368,7 +368,7 @@ a bare expression whose output should go to the file (e.g. `foo >file` with
 naked string `foo`). Need a block with `temp $*OUT = open(file, :w); EXPR`
 instead.
 
-### 2. Append stdout (`>>`) — NOT YET IMPLEMENTED
+### 2. Append stdout (`>>`) — DONE (`t/14-redirection/append.rak`)
 
 | Shell | rak syntax | Effect |
 |-------|------------|--------|
@@ -386,33 +386,32 @@ the redirection grammar can pick it up.
 `$fh >>file` as append redirection. The space rule resolves this cleanly:
 `>>file` = redirection, `>> file` = hyperoperator.
 
-### 3. Input stdin (`<`) — STUB ONLY (grammar token present, no AST)
+### 3. Input stdin (`<`) — DONE (`t/14-redirection/input.rak`)
 
 | Shell | rak syntax | Effect |
 |-------|------------|--------|
-| `cmd <file` | `<file process(x)` | Read stdin from file |
+| `cmd <file` | `<file STATEMENT` | Run STATEMENT with stdin read from file |
 
-**Meaning**: The statement's `$*IN` is rebound to read from `file` instead of
-stdin. The statement processes input line-by-line (like the `-n` or `-p` flag).
+**Meaning**: shell-like, not `-n`-like: STATEMENT runs **once**, with
+`$*IN` *and* `$*ARGFILES` bound to a handle opened on the file, so
+`lines()`, `get()`, `slurp()` and `$*IN->get` all read it. Both are
+restored afterwards and the handle is closed. A lazy `Seq` result is
+reified before the close, so `my @l = do { <f lines() }` works.
 
-**Grammar**: Already defined as `statement-mod-redir` but only `>` is
-implemented. Needs `<` token:
-```perl6
-token statement-mod-redir {
-    <.ws>
-    [
-      | '>' <?{ !self.after-ws() }> <redir-filename>
-      | '<' <?{ !self.after-ws() }> <redir-filename>
-    ]
-}
-```
+**Grammar**: an alternative of `token statement` (statement *head*, so
+it can't be a statement modifier): `'<'` touching a `<redir-filename>`
+(naked, quoted or `$var`), then horizontal whitespace, then a nested
+`<statement>`. It composes with output redirection: `<in say lines()->elems >out`.
+A `<!before ...>` guard keeps word lists at statement start working: a
+`<...>` closed on the same line by a `>` that touches its last word and
+isn't followed by a filename-start char (`<a b>.map(...)`, `<z>;`) is a
+word list, not a redirection.
 
-**AST challenge**: `<input.txt` at statement HEAD (not end) needs a different
-hook. The current `statement-mod-redir` only fires after EXPR (statement end).
-Input redirection at the start needs a grammar rule that fires before EXPR,
-e.g. in `statement-prefix` or a new `statement-control` alternative.
-The AST would wrap the statement body in a block that binds `$*IN` to the
-opened file, then runs the statement per line (like `for lines() { ... }`).
+**AST**: `RakuAST::StatementPrefix::RedirectIn` (a `StatementPrefix::Blorst`,
+so the statement is thunked like `start STATEMENT`) holding the filename
+expression; it compiles to `RAK-REDIRECT-IN(filename, thunk)`, a setting
+sub in `src/core.c/io_operators.rakumod` that binds the dynamics with
+`my $*IN := $fh`, closes on `LEAVE`, and throws if the open fails.
 
 ### 4. Append both directions (`<>`) — FUTURE
 

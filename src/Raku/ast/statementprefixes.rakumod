@@ -533,6 +533,36 @@ class RakuAST::StatementPrefix::Start
     }
 }
 
+# Input redirection in rak mode: `<file STATEMENT` runs the statement as a
+# thunk with $*IN (and $*ARGFILES, so that `lines()`, `get` and `slurp()`
+# read it) bound to a handle opened on the filename expression.
+class RakuAST::StatementPrefix::RedirectIn
+  is RakuAST::StatementPrefix::Blorst
+{
+    has RakuAST::Expression $.filename;
+
+    method new(RakuAST::Expression :$filename!, RakuAST::Blorst :$blorst!) {
+        my $obj := nqp::findmethod(RakuAST::StatementPrefix, 'new')(self, $blorst);
+        nqp::bindattr($obj, RakuAST::StatementPrefix::RedirectIn,
+          '$!filename', $filename);
+        $obj
+    }
+
+    method type() { "redirect-in" }
+
+    method visit-children(Code $visitor) {
+        $visitor($!filename);
+        $visitor(self.blorst);
+    }
+
+    method IMPL-EXPR-QAST(RakuAST::IMPL::QASTContext $context) {
+        QAST::Op.new(:op<call>, :name('&RAK-REDIRECT-IN'),
+          $!filename.IMPL-TO-QAST($context),
+          self.IMPL-CLOSURE-QAST($context)
+        )
+    }
+}
+
 # # Base class for prefixes that can have whenevers in them
 class RakuAST::StatementPrefix::Wheneverable
   is RakuAST::StatementPrefix::Blorst

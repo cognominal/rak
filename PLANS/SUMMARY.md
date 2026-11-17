@@ -78,7 +78,7 @@ token or alternative has `<?{ $*RAK-SEMANTICS }>` guarding it.
 
 ## Tests
 
-All 82 tests pass across 9 test files:
+All 108 tests pass across 11 test files:
 
 | File | Assertions |
 |------|-----------|
@@ -90,11 +90,14 @@ All 82 tests pass across 9 test files:
 | `t/14-redirection/basic.rak` | 10 |
 | `t/14-redirection/binary-ops.rak` | 4 |
 | `t/14-redirection/edge-cases.rak` | 4 |
+| `t/14-redirection/append.rak` | 11 |
+| `t/14-redirection/input.rak` | 15 |
 | `t/14-redirection/gating.raku` | 2 |
 
 The redirection tests were rewritten to use `->` method calls (the natural
 consequence of the dotty sugar in `.rak` files) and to assert only
-implementable invariants (input redirection `<file` remains future work).
+implementable invariants. Append (`>>file`) and input (`<file STATEMENT`)
+redirection were added afterwards.
 
 ## Standalone fork (not yet used)
 
