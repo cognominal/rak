@@ -1,0 +1,42 @@
+use Test;
+
+plan 16;
+
+# A leading `.` with no term before it is the dotty subscript applied to the
+# topic `$_`, and a leading `->name` calls the method on `$_`.
+
+given { a => 1, b => [5, 6] } {
+    is .a,    1, 'leading .name is $_<name>';
+    is .b.1,  6, 'leading .name chains with .1';
+    my ~k = 'a';
+    is .~k,   1, 'leading .~k is $_{~k}';
+    is ->elems, 2, 'leading ->name calls the method on $_';
+    is-deeply ->keys->sort, ('a', 'b'), 'leading ->name chains with ->name';
+    is-deeply .keys()->sort, ('a', 'b'), 'leading .name(args) stays a method call';
+}
+
+given [5, 6, 7] {
+    is .1, 6, 'leading .1 is $_[1]';
+    my #i = 2;
+    is .#i, 7, 'leading .#i is $_[#i]';
+    .0 = 9;
+    is-deeply $_, [9, 6, 7], 'leading .0 is assignable';
+}
+
+my %h;
+given %h { .x = 3 }
+is-deeply %h, { x => 3 }, 'leading .name is assignable';
+
+is 0.5, 1/2, '0.5 is still a number';
+
+my @seen;
+for 1, 2 ->Int $x { @seen.push: $x }
+is-deeply @seen, [1, 2], '->Type $param stays a pointy block';
+@seen = ();
+for 1, 2 ->$x { @seen.push: $x }
+is-deeply @seen, [1, 2], '->$param stays a pointy block';
+my &f = ->Str $w { $w ~ '!' };
+is f('hi'), 'hi!', '->Type $param in an assigned pointy block';
+
+is-deeply ('a', 'b')->map({ ->uc }), ('A', 'B'), 'leading ->name inside a block';
+is (given 'x' { ->chars }), 1, 'leading ->name in a given';

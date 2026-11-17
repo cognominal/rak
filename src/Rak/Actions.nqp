@@ -3138,7 +3138,21 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
     }
 
     method term:sym<dotty>($/) {
-        self.attach: $/, Nodify('Term::TopicCall').new($<dotty>.ast)
+        if $<rak-topic-index> {
+            # Same node as `$_` followed by the subscript, so assignment and
+            # binding through `.name = 42` work as they do for `$_<name>`.
+            self.attach: $/, Nodify('ApplyPostfix').new(
+              :operand(Nodify('Var::Lexical').new('$_')),
+              :postfix($<rak-topic-index>.ast)
+            );
+        }
+        else {
+            self.attach: $/, Nodify('Term::TopicCall').new($<dotty>.ast)
+        }
+    }
+
+    method term:sym<rak-topic-method>($/) {
+        self.attach: $/, Nodify('Term::TopicCall').new($<methodop>.ast)
     }
 
     method term:sym<capture>($/) {

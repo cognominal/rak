@@ -3737,7 +3737,33 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         ]
     }
 
-    token term:sym<dotty> { <dotty> }
+    # In rak mode, a leading `.` with no term before it is the dotty
+    # subscript applied to the topic: `.name` is `$_<name>`, `.1` is `$_[1]`,
+    # `.~k`/`.#i` are `$_{~k}`/`$_[#i]`. Tried before <dotty> for the same
+    # reason as in postfixish: `.identifier` overlaps a method call, and
+    # dotty-name-sugar itself refuses `.name(args)` / `.name: args`, which
+    # fall through to the ordinary topic method call.
+    token term:sym<dotty> {
+        || <?{ $*RAK-SEMANTICS }> '.'
+           [
+             | <rak-topic-index=.dotty-name-sugar>
+             | <?before \d> <rak-topic-index=.dotty-numeric-index>
+             | <?[~#]> <rak-topic-index=.dotty-sigil-index>
+           ]
+        || <dotty>
+    }
+
+    # In rak mode, a leading `->name` (no space after the arrow) calls the
+    # method on the topic, as `.name` does in Raku. It stays a pointy block
+    # when the word is followed by what can only start a signature's
+    # parameter or the block: `->Int $x { }`, `->Str ~s { }`, `->Foo { }`.
+    token term:sym<rak-topic-method> {
+        <?{ $*RAK-SEMANTICS }>
+        '->'
+        <?before <.identifier>>
+        <!before <.identifier> [ '::' <.identifier> ]* \s* <[$@%&~#\{|*\\:]>>
+        <methodop(Mu)>
+    }
 
     token term:sym<capture> {
         '\\'
@@ -4809,7 +4835,10 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     token decimal-number {
         :dba('decimal number')
         [
-          | $<coeff> = [               '.' <frac=.decint> ] <escale>?
+          # In rak mode a leading `.5` is the topic subscript `$_[5]`
+          # (see term:sym<dotty>); write `0.5` for the number.
+          | <!{ $*RAK-SEMANTICS }>
+            $<coeff> = [               '.' <frac=.decint> ] <escale>?
           | $<coeff> = [ <int=.decint> '.' <frac=.decint> ] <escale>?
           | $<coeff> = [ <int=.decint>                    ] <escale>
         ]
