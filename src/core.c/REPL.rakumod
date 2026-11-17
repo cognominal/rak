@@ -215,6 +215,16 @@ do {
             so %*ENV<RAKUDO_RAK_FRONTEND> && %*ENV<RAKU_RAK_MODE>
         }
 
+        # The irak banner: the rak repository and HEAD come from the build
+        # config (tools/build/gen-rak-build-info.pl).
+        sub irak-banner(--> Str:D) {
+            my $config := nqp::gethllsym('default', 'SysConfig').rakudo-build-config;
+            my str $url  = nqp::ifnull(nqp::atkey($config, 'rak-repo-url'), '');
+            my str $head = nqp::ifnull(nqp::atkey($config, 'rak-head'), '');
+            my $where = ($url, $head).grep(*.chars).join(' @ ');
+            "Welcome to irak, the rak shell." ~ ($where ?? "\n$where" !! '')
+        }
+
         # irak topic: after a submission whose value is shown, $_ holds that
         # value, so the next submission can reach into it with a leading
         # dotty subscript. Assigns into the $_ the REPL's saved context sees.
@@ -309,7 +319,12 @@ do {
             ( $new-self, $problem ) = mixin-terminal-lineeditor($self);
             return $new-self if $new-self;
 
-            if $problem {
+            if irak() {
+                say "line editor TBD\n"
+                  if $problem
+                  || !( %*ENV<_>:exists and %*ENV<_>.ends-with: 'rlwrap' );
+            }
+            elsif $problem {
                 say "Continuing without tab completions or line editor.\n";
                 say 'You may want to consider installing `rlwrap` for simple line editor functionality.'
                   .naive-word-wrapper;
@@ -328,10 +343,12 @@ do {
 
         method new(Mu \compiler, Mu \adverbs, $skip = %*ENV<RAKUDO_NO_VERSION>) {
             unless $skip {
-                say compiler.version_string(
-                  :shorten-versions,
-                  :no-unicode(Rakudo::Internals.IS-WIN)
-                );
+                say irak()
+                  ?? irak-banner()
+                  !! compiler.version_string(
+                       :shorten-versions,
+                       :no-unicode(Rakudo::Internals.IS-WIN)
+                     );
                 say '';
             }
 
