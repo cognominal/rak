@@ -2104,6 +2104,23 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           :left(~$left), :right(~$right);
     }
 
+    # The rak juxtaposition infix (`f foo bar`) has no text and no <sym>,
+    # but is a comma: name it ',' so it chains with explicit commas
+    # (`f foo, bar baz`) as one list-associative operator.
+    method rak-list-op-name($m, $sym) {
+        my str $name := nqp::isstr($sym) ?? $sym !! ~$sym;
+        if $name eq '' && !nqp::isnull($m) && nqp::isconcrete($m) {
+            for $m, $m<OPER>, $m<infix> -> $node {
+                if nqp::isconcrete($node)
+                  && nqp::istype((my $ast := $node.ast), self.Nodify('Infix'))
+                  && $ast.operator eq ',' {
+                    return ',';
+                }
+            }
+        }
+        $name
+    }
+
     # Helper method to obtain OperatorProprties for the given node
     # with error checking
     method properties-for-node($node) {
@@ -2253,8 +2270,10 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
                     self.EXPR-reduce(@termstack, @opstack);
                 }
                 elsif $inassoc eq 'list' {
-                    my $op1 := @opstack[nqp::elems(@opstack)-1]<OPER>.Str;
-                    my $op2 := $infix.Str;
+                    my $op1 := self.rak-list-op-name(
+                      @opstack[nqp::elems(@opstack)-1]<OPER>,
+                      @opstack[nqp::elems(@opstack)-1]<OPER>.Str);
+                    my $op2 := self.rak-list-op-name($infix, $infix.Str);
                     self.EXPR-nonlistassoc($infix, $op1, $op2)
                       if $op1 ne $op2 && $op1 ne ':';
                 }
@@ -2311,23 +2330,15 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
 
         elsif $opassoc eq 'list' {
             nqp::unshift($op, nqp::pop(@termstack));
-            my str $sym := nqp::ifnull(
-              nqp::atkey(
-                nqp::atkey($op,'OPER'),
-                'sym'
-              ),
-              ''
+            my str $sym := self.rak-list-op-name(
+              nqp::atkey($op,'OPER'),
+              nqp::ifnull(nqp::atkey(nqp::atkey($op,'OPER'),'sym'), '')
             );
             while @opstack {
-                last if $sym ne nqp::ifnull(
-                  nqp::atkey(
-                    nqp::atkey(
-                      nqp::atpos(@opstack,nqp::elems(@opstack) - 1),
-                      'OPER'
-                    ),
-                  'sym'),
-                  ''
-                );
+                my $top := nqp::atkey(
+                  nqp::atpos(@opstack,nqp::elems(@opstack) - 1), 'OPER');
+                last if $sym ne self.rak-list-op-name(
+                  $top, nqp::ifnull(nqp::atkey($top,'sym'), ''));
                 nqp::unshift($op, nqp::pop(@termstack));
                 nqp::pop(@opstack);
             }
@@ -3482,6 +3493,22 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         <!before '('>
         <?{ !$*R.is-identifier-known(~$<identifier>) }>
         {}
+    }
+
+    # In rak mode, a naked string after horizontal whitespace (no newline)
+    # following a term is another argument, as in a shell: `say toto tata`
+    # is `say toto, tata`.
+    # Zero width, so any word infix (eq, x, and, ...) wins by LTM, and
+    # statement modifiers are already excluded by infixish's <!stdstopper>.
+    token infix:sym<rak-juxt> {
+        <?{ $*RAK-SEMANTICS }>
+        <?after \h> <!after \v \h*>
+        <?before <.rak-naked-word>>
+    }
+    token rak-naked-word {
+        <identifier>
+        <!before '('>
+        <?{ !$*R.is-identifier-known(~$<identifier>) }>
     }
 
     token term:sym<variable> {

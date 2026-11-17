@@ -2948,10 +2948,16 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         self.attach: $/, $<colonpair>.ast
     }
 
+    # Juxtaposed naked strings (`say toto tata`) are separate arguments:
+    # the zero-width juxtaposition infix acts as a comma.
+    method infix:sym<rak-juxt>($/) {
+        self.attach: $/, Nodify('Infix').new(',')
+    }
+
     method term:sym<rak-string>($/) {
         my $name := ~$<identifier>;
         self.attach: $/, Nodify('QuotedString').new(
-            segments => [Nodify('StrLiteral').new($name)]
+            segments => [Nodify('StrLiteral').new($*LITERALS.intern-Str($name))]
         )
     }
 

@@ -28,8 +28,10 @@ wrapper, `.raku` gating tests against the plain frontend. `t/harness6` skips
 `--with-nqp=/path/to/installed-nqp` is rejected ("could not get backend information"), so
 the build fetches and builds nqp and MoarVM itself. Test files need `-Ilib` for `Test`.
 
-The Rak pair is generated from the Raku pair — `sed 's/Raku::/Rak::/g'` over both files —
-so regenerate it after changing `src/Raku/*` until the two are meant to diverge. The pair's
+The Rak pair started as `sed 's/Raku::/Rak::/g'` over the Raku pair, but the two have
+diverged: rak-only syntax (e.g. naked-string juxtaposition: `f foo bar` passes two
+arguments) lives only in `src/Rak/*`. Never regenerate the Rak pair with that sed; port
+upstream `src/Raku/*` changes into it by hand, and put rak features in `src/Rak/*` only. The pair's
 build rules live in `tools/templates/Makefile-backend-common.in`, so re-running
 `Configure.pl` keeps them. Watch for stale concatenations: changing a `_SRC` variable in the
 generated `Makefile` and rebuilding without deleting `gen/moar/Raku{Actions,Grammar}.nqp`

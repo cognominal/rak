@@ -1,0 +1,23 @@
+use Test;
+
+plan 10;
+
+# Juxtaposed naked strings are separate arguments, as in a shell:
+# `f toto tata` is `f toto, tata`, so a callee sees one positional per word.
+# (`.name` is the hash-subscript sugar in a .rak file, so methods use `->`.)
+
+sub count-positionals(*@args) { @args->elems }
+sub positionals(*@args) { @args }
+
+is count-positionals(),                     0, 'no argument';
+is count-positionals(foo),                  1, 'one naked string';
+is count-positionals(foo bar),              2, 'two juxtaposed naked strings';
+is count-positionals(foo bar baz),          3, 'three juxtaposed naked strings';
+is (count-positionals foo bar),             2, 'listop call without parentheses';
+is (count-positionals (1 + 3) things),      2, 'parenthesized term then naked string';
+is-deeply positionals(foo bar), ['foo', 'bar'], 'each word is its own Str, in order';
+is (count-positionals toto eq toto),        1, 'word infix wins over juxtaposition';
+is (count-positionals foo, bar baz),        3, 'mixes with explicit commas';
+my $n = 0;
+$n = count-positionals foo bar if 0;
+is $n, 0, 'statement modifier is not a naked string';
