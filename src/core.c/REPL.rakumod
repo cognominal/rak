@@ -210,6 +210,27 @@ do {
         has $!grammar;
         has $!actions;
 
+        # irak: the REPL of the rak frontend (see GLOSSARY.md).
+        sub irak(--> Bool:D) {
+            so %*ENV<RAKUDO_RAK_FRONTEND> && %*ENV<RAKU_RAK_MODE>
+        }
+
+        # irak topic: after a submission whose value is shown, $_ holds that
+        # value, so the next submission can reach into it with a leading
+        # dotty subscript. Assigns into the $_ the REPL's saved context sees.
+        method !set-irak-topic(Mu $value --> Nil) {
+            my $ctx := $!save_ctx;
+            until nqp::isnull($ctx) || nqp::not_i(nqp::isconcrete($ctx)) {
+                my $pad := nqp::ctxlexpad($ctx);
+                if nqp::existskey($pad, '$_') {
+                    my $topic := nqp::atkey($pad, '$_');
+                    try $topic = $value;
+                    return;
+                }
+                $ctx := nqp::ctxouterskipthunks($ctx);
+            }
+        }
+
         sub do-mixin($self, Str $module-name, $behavior, :@extra-modules,
                      Str :$fallback, Bool :$classlike) {
             my Bool $problem = False;
@@ -539,6 +560,10 @@ do {
                     or nqp::istype($output, Failure) and not $output.handled {
                     self.repl-print($output);
                     $previous-evals.push: $output<>;
+                    self!set-irak-topic($output<>)
+                      if irak()
+                      && nqp::not_i(nqp::istype($output, Failure))
+                      && nqp::not_i(nqp::eqaddr($output<>, Nil));
                 }
                 reset;
             }
