@@ -30,3 +30,9 @@ printed text for a format target is decoded and re-encoded with the same encoder
 mode, so the file always holds standard, sorted, pretty JSON; because the write is atomic,
 a decode failure leaves the old file untouched. Issues 07-09 reuse the decoder.
 `t/14-redirection/rak/009-json-text.rak`: 9/9.
+
+## Decided: no special treatment for `{ }` in double quotes
+
+`print "{ a: 'a' }" >a.json` runs the block inside the string, as in Raku, and prints
+`a`, which is not JSON. The user decided (2026-11-18) that rak keeps this behaviour. To print
+literal JSON, use single quotes or `q[...]`: `print '{ a: "a" }' >a.json`.
