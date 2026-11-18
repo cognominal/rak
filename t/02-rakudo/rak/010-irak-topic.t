@@ -9,7 +9,7 @@ use Test;
 my $script = run(<sh -c>, 'command -v script', :out, :err).out.slurp(:close).trim;
 plan :skip-all('script(1) is needed to give the REPL a tty') unless $script;
 
-plan 9;
+plan 10;
 
 sub session(@submissions, :$irak = True) {
     my %env = %*ENV;
@@ -58,6 +58,12 @@ is %v<2>, '168', '$_ follows each submission';
 
 %v = session ['my $x = 5', '$_'];
 is %v<1>, '5', 'a declaration submission sets $_ to its value';
+
+my $json = $*TMPDIR.add("irak-load-topic-$*PID.json");
+$json.spurt('{"name": "rak", "users": [{"name": "ann"}]}');
+%v = session ["<'$json'", '.users.0.name'];
+is %v<1>, 'ann', 'a bare <file.json load becomes the topic of the next submission';
+$json.unlink;
 
 %v = session ['42', '$_'], :!irak;
 is %v<0>, '42',    'plain REPL shows the value';

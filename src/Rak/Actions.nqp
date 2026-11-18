@@ -1121,6 +1121,25 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             $statement := $<statement-control>.ast;
         }
 
+        # Handle load into the topic (.rak syntax): a bare `<target` is
+        # `$_ = RAK-LOAD(target, '$', '$_')`; its value is the loaded content.
+        elsif $<load-topic> && $*RAK-SEMANTICS {
+            $statement := Nodify('Statement::Expression').new(
+              :expression(Nodify('ApplyInfix').new(
+                infix => Nodify('Assignment').new(:item),
+                left  => Nodify('Var::Lexical').new('$_'),
+                right => Nodify('Call::Name').new(
+                  name => Nodify('Name').from-identifier('RAK-LOAD'),
+                  args => Nodify('ArgList').new(
+                    $<redir-filename>.ast,
+                    Nodify('StrLiteral').new('$'),
+                    Nodify('StrLiteral').new('$_')
+                  )
+                )
+              ).to-begin-time($*R, $*CU.context))
+            );
+        }
+
         # Handle input redirection (.rak syntax): `<file STMT` binds $*IN for
         # the statement, the mirror image of the output redirection above.
         elsif $<redir-filename> && !$<EXPR> && $*RAK-SEMANTICS {

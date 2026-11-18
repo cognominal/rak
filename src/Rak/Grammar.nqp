@@ -1468,7 +1468,13 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         [
           | <label> <statement>
           | <statement-control>
-          | <?{ $*RAK-SEMANTICS }> '<' <?{ !self.after-ws($/) }> <redir-filename> <.ws> <statement>
+          | <?{ $*RAK-SEMANTICS }> '<' <?{ !self.after-ws($/) }> <redir-filename> <.ws>
+            # A bare `<target` (nothing after it) loads into the topic; with a
+            # statement after it, it is input redirection.
+            [
+            || <?before ';' | '}' | $ > $<load-topic>=<?>
+            || <statement>
+            ]
           | <EXPR>
             :dba('statement end')
             [
