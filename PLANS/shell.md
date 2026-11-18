@@ -26,7 +26,7 @@ It also talks about charmbracelet, state of the art libraries to use terminal fe
 
 We keep the hard parts last.
 
-- new sigils
+- [new sigils](../GLOSSARY.md#new-sigils)
 
 ## Raku's costly features
 
@@ -584,7 +584,7 @@ A shell treats words as strings by default. A language treats them as
 names. Perl tried shell-style unquoted strings and gave up
 (`use strict 'subs'`), because such a word silently became a call once a
 sub with the same name was defined anywhere in the program. rak brings
-naked strings back with a rule based on order in the file: a word is a
+[naked strings](../GLOSSARY.md#naked-string) back with a rule based on order in the file: a word is a
 call if its routine is already known *at that point in the file*, or if
 `(` follows it. Otherwise it is a naked string. Words placed side by
 side are separate arguments, as in a shell. So `say hello world` reads
@@ -593,17 +593,17 @@ like shell and `say double 3` reads like a language.
 ### Spacing makes room for shell syntax
 
 Perl could not have had redirection syntax, because `>` and `<` were
-already comparison operators. In rak mode, spacing decides: `$a > $b`
+already comparison operators. In [rak mode](../GLOSSARY.md#rak-mode), spacing decides: `$a > $b`
 with spaces is a comparison, and `say x >out`, with `>` touching its
-redirection target, is an output redirection. The shell strategy takes
+[redirection target](../GLOSSARY.md#redirection-target), is an [output redirection](../GLOSSARY.md#output-redirection). The [shell strategy](../GLOSSARY.md#shell-strategy) takes
 the slot that Raku reports as the error "two terms in a row", so adding
 it breaks no valid Raku program.
 
 ### Redirection on values, not only bytes
 
 In Unix a redirection moves bytes, and every program parses them again.
-In rak the redirection target's extension picks a format: in value mode,
-`@a >a.json` encodes the value as JSON; the load `my %h <h.json` decodes
+In rak the redirection target's extension picks a [format](../GLOSSARY.md#format): in [value mode](../GLOSSARY.md#value-mode),
+`@a >a.json` encodes the value as JSON; the [load](../GLOSSARY.md#load) `my %h <h.json` decodes
 it; and `.jsonl` holds one record per line. Inside the language, data
 stays typed. At the file system boundary it is encoded in a format.
 McIlroy's "text is the universal interface" still holds at the edges,
@@ -611,21 +611,21 @@ and structure holds inside.
 
 ### Walking data, à la jq
 
-Dotty subscripts (`%h.users.1.name`, `.b.1` on the topic) and `->meth`
+[Dotty subscripts](../GLOSSARY.md#dotty-subscript) (`%h.users.1.name`, `.b.1` on the topic) and `->meth`
 for parameterless method calls give the short paths of jq inside a full
 language. Text pipelines break down as soon as data is nested; paths do
 not.
 
 ### Pipes: a stage can still be a command
 
-A pipeline stage is either:
+A [pipeline stage](../GLOSSARY.md#pipeline-stage) is either:
 
 - an **external command** (`ls`, `git log`, `jq`), which reads and
   writes bytes as in any Unix shell, or
 - a **rak routine, method or block**, which reads and writes values,
   with no fork and no process.
 
-Both kinds can be mixed in one pipeline. Where a command and a rak stage
+Both kinds can be mixed in one [pipeline](../GLOSSARY.md#pipeline). Where a command and a rak stage
 meet, data is converted: bytes become lines (or decoded values when a
 format is given), and values become text (or are encoded in a format
 such as JSON or JSONL).
@@ -639,7 +639,7 @@ produces a lazy `Seq` (or a `Supply` when the stream is asynchronous),
 so pipelines stream instead of collecting everything first. Raku's feed
 operators (`==>`) already point in this direction.
 
-In the shell strategy, `|` is the pipe. In the standard strategy it keeps
+In the shell strategy, `|` is the [pipe](../GLOSSARY.md#pipe). In the [standard strategy](../GLOSSARY.md#standard-strategy) it keeps
 its Raku meanings, the `any` junction (`1 | 2`) and the slip (`|@a`).
 Unlike `>` and `<`, spacing can't separate the two uses, so the
 strategy decides.
@@ -656,13 +656,13 @@ does what the command did. But nothing forbids keeping jq, or any other
 command, as a stage. rak takes on what commands do. It does not exclude
 the commands themselves.
 
-A pipe is not a redirection: a redirection attaches one statement's
+A pipe is not a [redirection](../GLOSSARY.md#redirection): a redirection attaches one statement's
 output or input to a redirection target, while a pipe connects stages.
 
 ### irak: the REPL as a pipe through time
 
-In irak, the irak topic `$_` holds the value of the previous irak
-submission, so each submission works on the output of the one before.
+In [irak](../GLOSSARY.md#irak), the [irak topic](../GLOSSARY.md#irak-topic) `$_` holds the value of the previous [irak
+submission](../GLOSSARY.md#irak-submission), so each submission works on the output of the one before.
 This is the interactive habit of growing a pipeline one stage at a time,
 but the values passed between stages stay structured.
 
@@ -746,10 +746,10 @@ is what it means *in context*: who is speaking, to whom, when and why.
 "Can you pass the salt?" is a question about ability by its semantics,
 and a request by its pragmatics. Pragmatics studies:
 
-- **deixis**: words that point to the situation, such as *I*, *here*,
+- **[deixis](https://en.wikipedia.org/wiki/Deixis)**: words that point to the situation, such as *I*, *here*,
   *now* and *that*;
 - **implicature**: what is meant without being said (Grice's
-  cooperative principle: say as much as needed, no more, and stay
+  [cooperative principle](https://en.wikipedia.org/wiki/Cooperative_principle): say as much as needed, no more, and stay
   relevant);
 - **ellipsis**: leaving out what the context already provides.
 
@@ -820,9 +820,9 @@ ones"
 He applies it to his own language: "For how often it's used, the
 `scalar` operator of Perl 5 is too long, in my estimation."
 
-We use the shorter verb **to huff**: to give a construct a spelling
+We use the shorter verb **to [huff](../GLOSSARY.md#huff)**: to give a construct a spelling
 whose length fits its frequency. Common constructs are huffed short;
-rare ones may be *unhuffed*, made longer and more explicit, to free a
+rare ones may be *[unhuffed](../GLOSSARY.md#unhuff)*, made longer and more explicit, to free a
 short spelling for something more common. (In everyday English, to huff
 is to puff or to sulk. Here it is jargon. Shortening "Huffman code" to
 "huff" is itself a huff.)
@@ -862,7 +862,12 @@ in place of braces, and pipes in the shell strategy.
 ### What huffing costs
 
 Short spellings are a limited resource: each one is taken from
-something else. In rak, `.5` is `$_[5]`, not a number; `#n` is a
+something else. Wall calls this the waterbed theory: "The waterbed
+theory of linguistic complexity says that if you push down one place,
+it goes up somewhere else"
+([Apocalypse 5, 2002](https://www.perl.com/pub/2002/06/04/apo5.html/),
+[copy](https://web.do.metacpan.org/pod/share::Apocalypse::A05)).
+In rak, `.5` is `$_[5]`, not a number; `#n` is a
 variable, so comments need a space after `#`; `~foo` is a variable, not
 "stringify `foo()`"; and `.meth` without parentheses is a subscript.
 Each of these unhuffs a rare Raku construct to huff a frequent rak one.
