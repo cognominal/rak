@@ -12,7 +12,7 @@ env vars and runs the shared `rakudo-m` binary).
 
 | Branch | Feature | Status |
 |--------|---------|--------|
-| `new-sigils` | New fixed-type sigils `~` (native str) and `#` (native int); dotty subscript sugar (`.1`, `.~expr`, `.#expr`, `.name` → `<name>`, `->name` → parameterless method call) | **Done** — 62 tests pass |
+| `new-sigils` | New fixed-type sigils `~` (native str) and `#` (native int); dotty subscript sugar (`.1`, `.~expr`, `.#expr`, `.name` → `<name>`, `.'k'`/`."k"` → `{'k'}`/`{"k"}`, `->name` → parameterless method call) | **Done** — 62 tests pass |
 | `redirection` | Shellish output redirection (`say foo >file.txt`); naked-string literals; binary-operator disambiguation via spacing | **Done** — 20 tests pass |
 | `onepass-compile` | One-pass CORE setting build; `#COMPILER::if/endif/line` directives; removal of vestigial JVM/JS backend conditionals | **Done** — no dedicated test file, build pipeline verified |
 
@@ -75,7 +75,7 @@ token or alternative has `<?{ $*RAK-SEMANTICS }>` guarding it.
 | `PLANS/new-sigils/` | `new-sigils` | CLAUDE.md, SUBSCRIPT-OPERATOR.md, INTERACTIVE-NAVIGATION.md |
 | `PLANS/redirection/` | `redirection` | RAKFILE.md |
 | `PLANS/onepass-compile/` | `onepass-compile` | onepass-compile.md |
-| `PLANS/` (root) | *(combined branch)* | README.md, features.md, modes.md, naked-strings.md, spacing-as-syntax.md |
+| `PLANS/` (root) | *(combined branch)* | README.md, features.md, modes.md, naked-strings.md, spacing-as-syntax.md, github.md (GitHub API as a demo of URL targets) |
 
 ## Tests
 
