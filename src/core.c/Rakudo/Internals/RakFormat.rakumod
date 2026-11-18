@@ -298,15 +298,51 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
         my str $lc = nqp::lc($target);
         nqp::eqat($lc, '.json', nqp::chars($lc) - 5) && nqp::chars($lc) > 5
           ?? 'json'
-          !! Nil
+          !! nqp::eqat($lc, '.jsonl', nqp::chars($lc) - 6) && nqp::chars($lc) > 6
+            ?? 'jsonl'
+            !! Nil
     }
 
+    # JSON is written pretty. JSON Lines is one compact record per line: an
+    # array (or other list) is one record per element, anything else is one
+    # record.
     method encode(Str:D $format, \value, Str:D $target --> Str:D) {
-        self!json(value, $target, 0) ~ "\n"
+        if $format eq 'jsonl' {
+            my \v = nqp::istype(value, Failure) ?? value.throw !! value;
+            nqp::isconcrete(v) && !nqp::istype(v, Map)
+              && (nqp::istype(v, List) || nqp::istype(v, Seq) || nqp::istype(v, Range))
+              ?? v.list.map({ self!json($_, $target, 0, :compact) ~ "\n" }).join
+              !! self!json(v, $target, 0, :compact) ~ "\n"
+        }
+        else {
+            self!json(value, $target, 0) ~ "\n"
+        }
     }
 
+    # JSON Lines decodes to the array of records; blank lines are skipped. A
+    # record holds no newline, so a decode error's line is the file's line.
     method decode(Str:D $format, Str:D $text, Str:D $target) {
-        Rakudo::Internals::RakJSONDecoder.decode($text, $target)
+        if $format eq 'jsonl' {
+            my @records;
+            my int $line = 0;
+            for $text.lines -> $record {
+                ++$line;
+                next unless $record.trim;
+                @records.push: Rakudo::Internals::RakJSONDecoder.decode($record, $target);
+                CATCH {
+                    when X::Rak::Format::Decode {
+                        X::Rak::Format::Decode.new(
+                          :$target, :format<jsonl>, :reason(.reason),
+                          :$line, :column(.column)
+                        ).throw
+                    }
+                }
+            }
+            @records
+        }
+        else {
+            Rakudo::Internals::RakJSONDecoder.decode($text, $target)
+        }
     }
 
     method !fail(Str:D $target, Str:D $reason) is hidden-from-backtrace {
@@ -333,9 +369,12 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
           !! n.Str
     }
 
-    method !json(\v, Str:D $target, int $level --> Str:D) {
-        my str $in  = nqp::x('  ', $level + 1);
-        my str $out = nqp::x('  ', $level);
+    method !json(\v, Str:D $target, int $level, Bool :$compact --> Str:D) {
+        my str $in  = $compact ?? '' !! nqp::x('  ', $level + 1);
+        my str $out = $compact ?? '' !! nqp::x('  ', $level);
+        my str $nl  = $compact ?? '' !! "\n";
+        my str $sep = $compact ?? ',' !! ",\n";
+        my str $col = $compact ?? ':' !! ': ';
         if nqp::istype(v, Failure) {
             v.throw
         }
@@ -360,18 +399,18 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
         elsif nqp::istype(v, Map) {
             my @keys = v.keys.sort;
             @keys
-              ?? "\{\n" ~ @keys.map({
-                     $in ~ Rakudo::Internals::JSON.to-json(.Str) ~ ': '
-                       ~ self!json(v.AT-KEY($_), $target, $level + 1)
-                 }).join(",\n") ~ "\n$out}"
+              ?? "\{$nl" ~ @keys.map({
+                     $in ~ Rakudo::Internals::JSON.to-json(.Str) ~ $col
+                       ~ self!json(v.AT-KEY($_), $target, $level + 1, :$compact)
+                 }).join($sep) ~ "$nl$out}"
               !! '{}'
         }
         elsif nqp::istype(v, List) || nqp::istype(v, Seq) || nqp::istype(v, Range) {
             my @items = v.list;
             @items
-              ?? "[\n" ~ @items.map({
-                     $in ~ self!json($_, $target, $level + 1)
-                 }).join(",\n") ~ "\n$out]"
+              ?? "[$nl" ~ @items.map({
+                     $in ~ self!json($_, $target, $level + 1, :$compact)
+                 }).join($sep) ~ "$nl$out]"
               !! '[]'
         }
         else {
@@ -401,7 +440,7 @@ sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code) is implementation-detail
     if $format {
         X::Rak::Format.new(:$target, :$format,
           :reason("cannot append to a .json target, use .jsonl for one record per line")
-        ).throw if $mode eq 'a';
+        ).throw if $mode eq 'a' && $format eq 'json';
 
         my $capture := Rakudo::Internals::RakCapture.new;
         my \result = do {
@@ -411,12 +450,22 @@ sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code) is implementation-detail
         };
         # Text mode: what was printed must decode in the format, and is
         # written re-encoded in standard form. Value mode: the value is.
-        Rakudo::Internals::RakFormat.write: $target,
-          Rakudo::Internals::RakFormat.encode($format,
+        my $content := Rakudo::Internals::RakFormat.encode($format,
             $capture.printed
               ?? Rakudo::Internals::RakFormat.decode($format, $capture.text, $target)
               !! result,
             $target);
+        if $mode eq 'a' {
+            # Appending JSON Lines: the records are complete before any is
+            # written, so a failure leaves the file as it was.
+            my $fh := open($target, :a);
+            $fh.throw if nqp::istype($fh, Failure);
+            $fh.print($content);
+            $fh.close;
+        }
+        else {
+            Rakudo::Internals::RakFormat.write: $target, $content;
+        }
         result
     }
     else {
