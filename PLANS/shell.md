@@ -569,6 +569,307 @@ bash/zsh kept adding), and *how much interactivity should it provide*
 the question nobody had touched since 1973 — what actually flows through
 the pipe — and answered it with structure instead of bytes.
 
+## rak as the outer layer: the best of both worlds
+
+Perl was always a guest in someone else's shell. People could write
+`dmesg | perl -ne '…'`, but the shell owned the pipe and the redirection,
+and Perl only saw stdin. rak takes the opposite position: the language
+*is* the outer layer. It keeps the shell's composition (words, pipes,
+redirections) and the language's power (types, signatures, data
+structures), and it uses syntax to settle the conflicts between them.
+
+### Naked strings without Perl's trap
+
+A shell treats words as strings by default. A language treats them as
+names. Perl tried shell-style unquoted strings and gave up
+(`use strict 'subs'`), because such a word silently became a call once a
+sub with the same name was defined anywhere in the program. rak brings
+naked strings back with a rule based on order in the file: a word is a
+call if its routine is already known *at that point in the file*, or if
+`(` follows it. Otherwise it is a naked string. Words placed side by
+side are separate arguments, as in a shell. So `say hello world` reads
+like shell and `say double 3` reads like a language.
+
+### Spacing makes room for shell syntax
+
+Perl could not have had redirection syntax, because `>` and `<` were
+already comparison operators. In rak mode, spacing decides: `$a > $b`
+with spaces is a comparison, and `say x >out`, with `>` touching its
+redirection target, is an output redirection. The shell strategy takes
+the slot that Raku reports as the error "two terms in a row", so adding
+it breaks no valid Raku program.
+
+### Redirection on values, not only bytes
+
+In Unix a redirection moves bytes, and every program parses them again.
+In rak the redirection target's extension picks a format: in value mode,
+`@a >a.json` encodes the value as JSON; the load `my %h <h.json` decodes
+it; and `.jsonl` holds one record per line. Inside the language, data
+stays typed. At the file system boundary it is encoded in a format.
+McIlroy's "text is the universal interface" still holds at the edges,
+and structure holds inside.
+
+### Walking data, à la jq
+
+Dotty subscripts (`%h.users.1.name`, `.b.1` on the topic) and `->meth`
+for parameterless method calls give the short paths of jq inside a full
+language. Text pipelines break down as soon as data is nested; paths do
+not.
+
+### Pipes: a stage can still be a command
+
+A pipeline stage is either:
+
+- an **external command** (`ls`, `git log`, `jq`), which reads and
+  writes bytes as in any Unix shell, or
+- a **rak routine, method or block**, which reads and writes values,
+  with no fork and no process.
+
+Both kinds can be mixed in one pipeline. Where a command and a rak stage
+meet, data is converted: bytes become lines (or decoded values when a
+format is given), and values become text (or are encoded in a format
+such as JSON or JSONL).
+
+The tendency, though, is to move into the language what used to be a
+command. jq is the model. jq is a command, but inside jq, `|` chains
+filters over JSON values, and a filter can emit zero, one or many
+values (`.users[] | .name`). rak supports pipes à la jq as a language
+feature: stages pass values, and a stage that emits several values
+produces a lazy `Seq` (or a `Supply` when the stream is asynchronous),
+so pipelines stream instead of collecting everything first. Raku's feed
+operators (`==>`) already point in this direction.
+
+In the shell strategy, `|` is the pipe. In the standard strategy it keeps
+its Raku meanings, the `any` junction (`1 | 2`) and the slip (`|@a`).
+Unlike `>` and `<`, spacing can't separate the two uses, so the
+strategy decides.
+
+```rak
+# tentative syntax
+git log --format=%an | sort | uniq -c    # all commands: a plain Unix pipe
+git log --format=%an | ->unique | ->sort  # a command, then rak methods on lines
+<data.json | .users | map .name          # jq-like: no process at all
+```
+
+So `curl … | jq '.users[].name'` doesn't need jq any more: the language
+does what the command did. But nothing forbids keeping jq, or any other
+command, as a stage. rak takes on what commands do. It does not exclude
+the commands themselves.
+
+A pipe is not a redirection: a redirection attaches one statement's
+output or input to a redirection target, while a pipe connects stages.
+
+### irak: the REPL as a pipe through time
+
+In irak, the irak topic `$_` holds the value of the previous irak
+submission, so each submission works on the output of the one before.
+This is the interactive habit of growing a pipeline one stage at a time,
+but the values passed between stages stay structured.
+
+### Speed
+
+The new sigils `~` and `#` hold native `str` and `int` values with no
+boxing. This targets one reason people left Perl and Raku for small
+tools: those languages were too slow to start and too slow at simple
+work.
+
+### Open questions
+
+- **Name resolution.** When `sort` is both a Raku routine and
+  `/usr/bin/sort`, which one wins? Aliases, routines, builtins and
+  `$PATH` commands need one documented lookup order, made visible by
+  `type`.
+- **Naked strings can still change meaning.** "Known at this point" is
+  easier to predict than Perl's rule, but a `sub` or `alias` added
+  earlier in the file can still turn a naked string into a call.
+  Compile-time warnings matter.
+- **Choosing the strategy, and quoting.** scsh, psh, xonsh, Oil/YSH,
+  PowerShell and Nushell all ran into these two problems. rak chooses
+  between the standard and shell strategies per statement or
+  parenthesized group, with explicit escapes (`\(`). This is the area to
+  test most thoroughly.
+- **Entering the shell strategy without a command.** Since `|` is a pipe
+  only in the shell strategy, a pipeline whose first stage is not a
+  command, such as `<data.json | .users | map .name`, needs a rule that
+  puts it in the shell strategy. Otherwise it parses as a junction.
+
+### Status
+
+Done: naked strings, spacing as syntax, redirection with formats and
+loads, dotty subscripts, the irak topic, and the new sigils. Planned:
+running external commands, pipes, `alias`/`type`, globbing, indentation
+in place of braces, and URL redirection targets.
+
+## Larry Wall, natural language and pragmatics
+
+Larry Wall studied linguistics before he wrote Perl. He and his wife
+Gloria were graduate students in linguistics at UC Berkeley, preparing
+to become missionary linguists: to live with a people whose language
+had no written form, write it down, and help translate the Bible. The
+plan was abandoned, and Wall went to work at NASA's Jet Propulsion
+Laboratory instead
+([Wikipedia](https://en.wikipedia.org/wiki/Larry_Wall)). He calls
+himself "a 50/50 hybrid" of linguist and computer scientist
+([Dr. Dobb's, 1998](https://jacobfilipp.com/DrDobbs/articles/DDJ/1998/9802/9802a/9802a.htm)).
+
+In *Natural Language Principles in Perl*
+([original](http://www.wall.org/~larry/natural.html),
+[copy](https://gist.github.com/uzluisf/9ef7a3ede109b32e15085a6beccfa7c4)),
+he argues that a computer language should borrow from how people really
+speak. Some of its principles, in his words:
+
+- **Learn it once, use it many times**: "You learn a natural language
+  once and use it many times."
+- **Learn as you go**: "It's okay if a language is difficult to learn,
+  as long as you don't have to learn it all at once."
+- **Multiple ways to say the same thing**: "Just because Perl is the
+  melting pot of computer languages doesn't mean you have to stir."
+- **Local ambiguity is okay**: "People thrive on ambiguity, as long as
+  it is quickly resolved."
+- **Topicalization**: "A topicalizer simply introduces the subject
+  you're intending to talk about."
+- **Pronominalization**: "`$_` means "it", and `@_` tends to mean
+  "them"."
+
+Elsewhere he sums it up: "Natural languages are not orthogonal, they're
+diagonal"
+([Dr. Dobb's, 1998](https://jacobfilipp.com/DrDobbs/articles/DDJ/1998/9802/9802a/9802a.htm)).
+And the preface of *Programming Perl* states the goal: "Perl is designed
+to make the easy jobs easy, without making the hard jobs impossible"
+([O'Reilly](https://www.oreilly.com/library/view/programming-perl-3rd/0596000278/pr02.html)).
+
+### Pragmatics
+
+Linguists split meaning into layers. **Syntax** is how words combine.
+**Semantics** is what the combination means on its own. **Pragmatics**
+is what it means *in context*: who is speaking, to whom, when and why.
+"Can you pass the salt?" is a question about ability by its semantics,
+and a request by its pragmatics. Pragmatics studies:
+
+- **deixis**: words that point to the situation, such as *I*, *here*,
+  *now* and *that*;
+- **implicature**: what is meant without being said (Grice's
+  cooperative principle: say as much as needed, no more, and stay
+  relevant);
+- **ellipsis**: leaving out what the context already provides.
+
+Wall doesn't use the word, but context is at the center of his
+thinking. The school of linguistics he trained in, tagmemics (developed
+by Kenneth L. Pike), "makes a big deal about context", and of human
+listeners he says: "If there's a way to make sense of something in a
+particular context, they'll do so"
+([Dr. Dobb's, 1998](https://jacobfilipp.com/DrDobbs/articles/DDJ/1998/9802/9802a/9802a.htm)).
+`$_`, default arguments and context-sensitive operators are pragmatics
+turned into language features: a program is said *in* a context, and a
+good language lets that context do part of the work.
+
+### Spoken first
+
+Natural languages are spoken before they are written. Speech is far
+older than writing, and most of the world's languages have never been
+written down. Academies like the Académie française, founded by
+Richelieu in 1635
+([Wikipedia](https://en.wikipedia.org/wiki/Acad%C3%A9mie_fran%C3%A7aise)),
+have tried to legislate the written language for centuries, but usage
+wins: speakers shorten, borrow and reshape words, and dictionaries
+follow, sometimes generations later. Writing is the formal register;
+speech is where the language lives and changes. Wall notes what writing
+loses: "Natural language is naturally punctuated by the pitches,
+stresses and pauses we use to indicate how words are related"
+([original](http://www.wall.org/~larry/natural.html),
+[copy](https://gist.github.com/uzluisf/9ef7a3ede109b32e15085a6beccfa7c4)).
+rak's spacing rules are a form of that prosody: `$a > $b` and `say x >out`
+differ only in where the pauses fall.
+
+### The command line is a conversation
+
+A program file is the written register: composed, revised, read by
+others later. The command line is the spoken register:
+
+- **turn-taking**: the prompt hands the floor to you, the output answers;
+- **shared context**: the current directory, the history, the previous
+  result;
+- **deixis and ellipsis**: `cd -`, `!!` and `$_` point to what was just
+  said instead of repeating it;
+- **repair**: you recall a line, fix it and say it again;
+- **short turns**: nobody declares variables in a conversation.
+
+So the command line fits Wall's thesis even better than a program file
+does. That is the missed opportunity. Perl applied natural-language
+principles to the written register, while the spoken register, the
+shell, stayed with `sh` and its descendants. Wall himself pointed at
+the shells' grammar: unlike Perl, they "make use-vs-mention distinctions
+using a `$` prefix"
+([original](http://www.wall.org/~larry/natural.html),
+[copy](https://gist.github.com/uzluisf/9ef7a3ede109b32e15085a6beccfa7c4)).
+rak's naked strings take that distinction back: a naked string mentions
+a word, and a sigil uses a variable. Raku went further toward the formal
+register. rak takes up the opportunity: the standard strategy is the
+written register, the shell strategy is the spoken one, and irak is the
+conversation, where the irak topic `$_` is the "it" of the previous irak
+submission.
+
+## Huffing: rak and the Huffman principle
+
+In 1952 David A. Huffman found the optimal way to encode symbols: give
+the most frequent symbols the shortest codes. Wall made it a design
+rule for Perl 6: "Common operations should be "Huffman coded." That is,
+frequently used operators should be shorter than infrequently used
+ones"
+([Apocalypse 3, 2001](https://web.do.metacpan.org/pod/share::Apocalypse::A03)).
+He applies it to his own language: "For how often it's used, the
+`scalar` operator of Perl 5 is too long, in my estimation."
+
+We use the shorter verb **to huff**: to give a construct a spelling
+whose length fits its frequency. Common constructs are huffed short;
+rare ones may be *unhuffed*, made longer and more explicit, to free a
+short spelling for something more common. (In everyday English, to huff
+is to puff or to sulk. Here it is jargon. Shortening "Huffman code" to
+"huff" is itself a huff.)
+
+### Natural language huffs itself
+
+Huffing isn't an invention of programmers. Zipf's law of abbreviation
+([Wikipedia](https://en.wikipedia.org/wiki/Brevity_law)), from his 1935
+book *The Psycho-Biology of Language*, says that frequent words tend to
+be short, and speakers keep shortening the ones that become frequent:
+
+- *omnibus* → *bus*, *laboratory* → *lab*, *television* → *TV*;
+- *métropolitain* → *métro*, *réfrigérateur* → *frigo*,
+  *cinématographe* → *cinéma* → *ciné*;
+- pronouns huff whole noun phrases: "the file we just loaded" → "it".
+
+None of these were decreed by an academy. Speakers huffed them, and the
+written language followed. That is the sense in which rak huffs Raku:
+it shortens what the conversation uses most.
+
+### What rak huffs
+
+| Raku | rak | What gets cheaper |
+|---|---|---|
+| `say 'foo'` | `say foo` | naked strings: no quotes |
+| `f 'a', 'b'` | `f a b` | arguments placed side by side: no commas |
+| `%h<name>`, `@a[1]` | `%h.name`, `@a.1` | dotty subscripts |
+| `$_<name>` | `.name` | the topic, implicit |
+| `$obj.meth` | `$obj->meth` | parameterless method call |
+| `my str $s`, `my int $n` | `my ~s`, `my #n` | the new sigils |
+| `spurt 'f.json', to-json @a` | `@a >f.json` | output redirection with a format |
+| `my %h = from-json slurp 'f.json'` | `my %h <f.json` | load |
+
+Planned huffs include one-letter variables without sigils, indentation
+in place of braces, and pipes in the shell strategy.
+
+### What huffing costs
+
+Short spellings are a limited resource: each one is taken from
+something else. In rak, `.5` is `$_[5]`, not a number; `#n` is a
+variable, so comments need a space after `#`; `~foo` is a variable, not
+"stringify `foo()`"; and `.meth` without parentheses is a subscript.
+Each of these unhuffs a rare Raku construct to huff a frequent rak one.
+That trade is worth it only when frequency justifies it, and frequency
+on the command line is not the same as in a module. This is why the
+huffs are limited to rak mode: `.raku` files keep Raku's spellings.
+
 ## forking rakudo to rak to make it a (also) a shell
 
 Beside making it  a shell rak minimizes the visual noise and 

@@ -58,6 +58,10 @@ executable or using the `.rak` file extension.
 
 ## Building onn Larry Wall ideas
 
+The full argument is in `shell.md`:
+[Larry Wall, natural language and pragmatics](shell.md#larry-wall-natural-language-and-pragmatics)
+and [Huffing: rak and the Huffman principle](shell.md#huffing-rak-and-the-huffman-principle).
+
 Rak builds on Larry Wall's idea of concepts adapted from
 natural languages mechanisms in an admitedly very 
 different environment.

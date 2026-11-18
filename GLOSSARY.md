@@ -12,6 +12,20 @@ subscript, the new sigils and redirection are available. A source with any other
 extension compiles as ordinary Raku, and the feature set must not leak into it.
 _Avoid_: rak semantics, shell mode, extended Raku.
 
+**standard strategy**:
+The default way a statement parses in rak mode: Raku syntax, plus naked strings, the
+dotty subscript, the new sigils and redirection. Where rak mode is chosen per source
+file, a strategy is chosen per statement or parenthesized group.
+_Avoid_: standard mode, normal mode, Raku mode.
+
+**shell strategy**:
+The way a statement or parenthesized group parses when it reads as a command line: the
+first word names what to run (an alias, a routine, a builtin or an external command)
+and the words after it are its arguments. It takes the slot that Raku reports as the
+error "two terms in a row", so no valid Raku program changes meaning. Planned, not
+implemented.
+_Avoid_: shell mode, command mode.
+
 **irak**:
 An interactive rak session: the execution context in which rak evaluates statements with
 no source file (REPL, `-e`, standard input). An execution context, not a mode: its
@@ -89,3 +103,35 @@ standard form.
 **value mode**:
 How output redirection behaves when the statement prints nothing and the target has a
 format: the statement's value is encoded and written.
+
+**pipeline**:
+A sequence of pipeline stages joined by pipes, in which the output of each stage is the
+input of the next. Planned, not implemented.
+
+**pipeline stage**:
+One element of a pipeline: either an external command, which reads and writes bytes, or
+a rak routine, method or block, which reads and writes values without starting a
+process. A stage that emits several values produces a lazy `Seq`, or a `Supply` when the
+stream is asynchronous.
+_Avoid_: filter, step, command (for a rak stage).
+
+**pipe**:
+The operator joining two pipeline stages, spelled `|` in the shell strategy. In the
+standard strategy, `|` keeps its Raku meanings (the `any` junction infix, the slip
+prefix), so the strategy, not spacing, decides what `|` is. Values pass between
+rak stages unchanged; where an external command meets a rak stage, bytes become lines
+(or decoded values when a format is given) and values become text (or are encoded in a
+format). Unlike redirection, a pipe connects stages rather than attaching a statement
+to a redirection target.
+_Avoid_: redirection, feed.
+
+**huff**:
+To give a construct a spelling whose length fits how often it is used, after Huffman
+coding: frequent constructs get short spellings. rak huffs Raku constructs that are
+frequent in conversation at the command line (`say foo` for `say 'foo'`, `%h.name` for
+`%h<name>`).
+_Avoid_: huffmanize, abbreviate, sugar.
+
+**unhuff**:
+To give a rare construct a longer spelling, freeing its short one for a more frequent
+construct. In rak mode, `.5` means `$_[5]`, so the number is written `0.5`.
