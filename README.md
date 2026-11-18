@@ -1,7 +1,8 @@
 # Rak
 
-This an ongoing work on rak, an extension of rakudo that
-will support shell mode in addition to standard mode.
+This an ongoing work on rak, a dialect of rakudo that
+supports shell mode with [naked strings](./CHEATSHEET.md#naked-string) and `irak` a mode for interactive sessions.
+See [CHEATSHEET](./CHEATSHEET.md) for a quick presentation intended for raku conoisseurs.
 See [Glossary](./GLOSSARY.md) for new concepts. 
 [adrs](./docs/adr) are Architectural decision records.
 From now on, I will try to stick to Matt Pokock [skills](https://github.com/mattpocock/skills) 
