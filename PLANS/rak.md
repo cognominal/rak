@@ -1,152 +1,81 @@
-# Rak 
+# rak
 
-Rak provides  a mix of standard and shell modes
-sometimes withing a single statement.
-It improves raku expressivity, supports interactivity, introduces pattern matching on data structures, and performance.
-Rak is a fork and extension of raku.
-Interactive use of rak at the command line is a good way
-to learn it.
+rak is a fork of Rakudo that is both a programming language and a shell, interactive or
+not, with features inspired by Nushell and jq. It is Raku with a lighter surface syntax:
+fewer brackets and quotes, shell-style words, pipes and redirections, and fast native
+variables. Where Perl excelled at matching patterns in strings, rak also aims to match
+patterns in data structures.
 
-While the ancestor of Raku, Perl shined at matching pattern in strings,
-rak, in addition, strives to be good at matching patterns in complex data 
-structures.
+rak is enabled by the `.rak` file extension, or by running the `./rak` wrapper with no
+file (see the [cheat sheet](../CHEATSHEET.md#turning-it-on), which also lists the
+[environment variables](../CHEATSHEET.md#environment-variables)). A `.raku` file keeps
+standard Raku semantics. Using rak interactively, in [irak](features/irak.md), is a good
+way to learn it.
 
-Shell mode is new to raku ecosystem  but will be familiar to most unix users. 
-Within shell mode one can  launch commands without forking or spawning, and can pipe data.
-emitted by o ine command to the next.
-Piped data are not necesarily a string, 
+rak is developed on the `rak` branch of `https://github.com/cognominal/rakudo`, and on
+branches derived from it. This page uses the present tense, but much of what it
+describes is planned; [status.md](status.md) says what exists.
 
-Redirections, naked strings and globbing are supported in both modes, 
-standard and shell.
-
-Redirections avoid the explicit use of file descriptors. 
+## A taste
 
 ```rak
-echo              # launch command `echo` to print a newline
-alias echo=nl     # aliases are supported 
-say hello world   # call `say` builtin with 2 naked strings
-
-say(1 + 3)
-
-# a naked string not immediately followed by a '(' enter shell mode
-# in shell mode stuff in parentheses 
-say (1 + 3) things    # prints "4 things"
-say \(1 + 3) things   # print "(1 + 3) things"
-say \\( 1 + 3 ) things # print "\(1 + 3) things"
-
-say world()
-say i for 1..100 # one letter vars have a predefined type
-
-# new sigils 
-
-#foo = 1 
-
-# i walking data structures 
-a.1      # sigil can be omitted when inferred
-a.1.name # no vification, a,1 is not created if missing execpt in interactive mode
-say a.1.name.#i.~s
-say a.1.name#1~s
-say( 1 + 3 )
-
-my #i = 1
-my ~s = foo 
-
+say hello world          # say, with two naked strings
+say double 3             # double is a known routine: it is called
+my #n = 1;  my ~s = foo  # native int and native str
+say %h.users.1.name      # %h<users>[1]<name>
+say %h->elems            # a method call
+@a >a.json               # write @a as JSON
+my %cfg <cfg.json        # load a JSON file
+git log | ->unique       # a command piped into a rak method (planned)
 ```
-Rak is enabled by launching the `rak` 
-executable or using the `.rak` file extension.
 
+## rak as the outer layer
 
-## Building onn Larry Wall ideas
+Perl was always a guest in someone else's shell. People could write
+`dmesg | perl -ne '…'`, but the shell owned the pipe and the redirection, and Perl only
+saw stdin. rak takes the opposite position: the language *is* the outer layer. It keeps
+the shell's composition (words, pipes, redirections) and the language's power (types,
+signatures, data structures), and it uses syntax to settle the conflicts between them:
 
-The full argument is in `shell.md`:
-[Larry Wall, natural language and pragmatics](shell.md#larry-wall-natural-language-and-pragmatics)
-and [Huffing: rak and the Huffman principle](shell.md#huffing-rak-and-the-huffman-principle).
+- [naked strings](features/naked-strings.md) let words be strings without Perl's
+  `strict 'subs'` trap;
+- [spacing](features/spacing.md) tells redirection from comparison;
+- the [standard and shell strategies](features/strategies.md) let a statement be Raku or a
+  command line, and pipes mix commands with rak stages;
+- [redirection](features/redirection.md) moves typed values, not only bytes, and
+  [URL targets](features/url-targets.md) extend it to the web;
+- [dotty subscripts](features/dotty-subscripts.md) walk data like jq, and
+  [myaml](features/myaml.md) will pattern-match it.
 
-Rak builds on Larry Wall's idea of concepts adapted from
-natural languages mechanisms in an admitedly very 
-different environment.
+## Fixing Raku's costs
 
-When possible, concision is preferred to regularity
-at the cost of a language more complex to learn without 
-sacrificing expressivity.
-Interactive shell mode mechanisms a good way to learn.
+Raku enables by default several features that are rarely needed yet cost performance:
+arbitrary-precision integers, and containers that let any variable be aliased. Every
+untyped variable is boxed. Walking data structures takes many brackets. This drove away
+people writing small tools, for whom Perl and Raku were too slow to start and too slow at
+simple work. rak's [new sigils](features/sigils.md) `~` and `#` hold native `str` and `int`
+values with no boxing, and make bracketless subscripts possible. A third sigil, `^` for
+native `num`, is [unsettled](unsettled.md).
 
-Concision is obtained by huffing, designing short 
-variants of common constructs.
-Natural language have different registers often depending 
-if is spoken or written. Written language is usually 
-more formal. The equivalents in rak are the standard mode 
-and the shell mode. The interactivity encouraged by shell mode
-is a parallel to  spoken language.
+## Less visual noise
 
-## Minimizing visual noise
+Brackets and other paired characters are heavy on the eye. rak removes them where layout
+can say the same thing: [indentation](features/indentation.md) delimits multi-line blocks,
+[tree expressions](features/tree-exprs.md) replace parentheses in multi-line expressions,
+and dotty subscripts replace `[…]`, `{…}` and `<…>`.
 
-Braces and other parenthetic chars are heavy on the eye.
+## Building on Larry Wall's ideas
 
+rak follows Larry Wall in borrowing mechanisms from natural language, in a very different
+setting. Where possible, concision wins over regularity: the language is harder to learn,
+but no less expressive. Concision comes from [huffing](background/huffing.md): giving
+frequent constructs short spellings. Natural languages have registers, spoken and written,
+the written one being more formal; rak's shell and standard strategies play the same
+roles, and the interactive shell strategy is the spoken one. The full argument is in
+[Larry Wall, natural language and pragmatics](background/larry-wall.md).
 
-## New sigils and sigiless variable 
+## Related implementations
 
-### sigiless variables names 
-
-Conformant to the concision and noise reduction
-principles, one character variables can be used 
-without their sigil.
-
-#### Scalar sigiless variables 
-
-i...n integer 
-I..N  varaiable lenghth of integer.
-
-r..z
-
-s     string 
-
-
-
-Rak supports leaner default thanks to new sigils for 
-scalars 
-
-Rak support standard mode and shell mode. 
-Shell mode is convenient for interactive use
-ai:nd launching external command without bothering 
-with `fork`, `exect`, `spawn` and the like,
-conformant to cla ssic unix shells usage.
-
-Naked strings and redirects are supported in both mode.
-One can redirect to and from the web using URL.
-
-With new sigils `#`, `` scalars fit in a register. 
-
-
-Rak knows data language like yaml and json and 
-can pattern match data structure using myaml an extension
-of yaml. In myaml, single primary sigil variables are interpolated.
-
-
-
-
-
-n
-
-Rak can use shellish mode and standard mode in a single 
-statement.
-
-## Shellish
-ya
-After alias expansion, the first word is searched 
-
-ls foo.yaml 
-
-
-
-Pull data structures from the web, 
-
-
-A shell that 
-
--redirects from the web and to the web using
-
-## http requests GET and POST
-
-
-
+Like Rakudo, rak runs on MoarVM, so libraries written in Raku can be used from rak and
+the other way round. **Shak**, a simplified rak running on a JavaScript engine, is
+anticipated.

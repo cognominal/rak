@@ -21,6 +21,17 @@ holds unless a line below changes it. Words in **bold** are defined in
 The file extension decides. A file with no extension falls back to
 `RAKU_RAK_MODE`. Modules you `use` from a `.rak` file stay plain Raku.
 
+### Environment variables
+
+| Variable | Effect |
+|---|---|
+| `RAKUDO_RAK_FRONTEND=1` | `rakudo-m` compiles with the rak frontend (`Rak::Grammar`, `Rak::Actions`). A `.rak` file is then in rak mode. |
+| `RAKU_RAK_MODE=1` | A source with no file extension (`-e`, stdin, the REPL) is in rak mode. Ignored by the default legacy frontend, so pair it with `RAKUDO_RAK_FRONTEND=1`. |
+
+`./rak` sets both. Without them, `rakudo-m file.rak` uses the legacy frontend and
+the file fails to compile as rak. `RAKUDO_RAKUAST=1` (upstream's RakuAST
+frontend) also honours both gates for now, until the rak code is removed from it.
+
 ## At a glance
 
 | Raku | rak |
@@ -114,6 +125,8 @@ sub f(~x, #y) { … }
 | rak | Raku |
 |---|---|
 | `%h.name` | `%h<name>` |
+| `%h.'a b'` | `%h{'a b'}` |
+| `%h."$k"`, `%h."id-{~n}"` | `%h{"$k"}`, `%h{"id-{~n}"}` (interpolates) |
 | `@a.1` | `@a[1]` |
 | `%h.~k` | `%h{~k}` |
 | `@a.#i` | `@a[#i]` |
@@ -122,7 +135,12 @@ sub f(~x, #y) { … }
 
 They stack, and all of them are lvalues: `%h.x = 3`, `@a.0 = 9`, `@a.1.1 = 9`.
 
-`%h.$key` keeps its Raku meaning (indirect method call). It is not a subscript.
+`%h.$key` is an error. Write `%h."$key"` for a subscript by a `$` variable,
+and `%h->$key` for Raku's indirect method call.
+
+Quoted keys are for keys that aren't identifiers, like jq's `."key"`. jq has
+no `.'key'`. With arguments, `."name"(…)` and `.'name'(…)` stay Raku's quoted
+method name call.
 
 ### Method calls
 
@@ -132,7 +150,12 @@ $f->bar->baz
 $f.baz(5)           # with arguments, . still calls
 $f.baz: 5
 %h.keys()           # empty parens also call
+$x->$meth           # indirect call: Raku's $x.$meth
+$x->&f(1)           # Raku's $x.&f(1)
+$_->&f              # on the topic: a leading ->&f is a pointy block
 ```
+
+`.$var`, `.@var` and `.&var` are compile errors that name the `->` spelling.
 
 `@a->[0]`, `->{…}` and `->(…)` stay Raku's obsolete-syntax error.
 `-> $x { }`, `->$x { }` and `->Int $x { }` are still pointy blocks.
@@ -144,6 +167,7 @@ With nothing before it, the dotty form applies to `$_`:
 ```rak
 given { a => 1, b => [5, 6] } {
     .a          # $_<a>
+    ."a"        # $_{"a"}
     .b.1        # $_<b>[1]
     ->elems     # $_.elems
     .keys()     # still a method call
@@ -256,10 +280,12 @@ Welcome to irak, the rak shell.
   call them without parentheses, or call them with `foo(…)`.
 - `.meth` without parentheses is now a subscript. When porting Raku, change it to
   `->meth`.
+- `.$meth` and `.&f` are errors. When porting Raku, change them to `->$meth` and
+  `->&f`.
 
 ## Planned, not implemented
 
 Planned in `PLANS/`, not available yet: shell mode (running external commands,
 pipes, `alias`, `type`), globbing, indentation in place of braces, sigilless
-one-letter variables (`i`, `s`, …), URL redirection targets, YAML and myaml data
+one-letter variables (`i`, `s`, …), a `^` sigil for native `num` (unsettled), URL redirection targets, YAML and myaml data
 pattern matching, `has ~.x` / `has #.x` attributes, and `#n.WHAT` autoboxing.

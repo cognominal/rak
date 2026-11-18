@@ -1,4 +1,8 @@
-# CLAUDE.md — this repo
+# new-sigils branch: design log
+
+> **Archived.** The working design log of the original `new-sigils` branch, kept for its
+> history. The current design is in [sigils](../features/sigils.md) and [dotty subscripts](../features/dotty-subscripts.md). Names, paths, test counts and status
+> below are out of date.
 
 > **Status on the `rak` branch:** this document now lives in `PLANS/new-sigils/`
 > (see `PLANS/README.md`). Its features are merged and tested as described;

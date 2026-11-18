@@ -1,4 +1,8 @@
-# Converting PLAN/RAKFILE.md to a general blueprint
+# redirection branch: design log (RAKFILE)
+
+> **Archived.** The working design log of the original `redirection` branch, kept for its
+> history. The current design is in [redirection](../features/redirection.md), [naked strings](../features/naked-strings.md) and ADR 0001 (the `.rak` gate). Names, paths, test counts and status
+> below are out of date.
 
 > **Status on the `rak` branch:** the core of this document (redirection
 > `say foo >file`, naked strings, the `.rak` gate, the `rak` wrapper) is
@@ -436,7 +440,7 @@ require a longer lookahead or a different syntax altogether.
 
 **Challenge**: `2>` is NOT a `>` preceded by a number — in Raku, `2 >file`
 (with space before `>`) is a comparison `2 > file`. The digit before `>`
-needs to directlyorg/prizes/literature/2005/pinter/lecture/ touch the `>` (no space): `2>file`. But then `2` looks
+needs to directly touch the `>` (no space): `2>file`. But then `2` looks
 like a term, and `>file` is a redirection. The grammar would need to parse
 `N>` as a file-descriptor-number prefix before the `>`. This is hard because
 `2` in `2>file` is already a valid Raku term (an integer literal), so the

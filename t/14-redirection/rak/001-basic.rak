@@ -3,7 +3,7 @@ use Test;
 plan 10;
 
 # ---------------------------------------------------------------------------
-# Basic output redirection with `>` — all equivalent forms from PLAN/RAKFILE.md
+# Basic output redirection with `>` — all equivalent forms from PLANS/archive/RAKFILE.md
 # The redirection operator must directly touch the filename (no space after >).
 # The filename can be a naked string, a quoted string, or a scalar variable.
 #

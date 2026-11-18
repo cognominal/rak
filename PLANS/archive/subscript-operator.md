@@ -1,4 +1,8 @@
-# SUBSCRIPT-OPERATOR.md — this repo
+# new-sigils branch: the subscript operator design log
+
+> **Archived.** The working design log of the original `new-sigils` branch, kept for its
+> history. The current design is in [dotty subscripts](../features/dotty-subscripts.md). Names, paths, test counts and status
+> below are out of date.
 
 > **Status on the `rak` branch:** this document now lives in `PLANS/new-sigils/`
 > (see `PLANS/README.md`). All phases (1-4) remain merged and green on the

@@ -1,4 +1,9 @@
-# One-Pass Compilation Plan
+# One-pass compilation
+
+Status: steps 1–6 of the roadmap below are done; gen-cat remains for the NQP sources.
+The directive spelling chosen is `#COMPILER::if`, `#COMPILER::endif` and
+`#COMPILER::line`. The `# comp-if` / `# INCLUDE` spellings in the proposal sections
+were candidates and were not adopted.
 
 ## Current Architecture
 
@@ -309,26 +314,11 @@ concatenator that adds `#COMPILER::line` markers and skips dead
 gen-cat kept for NQP file preprocessing. Could be replaced with a
 shell loop once NQP sources no longer need conditional handling.
 
-**Step 8: Test** ⏳
-Needs a full Rakudo build to verify.
+**Step 8: Test** ✅
+The branch builds and runs its test suites with the one-pass setting.
 
 ### Backward Compatibility
 
-The new directives use `#` at the start of a line, which is currently a
-comment in Raku. Existing code using `#` comments will not be affected because:
-
-- `# comp-if`, `# INCLUDE`, `# line` would only be recognised at the
-  **statement** level (not inside expressions or strings).
-- A plain `#` comment followed by arbitrary text continues to be a comment.
-- The specific tokens `comp-if`, `INCLUDE`, `endif` etc. are unlikely to
-  appear in natural comments in core sources — and if they do, they would
-  need a different prefix (e.g., `#COMPILER::if`, `#COMPILER::include`) to
-  avoid ambiguity.
-
-An alternative safer prefix: `#COMPILER::` namespace:
-
-```
-#COMPILER::if moar
-#COMPILER::include "foo.rakumod"
-#COMPILER::endif
-```
+`#COMPILER::` is a namespace no ordinary comment is likely to start with. In rak mode, `#`
+followed by an identifier is a [variable](../features/sigils.md), so the
+`comment:sym<#COMPILER>` token must keep claiming `#COMPILER::` before the sigil does.

@@ -937,4 +937,4 @@ The following areas are intentionally left for implementation experience:
 
 ---
 
-*This document is a detailed expansion of the tree-expr concept handwaved in `shell.md`. The column-based precedence idea is inspired by languages that use indentation as syntax (Haskell's off-side rule, Python, Nim's `=` alignment) but adapted to operators rather than block structure.*
+*This document is a detailed expansion of the tree-expr concept first sketched in an early design note. The column-based precedence idea is inspired by languages that use indentation as syntax (Haskell's off-side rule, Python, Nim's `=` alignment) but adapted to operators rather than block structure.*

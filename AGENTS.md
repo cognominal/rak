@@ -7,7 +7,7 @@ side by side: `src/Raku/{Grammar,Actions}.nqp` (`Raku::*`) for plain Raku, and
 that carries the same `$*RAK-SEMANTICS` gates. The rak frontend is selected by
 `RAKUDO_RAK_FRONTEND=1 RAKU_RAK_MODE=1`, or by the `./rak` wrapper at the repo root,
 which sets those and execs `rakudo-m`. Branch design docs live in `PLANS/`;
-`PLANS/SUMMARY.md` is the index.
+`PLANS/README.md` is the index.
 
 ## Build and test
 

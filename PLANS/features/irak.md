@@ -1,36 +1,27 @@
-# INTERACTIVE-NAVIGATION.md — this repo
+# irak: the interactive session
 
-**Nushell-style TAB completion and YAML preview for the `.` subscript operator.**
-A design spec for the next layer above Phases 1-3 (SUBSCRIPT-OPERATOR.md):
-given `@a.`, `%h.`, or any `.`-subscriptable expression in an interactive
-REPL/editor context, what should TAB and SHIFT-TAB show?
+[irak](../../GLOSSARY.md#irak) is rak with no source file: the REPL, `-e` and standard input.
+The `./rak` wrapper with no arguments starts it. Usage is in the
+[cheat sheet](../../CHEATSHEET.md#irak-the-repl); this document covers the design, and the
+planned TAB / SHIFT-TAB navigation of data structures.
 
-Status: **Not implemented.** This is a pure design document — nothing here
-has code written for it yet. Read SUBSCRIPT-OPERATOR.md (especially §1-3)
-for the grammar-level `.name`/`.1`/`.~expr`/`.#expr` sugar this builds on.
+## irak: the REPL as a pipe through time
 
-## 0. Relationship to this branch's other work
+In [irak](../../GLOSSARY.md#irak), the [irak topic](../../GLOSSARY.md#irak-topic) `$_` holds the value of the previous [irak
+submission](../../GLOSSARY.md#irak-submission), so each submission works on the output of the one before.
+This is the interactive habit of growing a pipeline one stage at a time,
+but the values passed between stages stay structured.
 
-This branch has already implemented and tested:
 
-| Feature                        | File                                    | Tests |
-|--------------------------------|-----------------------------------------|-------|
-| `~` sigil (native `str`)      | CLAUDE.md §1‑3                          | 18/18 |
-| `#` sigil (native `int`)      | CLAUDE.md §1‑3                          | 18/18 |
-| `.1` (literal positional index)| SUBSCRIPT-OPERATOR.md §5 Phase 1       | 7/7   |
-| `.~expr`/`.#expr` (sigil subscript)| SUBSCRIPT-OPERATOR.md §5 Phase 2    | 8/8   |
-| `.name` → `<name>` / `->name` (`.rak` only)| SUBSCRIPT-OPERATOR.md §5 Phase 3| 11/11 |
+## Navigating data with TAB and SHIFT-TAB
 
-All of those are **grammar-level** changes — they define how `.` after a
-term parses and desugars to subscript AST nodes. This document describes
-what happens *after* parsing: when an interactive environment (REPL,
-editor plugin, language server) is positioned at a `.` with nothing yet
-typed after it, and the user asks for completions or a structural preview.
+Status: **not implemented.** This builds on the
+[dotty subscripts](dotty-subscripts.md): given `@a.`, `%h.`, or any expression that a dotty
+subscript can follow, what should TAB and SHIFT-TAB show? The subscripts define how `.` after a
+term *parses*; this section describes what happens at *edit time*, when the cursor sits
+after a `.` with nothing typed yet.
 
-The `.` operator described in all five phases above is the **parse-time
-surface** this feature makes navigable at **edit time**.
-
-## 1. Request
+### 1. Request
 
 Add two interactive navigation primitives for the `.` subscript surface:
 
@@ -71,12 +62,12 @@ exposes both interfaces, and the `.` subscript sugar can reach either one
 Mirrors the nushell convention where TAB completes commands/paths and
 SHIFT-TAB previews data structure content inline.
 
-## 2. Grounding: what already exists
+### 2. Grounding: what already exists
 
-### 2.1 The `.` subscript sugar (this branch, DONE)
+#### 2.1 The `.` subscript sugar (this branch, DONE)
 
 After a term, `.` followed by one of four shapes desugars as follows
-(SUBSCRIPT-OPERATOR.md §3):
+([dotty subscripts](dotty-subscripts.md)):
 
 | after `.`                | desugars to | target interface |
 |---------------------------|-------------|------------------|
@@ -89,7 +80,7 @@ The interactive mode doesn't need to know which shape the user will pick —
 it just needs to know that the *subject* (the term before `.`) exposes one
 or both subscript interfaces, and list the available keys/indices for each.
 
-### 2.2 Raku's `.WHAT`, `.^roles`, `.REPR` introspection
+#### 2.2 Raku's `.WHAT`, `.^roles`, `.REPR` introspection
 
 Available at runtime — and in an interactive/REPL context, available in
 principle via a `try`-wrapped introspect call on the subject:
@@ -120,7 +111,7 @@ display, with the note that `AT-POS`/`AT-KEY` is the definitive check.
 **Empty/zero-length subjects** (`my @a;`, `my %h;`): TAB should show
 `<empty>` or a dimmed "(no entries)" message, not an empty list or a crash.
 
-### 2.3 YAML output
+#### 2.3 YAML output
 
 No YAML library is assumed in the core. A viable first implementation is a
 hand-written recursive subroutine that mirrors `$obj.raku`-style output but
@@ -157,9 +148,9 @@ Instead it produces the simplest YAML subset that a human can scan:
 - Width limit (default 2000 chars per line / 20 items per level) with
   `... and N more` truncation message.
 
-## 3. Proposed behavior
+### 3. Proposed behavior
 
-### 3.1 TAB — list available subscripts
+#### 3.1 TAB — list available subscripts
 
 After `@a.` (positional subject):
 
@@ -228,12 +219,12 @@ the same whether the user will type `.#3` or `.3`, and the list of keys is
 the same whether typed `.~name` or `.name`.
 
 **Interaction with `.name` sugar (`.rak` mode):** In `.rak` mode
-(SUBSCRIPT-OPERATOR.md §5 Phase 3), a bare identifier after `.` means
+([dotty subscripts](dotty-subscripts.md)), a bare identifier after `.` means
 `<name>`, i.e. associative. So the TAB menu after `$x.foo█` in `.rak` mode
 should show *only* the associative keys (matching prefix `foo`), not
 indices. In `.raku` mode, `.foo█` is the start of a method call — TAB
 there should show method-name completions (the existing REPL behavior),
-not subscript keys. The file extension gate (`$*NEW-DOTTY-SEMANTICS`) is
+not subscript keys. The file extension gate (`$*RAK-SEMANTICS`) is
 the natural discriminator: the same dynamic variable that decides how `.`
 parses also decides how TAB completion behaves.
 
@@ -250,7 +241,7 @@ completion engine MUST:
   single completion session (the user might TAB twice with no intervening
   keystroke).
 
-### 3.2 SHIFT-TAB — preview structure as YAML
+#### 3.2 SHIFT-TAB — preview structure as YAML
 
 After `@a.█` SHIFT-TAB:
 
@@ -296,7 +287,7 @@ The YAML preview should:
    `<lazy — first N items only>` where N is configurable (default 10).
 5. For side-effecting subjects: same time-box and catch-all as TAB.
 
-### 3.3 YAML renderer specification
+#### 3.3 YAML renderer specification
 
 The YAML output must be valid YAML 1.2 for the subset it covers. The
 renderer is a standalone function `yaml-preview($subject, :$max-depth = 1,
@@ -345,11 +336,11 @@ renderer is a standalone function `yaml-preview($subject, :$max-depth = 1,
   to: 2
   ```
 
-## 4. Implementation sketch
+### 4. Implementation sketch
 
-### 4.1 Where this lives: the REPL, not the grammar
+#### 4.1 Where this lives: the REPL, not the grammar
 
-Unlike Phases 1-3 (SUBSCRIPT-OPERATOR.md), which modify `src/Raku/Grammar.nqp`
+Unlike the dotty subscripts, which modify `src/Raku/Grammar.nqp`
 and `src/Raku/Actions.nqp`, this feature lives **outside the compiler core**,
 in whichever frontend provides interactive editing:
 
@@ -363,7 +354,7 @@ in whichever frontend provides interactive editing:
   assumes the REPL is the first target (lowest friction, fastest iteration)
   and leaves LSP to a follow-up.
 
-### 4.2 REPL‑level pseudocode
+#### 4.2 REPL‑level pseudocode
 
 ```
 on tab(editor-buffer, cursor-pos):
@@ -449,7 +440,7 @@ sub yaml-preview($subject, :$max-depth = 1, :$max-items = 50, :$max-width = 2000
     return scalar-yaml($subject)
 ```
 
-### 4.3 Safety: lazy, side-effecting, and infinite subjects
+#### 4.3 Safety: lazy, side-effecting, and infinite subjects
 
 Every `.elems` and `.keys` call in the TAB/SHIFT-TAB path must be wrapped:
 
@@ -469,7 +460,7 @@ Same pattern for `.keys`. The REPL itself runs in a single-threaded event
 loop, so blocking for 500ms is acceptable (the user already waited for a
 TAB press); an LSP implementation would use a non‑blocking request.
 
-### 4.4 Caching
+#### 4.4 Caching
 
 Within one interaction (TAB, modify, TAB, modify, SHIFT-TAB), the
 introspection result for the *same textual subject expression* is cached.
@@ -478,9 +469,9 @@ yaml => ... }`. The cache is cleared when the cursor leaves the `.`
 position (i.e., the user moves the cursor to a different line, or types
 a space, or deletes back past the subject).
 
-## 5. Open questions and design decisions
+### 5. Open questions and design decisions
 
-### 5.1 Where should `_indices` appear in mixed‑REPR YAML?
+#### 5.1 Where should `_indices` appear in mixed‑REPR YAML?
 
 Two alternatives considered:
 
@@ -494,7 +485,7 @@ preview, not an interchange format. A single scrolling region is more
 important than purity of the YAML spec. The `_indices` key is decorated
 with a YAML comment (`# positional`) to disambiguate.
 
-### 5.2 Should SHIFT-TAB also work on a *complete* subscript expression?
+#### 5.2 Should SHIFT-TAB also work on a *complete* subscript expression?
 
 After the user types `@a.3` and SHIFT-TABs before hitting Enter, should the
 preview show the value at `@a[3]` (a single scalar) or the top-level
@@ -510,7 +501,7 @@ complete the expression and press Enter (execution), or type `.` again to
 drill into that result: `@a.3.█` TAB would then show what's inside
 `@a.3`'s value.
 
-### 5.3 Should TAB also offer `->` completions in `.rak` mode?
+#### 5.3 Should TAB also offer `->` completions in `.rak` mode?
 
 In `.rak` mode, `.name` is a subscript and `->name` is a method call.
 After `%h.█` TAB in `.rak` mode, should the menu *also* show available
@@ -520,7 +511,7 @@ be a separate interaction (triggered by typing `->` and then TAB). Splitting
 the menu prevents confusion between subscript keys and method names at the
 same position.
 
-### 5.4 Does TAB need to show `~`/`#` sigil hints?
+#### 5.4 Does TAB need to show `~`/`#` sigil hints?
 
 After `@a.█` TAB, should the menu say "use `#3` (not `3`) for native‑int
 subscript"? **Decision: no, not in the initial version.** The TAB output
@@ -530,7 +521,7 @@ doesn't need to explain this; the user can type either form. A future
 version may add a tooltip or a `#` suffix hint, but it's explicitly out of
 scope for MVP.
 
-### 5.5 LSP integration surface
+#### 5.5 LSP integration surface
 
 For a Language Server Protocol implementation, the mapping is:
 
@@ -544,7 +535,7 @@ so the editor can render indices and keys differently. The hover response
 would return a `MarkupContent` with `kind: 'markdown'` and the YAML inside
 a fenced code block (` ```yaml `).
 
-## 6. Explicitly out of scope for MVP
+### 6. Explicitly out of scope for MVP
 
 - Any grammar‑level change to support this — it's entirely a REPL/LSP‑level
   feature, not a new parse rule.
@@ -557,11 +548,11 @@ a fenced code block (` ```yaml `).
 - Folding the YAML preview into a column/buffer view (terminal REPL
   displays it inline; LSP shows it in a hover/completion-detail popup).
 - Editing the YAML and writing back to the structure (read‑only preview).
-- `$*NEW-DOTTY-SEMANTICS` awareness for environments that don't have it
+- `$*RAK-SEMANTICS` awareness for environments that don't have it
   (if the compiler doesn't export this variable, fall back to traditional
   REPL completion — no `.`‑subscript‑specific behavior).
 
-## 7. Acceptance criteria (test plan)
+### 7. Acceptance criteria (test plan)
 
 A test file `t/02-rakudo/interactive-navigation.t` (REPL‑simulation via
 `Proc::Async` driving a REPL subprocess) should assert:
@@ -613,7 +604,7 @@ launch a subprocess with a `.rak`/`.raku` temp file that exercises a REPL‑
 simulation `$*IN` feed, or accept that extension‑aware tests are done at
 the `dot-subscript-name.t` level only and mark this test as `todo`.)
 
-## 8. Prior art: nushell's navigation model
+### 8. Prior art: nushell's navigation model
 
 Nushell's `ls` / `open` / `$env` / `$config` navigation works as follows
 
@@ -637,7 +628,7 @@ analogous to nushell's handling of records that are both `list` and
 `record` (e.g. `open` on a JSON file that is an array of objects — nushell
 shows both the array index and the object keys).
 
-## 9. Future directions (post‑MVP)
+### 9. Future directions (post‑MVP)
 
 - **Visual preview**: Instead of text YAML, a tree‑widget in the terminal
   (e.g., `blessed`‑style or `Ratatouille`‑rendered) that lets the user
@@ -651,273 +642,7 @@ shows both the array index and the object keys).
   sequence of subscript operations and applying the edited value through
   them. Not part of MVP.
 
-## 10. The `rak` binary: argumentless invocation enters `.rak`-mode REPL
-
-### 10.1 The `rak` entry point
-
-This branch's new dotty semantics (SUBSCRIPT-OPERATOR.md §5 Phase 3) are gated
-behind a **`.rak` file extension**: a source file named `foo.rak` gets `$*NEW-
-DOTTY-SEMANTICS=1`, which turns `.name` (parameterless, no `(`) into `<name>`
-subscript sugar instead of a method call, and `->name` into a real
-parameterless method call. All other extensions (`.raku`, `.rakumod`, `.pm6`,
-`.nqp`) keep traditional semantics permanently — zero rewrites of the standard
-library (SUBSCRIPT-OPERATOR.md §4.1).
-
-This spec adds a third path to set `$*NEW-DOTTY-SEMANTICS`: **running `rak`
-with no arguments** (no filename, no `-e` code) starts an interactive REPL
-that defaults to `.rak`-mode semantics. The progression:
-
-| invocation | mode | behavior of `.name` | behavior of `->name` |
-|---|---|---|---|
-| `raku foo.raku` | `.raku` | method call | obsolete-syntax error |
-| `raku foo.rak` | `.rak` | `<name>` subscript | real method call |
-| `rak` (no args) | `.rak` interactive | `<name>` subscript | real method call |
-| `raku` (no args) | `.raku` interactive | method call | obsolete-syntax error |
-
-**Why `rak` and not `raku` with a flag?** Two reasons:
-
-1. **File-extension logic already exists** in `comp-unit-prologue` (Actions.nqp,
-   SUBSCRIPT-OPERATOR.md §5 Phase 3). For a physical `.rak` file, the
-   extension tells the compiler which mode to use. But an *interactive REPL*
-   has no file — there's no extension to inspect. `$*NEW-DOTTY-SEMANTICS`
-   defaults to `0` for `-e`/STDIN/REPL because the proc entry point is
-   `raku` (the traditional binary). A separate `rak` binary signals intent
-   without needing a `--dotty` flag or an environment variable.
-
-2. **The binary name mirrors the extension.** Just as `.rak` is the opt-in
-   extension for files that want the new semantics, `rak` is the opt-in
-   binary for an interactive session that starts in the same mode. The
-   mnemonic is immediate: "I ran `rak` → I'm in `.rak` mode."
-
-### 10.2 How it works: `rak` as a wrapper binary
-
-`rak` is a thin shell wrapper (or symlink) placed alongside the `raku` binary
-at install time. It adds a single command-line flag that the existing
-`Perl6::Compiler.command_eval` or the REPL entry path can read:
-
-```bash
-#!/bin/sh
-# rak — invoke raku with argumentless .rak-mode REPL
-exec raku "$@" --rak-mode
-```
-
-The `--rak-mode` flag does one thing: force `$*NEW-DOTTY-SEMANTICS=1` in any
-compilation unit that has **no source file** (i.e. interactive REPL, `-e`
-code, or STDIN pipe). Physical `.rak` files already set it from their
-extension; physical `.raku`/`.rakumod` files continue to be unaffected by this
-flag because they have their own extension to query. The flag is ignored for
-any unit where `%*COMPILING<%?OPTIONS><source-name>` is already set to a re-
-al file path.
-
-**Detection in `comp-unit-prologue` (Actions.nqp):**
-
-```perl6
-# Set $*NEW-DOTTY-SEMANTICS from three sources, in priority order:
-# 1. Explicit --rak-mode flag (lowest priority: only applies when there's
-#    no source file)
-# 2. .rak/.raku file extension (already implemented, Phase 3)
-# 3. Default: 0 (traditional semantics)
-#
-# The order matters: a .raku file run as `rak foo.raku` should NOT get
-# dotty semantics — its own extension says .raku. --rak-mode only kicks
-# in when there IS no extension to ask.
-
-my str $source-name := %*COMPILING<%?OPTIONS><source-name> // '';
-
-if nqp::chars($source-name) >= 4
-    && nqp::eqat($source-name, '.rak', nqp::chars($source-name) - 4) {
-    $*NEW-DOTTY-SEMANTICS := 1;  # physical .rak file
-}
-elsif nqp::chars($source-name) {
-    $*NEW-DOTTY-SEMANTICS := 0;  # physical file with any other extension
-}
-elsif %*COMPILING<%?OPTIONS><rak-mode> {
-    $*NEW-DOTTY-SEMANTICS := 1;  # no source file, --rak-mode flag present
-}
-else {
-    $*NEW-DOTTY-SEMANTICS := 0;  # no source file, no flag (default raku)
-}
-```
-
-The `rak-mode` option is injected into `%options` in `command_eval` when the
-`rak` binary passes `--rak-mode`:
-
-```perl6
-# In Perl6::Compiler.command_eval (already the right place — see
-# SUBSCRIPT-OPERATOR.md §5 Phase 3's source-name capture):
-
-%options<rak-mode> := 1 if nqp::existskey(%options, 'rak-mode');
-```
-
-### 10.3 What the `rak` REPL looks like
-
-When `rak` starts with no arguments, the user sees an interactive REPL where
-the dotty semantics are active from the first prompt:
-
-```
-$ rak
-rak> %h = a => 1, b => 2
-rak> %h.a
-1
-rak> %h.b
-2
-rak> %h.keys
-(a b)
-rak> ->say
-(a b)
-```
-
-Compare with `raku` (traditional REPL):
-
-```
-$ raku
-> %h = a => 1, b => 2
-> %h.a
-1                      # wait, that works too — because method call `.a`
-                        # on a Hash dispatches to the .a *method* (which
-                        # dies with "No such method 'a' for Hash") but
-                        # .a without parens is actually resolved as
-                        # method 'a' with no args... let's check:
-> %h.a                  # No such method 'a' for Hash (dies)
-```
-
-Actually, the `->` transition on `%h.keys ->say` is the giveaway: in `.rak`
-mode, `%h.keys` (a list) has `.` methods, but you use `->` to call them.
-`%h.a` is a hash-key lookup, not a method call.
-
-**Prompt:** the REPL prompt changes to `rak>` (instead of `>`) to remind the
-user which semantic mode they're in. This is a small but critical visual cue:
-without it, a user switching between `rak` and `raku` terminals would
-easily forget which mode each one is in.
-
-### 10.4 Interaction with TAB/SHIFT-TAB
-
-When the REPL is in `.rak` mode (either from `rak` argumentless or from
-evaluating code with `$*NEW-DOTTY-SEMANTICS=1`), TAB/SHIFT-TAB behavior as
-described in §3 follows the `.rak` rules:
-
-- `.foo█` TAB shows subscript keys (not method names), because `.foo` will
-  parse as `<foo>`.
-- `->foo█` TAB shows method completions (the methods available on the
-  subject), because `->foo` will parse as a method call.
-- `.foo█` SHIFT-TAB shows the YAML preview of the subject, as with any
-  subscript position.
-
-In `.raku` mode (default `raku` binary), TAB on `.foo█` shows the traditional
-method-name completions, unchanged from the current REPL behavior.
-
-This is consistent with the existing behavior from §3.1 ("Interaction with
-`.name` sugar (`.rak` mode)") and §5.3 ("Should TAB also offer `->`
-completions in `.rak` mode?"). The only difference is that the mode is now
-set by the binary name, not just the file extension.
-
-### 10.5 Implementation sketch: the `rak` binary
-
-Two approaches, listed in order of preference:
-
-**Approach A — shell wrapper (recommended for MVP):**
-
-```bash
-#!/bin/sh
-# Installed alongside `raku`.
-# --rak-mode is the only addition: the rest is passed through unmodified.
-exec raku --rak-mode "$@"
-```
-
-This is a single file generated during `make install`. The `--rak-mode` flag
-is unknown to older `raku` binaries, but this branch's `Perl6::Compiler`
-recognizes it (see `command_eval` above). If run against a stock Rakudo
-binary (not this branch), the flag is silently ignored via `nqp::existskey`
-— it won't crash, it just won't enable dotty semantics.
-
-**Approach B — symlink to `raku` (alternative):**
-
-```
-ln -s raku /usr/local/bin/rak
-```
-
-Then `rak` is literally `raku` by another name, and detection happens via
-`$*PROGRAM-NAME` in the compiler bootstrap. This avoids a wrapper script
-but requires modifying the compiler startup (in `Perl6::Compiler`'s
-`command_eval` or the `MAIN` of `raku`'s entry point) to inspect
-`$*PROGRAM-NAME` and set `--rak-mode` automatically. More elegant but
-assumes `$*PROGRAM-NAME` is reliable across operating systems and
-invocation methods. MVP adopts the shell wrapper.
-
-**Installation integration (in `Makefile.in` or equivalent):**
-
-```make
-install:
-    # existing raku binary install
-    cp raku $(DESTDIR)$(PREFIX)/bin/raku
-    # rak wrapper — argumentless invocations default to .rak-mode REPL
-    printf '#!/bin/sh\nexec raku --rak-mode "$$@"\n' \
-        > $(DESTDIR)$(PREFIX)/bin/rak
-    chmod +x $(DESTDIR)$(PREFIX)/bin/rak
-```
-
-### 10.6 Interaction with interactive-navigation.t (test plan additions)
-
-Add these assertions to the test plan from §7:
-
-**Binary invocation:**
-- `rak` with no arguments starts a REPL whose prompt is `rak>`
-- `rak` REPL: `%h = a => 1; %h.a` produces `1` (hash-key lookup via `.name` sugar)
-- `raku` REPL: `%h = a => 1; %h.a` produces "No such method 'a'" (method call, not subscript)
-- `rak foo.raku` (explicit .raku file) compiles without error AND does NOT
-  enable dotty semantics — the file's own extension takes priority over the
-  binary name
-- `rak -e 'my %h = a => 1; say %h.a'` — whether this uses `--rak-mode` is
-  an open design point (see §10.7 below).
-
-**Prompt display:**
-- The `rak>` prompt (or a distinct marker) is shown at every REPL input line
-  when running under `rak`.
-- The traditional `>` prompt is shown under `raku`.
-
-**TAB behavior in `rak` vs `raku`:**
-- `rak` REPL: `@a.foo█` TAB shows subscript keys (associative narrowing)
-- `raku` REPL: `@a.foo█` TAB shows method completions (no change)
-- `rak` REPL: `@a->█` TAB shows method completions (because `->` triggers
-  method completion, per §5.3)
-
-### 10.7 Open question: should `-e` code inherit `--rak-mode`?
-
-Two positions:
-
-| Position | Behavior | Rationale |
-|---|---|---|
-| **A: No** (conservative) | `rak -e '...'` defaults to traditional semantics for the `-e` string. Only argumentless interactive REPL gets `.rak` mode. | `-e` is a one-liner, not an interactive session. Users who write `rak -e 'say %h.keys'` almost certainly meant method calls. Surprising them with a syntax change for a throwaway command is not worth it. |
-| **B: Yes** (consistent) | `rak -e '...'` also gets `.rak` mode, same as argumentless REPL. | Consistency: "`rak` = `.rak` mode everywhere". Users who want traditional semantics for a one-liner can write `raku -e` instead. |
-
-**Decision: Position A (conservative) for MVP.** `--rak-mode` only flips the
-default for compilation units that have **no source-name at all** (the
-interactive REPL session). A `-e` one-liner still gets a synthetic source-
-name of `-e` (or similar), which is set and non-empty — so the extension-
-based check runs, finds no `.rak`, and leaves semantics at `0`. This is the
-exact behavior the current Phase 3 implementation already has for `-e` code
-(confirmed: `$*NEW-DOTTY-SEMANTICS := 0` for `-e`), extended unchanged.
-
-The `rak` binary's `--rak-mode` flag only overrides the default when there's
-*no* source-name at all — which is exactly the case that maps to the
-argumentless, interactive REPL.
-
-### 10.8 Summary: three paths to `$*NEW-DOTTY-SEMANTICS=1`
-
-| Path | Detected by | Scope |
-|---|---|---|
-| `.rak` file extension | `comp-unit-prologue` string check on `source-name` | Per-file compilation unit |
-| `--rak-mode` flag, no source file | Same place, fallback when `source-name` is empty | Interactive REPL session |
-| (future: `use v6.rak` pragma) | Same place, fallback from language-revision | Opt-in from any file |
-
-The third path (a pragma) is not implemented and not planned for MVP. It's
-listed for completeness: if a user wants dotty semantics in a `.raku` file
-without renaming it, a `use v6.rak`-style pragma would be the eventual
-mechanism. But the file-extension gate is deliberately the primary mechanism
-for this branch (SUBSCRIPT-OPERATOR.md §4.1), and the binary name extends
-that same philosophy to the REPL without inventing a new syntax.
-
-## 11. Borrowing nushell's interactive API for `rak`
+### 10. Borrowing nushell's interactive API for `rak`
 
 Nushell is installed at `/usr/bin/nu` and cloned to `~/git/nushell---nushell`
 (commit 798c55d on this system). Its interactive layer is a Rust stack:
@@ -925,7 +650,7 @@ Nushell is installed at `/usr/bin/nu` and cloned to `~/git/nushell---nushell`
 `nu-explore` (TUI data previewer). This section evaluates whether to embed,
 wrap, or ignore that stack for `rak`.
 
-### 11.1 What nushell's source offers
+#### 10.1 What nushell's source offers
 
 | Crate | Path in source tree | Relevance |
 |---|---|---|
@@ -956,7 +681,7 @@ nushell `Value` as an interactive tree with:
 It uses `crossterm` for raw terminal control, which is the same TUI library
 `Terminal::LineEditor` (already a Raku REPL backend) wraps.
 
-### 11.2 The architectural mismatch
+#### 10.2 The architectural mismatch
 
 Despite the functional overlap, embedding nushell's Rust TUI directly into
 `rak` is impractical:
@@ -989,17 +714,17 @@ Despite the functional overlap, embedding nushell's Rust TUI directly into
    version, a minimalist tree widget using the same `Terminal::LineEditor`
    backend the REPL already uses.
 
-### 11.3 What we borrow: design, not code
+#### 10.3 What we borrow: design, not code
 
 | Idea | Nushell's implementation | Our analogue |
 |---|---|---|
 | Cell-path completions after `.` | `CellPathCompletion` in `nu-cli` | §4.2's `subscript-completions` in `Completions` role |
-| BackTab as distinct from Tab | `completion_previous` bound to `BackTab` in reedline config | §5.3, §11.6 (BackTab → YAML preview, handled in `Terminal::LineEditor` backend) |
+| BackTab as distinct from Tab | `completion_previous` bound to `BackTab` in reedline config | §5.3, §10.6 (BackTab → YAML preview, handled in `Terminal::LineEditor` backend) |
 | Explore value by key | `nu-explore` with `--peek` | §3.2's inline YAML (MVP), future tree-widget (§9) |
 | Columns from runtime value | `get_columns()` (calls `.keys` on record) | `safe-keys($subject)` via `AT-KEY` detection |
 | External completer protocol | `$env.config.completions.external`: shell out to any binary returning JSON | §12 (future: `rak --complete` as nushell external completer for `.rak` files) |
 
-### 11.4 The REPL already has the right hook
+#### 10.4 The REPL already has the right hook
 
 The Raku REPL's `Completions` role (`src/core.c/REPL.rakumod`, lines
 ~167-215) has a `completions-for-line` method that all three backends call.
@@ -1034,7 +759,7 @@ The `Linenoise` backend does not expose BackTab natively — SHIFT-TAB there
 falls back to no-op for MVP. `Readline` may handle it if configured via
 `.inputrc`; that's best-effort.
 
-### 11.5 Decision summary
+#### 10.5 Decision summary
 
 | Option | Viable? | What it costs | Recommendation |
 |---|---|---|---|
@@ -1044,7 +769,7 @@ falls back to no-op for MVP. `Readline` may handle it if configured via
 | **Extend the existing Raku REPL's `completions-for-line`** | **Yes** | Pure Raku, no new deps, ~200 lines total | **Default path for MVP** |
 | BackTab → YAML preview via `Terminal::LineEditor` | **Yes** | ~50 lines of Raku (new method on REPL) | **Default path for MVP** |
 
-### 11.6 Nushell external completer (future, §12 sketch)
+#### 10.6 Nushell external completer (future, §12 sketch)
 
 If nushell is configured as the user's shell, `rak --complete` could serve
 as nushell's external completer for Raku source files:
@@ -1074,7 +799,7 @@ It does not require the full REPL; it only needs the `Completions`-role
 logic (parse-at-cursor + subscript-completions) factored into a library
 that both the REPL and the `--complete` entry point can use.
 
-### 11.7 Integration architecture (final)
+#### 10.7 Integration architecture (final)
 
 ```
 ╔═══════════════════════════════════════════════════════════════════╗
@@ -1094,8 +819,8 @@ that both the REPL and the `--complete` entry point can use.
                            │
                            v
 ╔═══════════════════════════════════════════════════════════════════╗
-║              `rak` binary (shell wrapper: raku --rak-mode)       ║
-║  Sets $*NEW-DOTTY-SEMANTICS=1 in REPL (no source-file fallback) ║
+║              `rak` binary (shell wrapper, sets RAKU_RAK_MODE=1)   ║
+║  Gives $*RAK-SEMANTICS=1 in irak (no source file)          ║
 ║  Also provides `rak --complete` for nushell external completer   ║
 ╚═══════════════════════════════════════════════════════════════════╝
                            │
