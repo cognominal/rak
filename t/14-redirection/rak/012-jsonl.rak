@@ -1,0 +1,49 @@
+use Test;
+
+plan 6;
+
+# ---------------------------------------------------------------------------
+# JSON Lines (issue 09): one compact JSON record per line. Value mode writes
+# one record per array element, >> appends one record, and a load gives the
+# array of records for @ and $ alike.
+# ---------------------------------------------------------------------------
+
+# 1. An array is written one compact record per line.
+{
+    my @a = { a => 1 }, [1, 2];
+    @a >j_write.jsonl;
+    is 'j_write.jsonl'->IO->slurp, qq[\{"a":1}\n[1,2]\n], '1: one compact record per line';
+    'j_write.jsonl'->IO->unlink;
+}
+
+# 2. >> appends one record per statement.
+{
+    my %r = n => 1;
+    %r >>j_append.jsonl;
+    %r = n => 2;
+    %r >>j_append.jsonl;
+    is 'j_append.jsonl'->IO->slurp, qq[\{"n":1}\n\{"n":2}\n], '2: >> appends a record';
+    'j_append.jsonl'->IO->unlink;
+}
+
+# 3-4. Loading gives the array of records.
+{
+    'j_read.jsonl'->IO->spurt(qq[\{"n":1}\n\{"n":2}\n]);
+    my @r <j_read.jsonl;
+    is-deeply @r, [{ n => 1 }, { n => 2 }], '3: my @r <file.jsonl';
+    my $r <j_read.jsonl;
+    is-deeply $r, [{ n => 1 }, { n => 2 }], '4: my $r <file.jsonl gives the same array';
+    'j_read.jsonl'->IO->unlink;
+}
+
+# 5-6. A malformed line is a decode error naming the line.
+{
+    'j_bad.jsonl'->IO->spurt(qq[\{"n":1}\n\{oops\n]);
+    my $e;
+    try { my @r <j_bad.jsonl; CATCH { default { $e = $_ } } }
+    isa-ok $e, X::Rak::Format::Decode, '5: a malformed record is a decode error';
+    ok $e && $e->message->contains('line 2'), '6: the error names the line';
+    'j_bad.jsonl'->IO->unlink;
+}
+
+done-testing();

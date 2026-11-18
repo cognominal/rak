@@ -1,6 +1,6 @@
 use Test;
 
-plan 3;
+plan 4;
 
 # ---------------------------------------------------------------------------
 # Gating test: a .raku file must NOT interpret `>` as redirection.
@@ -38,6 +38,15 @@ plan 3;
         CATCH { default { $threw = True } }
     }
     ok $threw, '3: .raku file does not accept input redirection syntax';
+}
+
+# 4. `LVALUE <file` is not a load in a .raku file: the spelling does not
+#    compile as Raku (an unterminated word list), so nothing is assigned.
+{
+    'gating_load.json'.IO.spurt('[1, 2, 3]');
+    my $loaded = try EVAL 'my @a <gating_load.json; @a.elems';
+    nok $loaded && $loaded == 3, '4: .raku file does not load with <file';
+    'gating_load.json'.IO.unlink;
 }
 
 done-testing();

@@ -1,0 +1,105 @@
+use Test;
+
+plan 15;
+
+# ---------------------------------------------------------------------------
+# Load (issue 07): `LVALUE <target` assigns the target's decoded content to
+# anything assignable. Sigils are checked strictly. A target with no format
+# loads as lines for @ and as one string for $.
+# ---------------------------------------------------------------------------
+
+'l_arr.json'->IO->spurt('[1, 2, 3]');
+'l_obj.json'->IO->spurt('{"name": "rak", "tags": ["a", "b"]}');
+'l_relaxed.json'->IO->spurt(q[{ name: 'rak', }]);
+'l_plain.txt'->IO->spurt("alpha\nbeta\n");
+
+# 1. An array into an @ declaration.
+{
+    my @a <l_arr.json;
+    is-deeply @a, [1, 2, 3], '1: my @a <file.json';
+}
+
+# 2. An object into a % declaration.
+{
+    my %h <l_obj.json;
+    is-deeply %h, { name => 'rak', tags => ['a', 'b'] }, '2: my %h <file.json';
+}
+
+# 3. $ accepts anything.
+{
+    my $x <l_arr.json;
+    is-deeply $x, [1, 2, 3], '3: my $x <file.json';
+}
+
+# 4. An existing variable is assigned.
+{
+    my @a = 9;
+    @a <l_arr.json;
+    is-deeply @a, [1, 2, 3], '4: @a <file.json assigns';
+}
+
+# 5. A subscript on the left.
+{
+    my %h;
+    %h<data> <l_arr.json;
+    is-deeply %h<data>, [1, 2, 3], '5: a subscripted left-hand side';
+}
+
+# 6. Relaxed JSON loads.
+{
+    my %h <l_relaxed.json;
+    is %h<name>, 'rak', '6: relaxed JSON loads';
+}
+
+# 7-9. Sigil mismatches fail with a shape error naming the target and types.
+{
+    throws-like { my @a <l_obj.json }, X::Rak::Format::Shape,
+        '7: @ with a JSON object is a shape error';
+    throws-like { my %h <l_arr.json }, X::Rak::Format::Shape,
+        '8: % with a JSON array is a shape error';
+    my $e;
+    try { my %h <l_arr.json; CATCH { default { $e = $_ } } }
+    ok $e && $e->message->contains('l_arr.json')
+          && $e->message->contains('object') && $e->message->contains('array'),
+        '9: the shape error names the target, the expected and the found type';
+}
+
+# 10-11. Invalid JSON fails with a decode error that gives the line.
+{
+    'l_bad.json'->IO->spurt("[1,\n\{");
+    my $e;
+    try { my $x <l_bad.json; CATCH { default { $e = $_ } } }
+    isa-ok $e, X::Rak::Format::Decode, '10: invalid JSON is a decode error';
+    ok $e && $e->message->contains('line 2'), '11: the decode error gives the line';
+    'l_bad.json'->IO->unlink;
+}
+
+# 12-13. A target with no format: lines for @, the whole text for $.
+{
+    my @l <l_plain.txt;
+    is-deeply @l, ['alpha', 'beta'], '12: @ loads a plain file as lines';
+    my $s <l_plain.txt;
+    is $s, "alpha\nbeta\n", '13: $ loads a plain file as one string';
+}
+
+# 14. Input redirection is unchanged: `<file STMT` reads raw text from $*IN.
+{
+    my $got;
+    <l_arr.json $got = $*IN->slurp;
+    is $got, '[1, 2, 3]', '14: <file STMT still binds $*IN to the raw text';
+}
+
+# 15. A spaced `<` is still a comparison.
+{
+    my $a = 1;
+    my $b = 2;
+    my $lt = $a < $b;
+    ok $lt, '15: $a < $b is a comparison';
+}
+
+'l_arr.json'->IO->unlink;
+'l_obj.json'->IO->unlink;
+'l_relaxed.json'->IO->unlink;
+'l_plain.txt'->IO->unlink;
+
+done-testing();

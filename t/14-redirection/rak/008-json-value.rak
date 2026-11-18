@@ -1,0 +1,114 @@
+use Test;
+
+plan 13;
+
+# ---------------------------------------------------------------------------
+# Value mode (issue 05, docs/adr/0004-format-targets-write-the-value-when-nothing-is-printed.md):
+# when the redirected statement prints nothing and the target has a format,
+# the statement's value is encoded. JSON output is pretty-printed with a
+# 2-space indent, sorted keys and a trailing newline.
+# ---------------------------------------------------------------------------
+
+# 1. An array value.
+{
+    my @a = 1, 2;
+    @a >v_array.json;
+    is 'v_array.json'->IO->slurp, "[\n  1,\n  2\n]\n", '1: @a >file.json writes @a as JSON';
+    'v_array.json'->IO->unlink;
+}
+
+# 2. A hash value: keys sorted, nested values, null, booleans.
+{
+    my %h = b => [1, 2.5, Any], a => { x => True };
+    %h >v_hash.json;
+    is 'v_hash.json'->IO->slurp,
+        qq:to/END/, '2: %h >file.json writes sorted, pretty JSON';
+        \{
+          "a": \{
+            "x": true
+          },
+          "b": [
+            1,
+            2.5,
+            null
+          ]
+        }
+        END
+    'v_hash.json'->IO->unlink;
+}
+
+# 3. A scalar value.
+{
+    my $x = 'hi';
+    $x >v_scalar.json;
+    is 'v_scalar.json'->IO->slurp, qq["hi"\n], '3: $x >file.json writes a JSON string';
+    'v_scalar.json'->IO->unlink;
+}
+
+# 4. The extension is matched ignoring case.
+{
+    my @a = 1, 2;
+    @a >v_upper.JSON;
+    is 'v_upper.JSON'->IO->slurp, "[\n  1,\n  2\n]\n", '4: .JSON is the json format';
+    'v_upper.JSON'->IO->unlink;
+}
+
+# 5. The format is chosen at run time, from a variable target.
+{
+    my $f = 'v_var.json';
+    my @a = 1, 2;
+    @a >$f;
+    is $f->IO->slurp, "[\n  1,\n  2\n]\n", '5: >$var picks the format at run time';
+    $f->IO->unlink;
+}
+
+# 6. A Rat with no exact decimal form is written as a floating-point number.
+{
+    my $r = 1/3;
+    $r >v_third.json;
+    is 'v_third.json'->IO->slurp, "0.3333333333333333\n", '6: 1/3 is written as a float';
+    'v_third.json'->IO->unlink;
+}
+
+# 7-9. A value with no JSON form fails with an encode error and leaves an
+#      existing target untouched.
+{
+    'v_keep.json'->IO->spurt("[1]\n");
+    throws-like { set(1, 2) >v_keep.json }, X::Rak::Format::Encode,
+        '7: a Set has no JSON form';
+    throws-like { Inf >v_keep.json }, X::Rak::Format::Encode,
+        '8: Inf has no JSON form';
+    is 'v_keep.json'->IO->slurp, "[1]\n", '9: a failed encode leaves the target untouched';
+    'v_keep.json'->IO->unlink;
+}
+
+# 10. The encode error is a format error.
+{
+    my $e;
+    try { set(1) >v_err.json; CATCH { default { $e = $_ } } }
+    isa-ok $e, X::Rak::Format, '10: encode errors are X::Rak::Format';
+    'v_err.json'->IO->unlink if 'v_err.json'->IO->e;
+}
+
+# 11. A target with no format keeps ADR 0002's rule: no output, empty file.
+{
+    my $x = 42;
+    $x >v_plain.txt;
+    is 'v_plain.txt'->IO->s, 0, '11: a value is not written to a plain-text target';
+    'v_plain.txt'->IO->unlink;
+}
+
+# 12-13. The binding still ends with the statement.
+{
+    my @a = 1;
+    @a >v_scope.json;
+    ok 'v_scope.json'->IO->e, '12: target written';
+    my $*OUT = open('v_outer.txt', :w);
+    print 'after';
+    $*OUT->close;
+    is 'v_outer.txt'->IO->slurp, 'after', '13: the next statement is not redirected';
+    'v_scope.json'->IO->unlink;
+    'v_outer.txt'->IO->unlink;
+}
+
+done-testing();

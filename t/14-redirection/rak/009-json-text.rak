@@ -1,0 +1,67 @@
+use Test;
+
+plan 9;
+
+# ---------------------------------------------------------------------------
+# Text mode for format targets (issue 06): when the statement prints, the
+# printed text must decode as JSON (relaxed: unquoted keys, single quotes,
+# trailing commas) and is written re-encoded as standard JSON.
+#
+# Note: inside double quotes `{ ... }` interpolates a block, so JSON-looking
+# text is written with single quotes or q[] here.
+# ---------------------------------------------------------------------------
+
+# 1. Strict JSON printed is written back normalised.
+{
+    print q[{"b":1,"a":2}] >t_strict.json;
+    is 't_strict.json'->IO->slurp, qq[\{\n  "a": 2,\n  "b": 1\n}\n],
+        '1: printed strict JSON is normalised';
+    't_strict.json'->IO->unlink;
+}
+
+# 2. Relaxed JSON is accepted and normalised.
+{
+    print q[{ a: 'a', }] >t_relaxed.json;
+    is 't_relaxed.json'->IO->slurp, qq[\{\n  "a": "a"\n}\n],
+        '2: unquoted key, single quotes and trailing comma are accepted';
+    't_relaxed.json'->IO->unlink;
+}
+
+# 3. `say` of an array prints its gist, which is not JSON.
+{
+    my @a = 1, 2, 3;
+    throws-like { say @a >t_gist.json }, X::Rak::Format::Decode,
+        '3: say @a >file.json fails: the gist is not JSON';
+    't_gist.json'->IO->unlink if 't_gist.json'->IO->e;
+}
+
+# 4. A statement that prints and returns a value is in text mode.
+{
+    sub both() { print '[1]'; 42 }
+    both() >t_both.json;
+    is 't_both.json'->IO->slurp, "[\n  1\n]\n", '4: printed text wins over the value';
+    't_both.json'->IO->unlink;
+}
+
+# 5-7. A decode failure leaves the target untouched and says where it failed.
+{
+    't_keep.json'->IO->spurt("[1]\n");
+    my $e;
+    try { print "[1,\n\{" >t_keep.json; CATCH { default { $e = $_ } } }
+    isa-ok $e, X::Rak::Format::Decode, '5: invalid JSON is a decode error';
+    ok $e->message->contains('t_keep.json') && $e->message->contains('line 2'),
+        '6: the error names the target and the line';
+    is 't_keep.json'->IO->slurp, "[1]\n", '7: the old content survives';
+    't_keep.json'->IO->unlink;
+}
+
+# 8-9. Appending to a .json target is an error that points at .jsonl.
+{
+    my $e;
+    try { say 1 >>t_append.json; CATCH { default { $e = $_ } } }
+    isa-ok $e, X::Rak::Format, '8: >> to a .json target fails';
+    ok $e && $e->message->contains('.jsonl'), '9: the error suggests .jsonl';
+    't_append.json'->IO->unlink if 't_append.json'->IO->e;
+}
+
+done-testing();

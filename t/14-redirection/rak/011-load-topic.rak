@@ -1,0 +1,39 @@
+use Test;
+
+plan 4;
+
+# ---------------------------------------------------------------------------
+# Load into the topic (issue 08): a bare `<target` statement loads into $_,
+# so a following leading dotty subscript reaches into the data.
+# ---------------------------------------------------------------------------
+
+'lt_data.json'->IO->spurt('{"name": "rak", "users": [{"name": "ann"}, {"name": "bob"}]}');
+
+# 1. A bare load sets the topic.
+{
+    <lt_data.json;
+    is .name, 'rak', '1: <file.json loads into $_';
+}
+
+# 2. A dotty chain reaches nested data.
+{
+    <lt_data.json;
+    is .users.1.name, 'bob', '2: .users.1.name walks the loaded data';
+}
+
+# 3. The loaded topic is a Hash.
+{
+    <lt_data.json;
+    isa-ok $_, Hash, '3: the topic holds the decoded object';
+}
+
+# 4. With a statement after the target, it is input redirection, not a load.
+{
+    my $got;
+    <lt_data.json $got = $*IN->get;
+    ok $got->starts-with('{"name"'), '4: <file STMT is still input redirection';
+}
+
+'lt_data.json'->IO->unlink;
+
+done-testing();
