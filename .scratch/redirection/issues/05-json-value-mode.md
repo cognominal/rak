@@ -10,14 +10,27 @@ exactly as today (`$x >f.txt` still leaves an empty file).
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Tests:** `t/14-redirection/rak/008-json-value.rak`
 
-- [ ] `@a >a.json`, `%h >h.json`, `$x >x.json` write the value as JSON; keys are sorted.
-- [ ] `.JSON` is recognised; `>$f` with `$f = 'v.json'` is recognised at run time.
-- [ ] `Any` is written as `null`; `Int`, `Rat` (shortest exact decimal; `1/3` as a float)
+- [X] `@a >a.json`, `%h >h.json`, `$x >x.json` write the value as JSON; keys are sorted.
+- [X] `.JSON` is recognised; `>$f` with `$f = 'v.json'` is recognised at run time.
+- [X] `Any` is written as `null`; `Int`, `Rat` (shortest exact decimal; `1/3` as a float)
       and `Bool` are written natively.
-- [ ] A value with no JSON form (`Set`, `Inf`, an arbitrary object) fails with
+- [X] A value with no JSON form (`Set`, `Inf`, an arbitrary object) fails with
       `X::Rak::Format::Encode`, and an existing target is left untouched.
-- [ ] `$x >f.txt` still writes nothing (ADR 0002 unchanged for plain targets).
+- [X] `$x >f.txt` still writes nothing (ADR 0002 unchanged for plain targets).
+
+## Answer
+
+Output redirection now compiles to `RAK-REDIRECT-OUT(target, mode, { STMT })`, a setting
+helper in `src/core.c/Rakudo/Internals/RakFormat.rakumod`, so the format is chosen at run
+time. A target with no format streams through a bound `$*OUT` exactly as before. A `.json`
+target binds `$*OUT` to an in-memory capture; if nothing was printed, the value is encoded
+by a rak encoder (the core `Rakudo::Internals::JSON` loses precision on `Rat`s, writes
+`Inf` as `null` and emits invalid JSON for a `Set`; only its string escaping is reused).
+The result is spurted to a temporary file and renamed over the target. `X::Rak::Format`
+and `X::Rak::Format::Encode` are defined there too. Printed text currently goes to the
+target unchecked; issue 06 adds the decode check. `>>` to a `.json` target already fails
+(issue 06's last box). `t/14-redirection/rak/008-json-value.rak`: 13/13.

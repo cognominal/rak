@@ -207,6 +207,7 @@ src/core.c/Kernel.rakumod
 src/core.c/Compiler.rakumod
 src/core.c/Raku.rakumod
 src/core.c/Rakudo/Internals/JSON.rakumod
+src/core.c/Rakudo/Internals/RakFormat.rakumod
 src/core.c/Distribution.rakumod
 src/core.c/Distribution/Locally.rakumod
 src/core.c/Distribution/Hash.rakumod

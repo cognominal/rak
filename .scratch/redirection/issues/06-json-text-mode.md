@@ -18,4 +18,4 @@ existing file untouched. `>>` to a `.json` target is an error.
 - [ ] `say @a >a.json` prints a gist that is not JSON, so it fails with a decode error.
 - [ ] A statement that prints *and* returns a value is in text mode.
 - [ ] Decode failure leaves an existing target byte-for-byte untouched.
-- [ ] `say 1 >>a.json` fails; the error mentions `.jsonl`.
+- [X] `say 1 >>a.json` fails; the error mentions `.jsonl`. (Done with 05.)

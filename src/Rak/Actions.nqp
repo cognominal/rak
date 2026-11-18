@@ -1096,12 +1096,10 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             # behaviour (see docs/adr/0002-redirection-binds-the-statement-stream.md).
             if $<statement-mod-redir> && $*RAK-SEMANTICS {
                 my $mode := ~$<statement-mod-redir><op> eq '>>' ?? 'a' !! 'w';
-                $statement := self.redirected-statement(
-                    $/,
+                $statement := self.output-redirected-statement(
                     $statement,
                     $<statement-mod-redir>.ast,
-                    $mode,
-                    'OUT'
+                    $mode
                 );
             }
         }
@@ -1700,13 +1698,11 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
 #-------------------------------------------------------------------------------
 # Redirection statement modifier (rak syntax only)
 
-    # Wrap a statement so that a dynamic stream variable ($*OUT for output
-    # redirection, $*IN for input redirection) is bound to the redirection
-    # target for the duration of that statement alone. The statement itself is
-    # left alone, so the routine it invokes keeps its own writing behaviour:
-    # `print` keeps its missing newline, and a routine writing to $*ERR is not
-    # captured by an output redirection. The handle is released when the
-    # wrapping block's frame goes away, which flushes the bytes to disk.
+    # Wrap a statement so that a dynamic stream variable (today only $*IN, for
+    # input redirection; output redirection goes through RAK-REDIRECT-OUT
+    # below) is bound to the redirection target for the duration of that
+    # statement alone. The statement itself is left alone. The handle is
+    # released when the wrapping block's frame goes away.
     method redirected-statement($/, $statement, $filename-ast, str $mode, str $stream) {
         my $stream-name := '$*' ~ $stream;
         my $open-call := Nodify('Call::Name').new(
@@ -1753,6 +1749,28 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             :expression(Nodify('Block').new(
                 :body(Nodify('Blockoid').new($body))
             ).to-begin-time($*R, $*CU.context))
+        )
+    }
+
+    # Output redirection: the statement becomes a thunk handed to the setting's
+    # RAK-REDIRECT-OUT together with the target and the mode. The target's
+    # format is only known at run time (`>$f`), so the helper decides there
+    # whether to stream $*OUT to the file or, for a target with a format, to
+    # write the printed text or the encoded value
+    # (docs/adr/0004-format-targets-write-the-value-when-nothing-is-printed.md).
+    method output-redirected-statement($statement, $filename-ast, str $mode) {
+        my $thunk := Nodify('Block').new(
+            :body(Nodify('Blockoid').new(Nodify('StatementList').new($statement)))
+        ).to-begin-time($*R, $*CU.context);
+        Nodify('Statement::Expression').new(
+            :expression(Nodify('Call::Name').new(
+                name => Nodify('Name').from-identifier('RAK-REDIRECT-OUT'),
+                args => Nodify('ArgList').new(
+                    $filename-ast,
+                    Nodify('StrLiteral').new($mode),
+                    $thunk
+                )
+            ))
         )
     }
 

@@ -28,7 +28,7 @@ statement prints to the terminal again.
 - `$*OUT` and `$*IN` stay the only stream surface: no new stream API is introduced.
 - Because the binding is dynamic and per-statement, the same statement can be redirected
   differently in two places in one file with no interference.
-- A statement that produces no output writes nothing: `$x >f` leaves an empty file and
-  warns about a useless use in sink context. The earlier `say`-shaped rewrite wrote the
+- A statement that produces no output writes nothing: `$x >f` leaves an empty file. (For
+  a target with a format, see `docs/adr/0004-format-targets-write-the-value-when-nothing-is-printed.md`.) The earlier `say`-shaped rewrite wrote the
   statement's value, so this is a visible change of meaning, and the intended spelling for
   writing a value is `say $x >f`.
