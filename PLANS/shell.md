@@ -22,6 +22,73 @@ Running a file with .raku extension is done with traditional semantic.
 Rak being a shell in a terminal, this doc defines the two terms and gives a short history.
 It also talks about charmbracelet, state of the art libraries to use terminal features.
 
+## Contents
+
+- [Implementation stages](#implementation-stages)
+- [Raku's costly features](#rakus-costly-features)
+- [Perl and Raku](#perl-and-raku)
+- [What a shell actually is](#what-a-shell-actually-is)
+- [1963–65 — Louis Pouzin's RUNCOM (CTSS)](#196365--louis-pouzins-runcom-ctss)
+- [1965–70 — Multics: the shell gets its name and its job](#196570--multics-the-shell-gets-its-name-and-its-job)
+- [1971 — the Thompson shell (Unix v1–v6)](#1971--the-thompson-shell-unix-v1v6)
+- [1977 — the Bourne shell (`sh`)](#1977--the-bourne-shell-sh)
+- [1978 — the C shell (`csh`)](#1978--the-c-shell-csh)
+- [1983 — the Korn shell (`ksh`)](#1983--the-korn-shell-ksh)
+- [1987 — Aside: Perl, and what it did with shell's naked words and sigils](#1987--aside-perl-and-what-it-did-with-shells-naked-words-and-sigils)
+- [1989 — Bash (Bourne-Again SHell)](#1989--bash-bourne-again-shell)
+- [1990 — Z shell (`zsh`)](#1990--z-shell-zsh)
+- [2005 — fish (friendly interactive shell)](#2005--fish-friendly-interactive-shell)
+- [2006 — PowerShell: the first real break with "everything is text"](#2006--powershell-the-first-real-break-with-everything-is-text)
+- [2019 — Nushell: structured data, Unix-flavored](#2019--nushell-structured-data-unix-flavored)
+- [A parallel history: terminals, from Teletypes to Herdr](#a-parallel-history-terminals-from-teletypes-to-herdr)
+  - [Accessing charmbracelet from Perl and Raku](#accessing-charmbracelet-from-perl-and-raku)
+- [Terminal timeline at a glance](#terminal-timeline-at-a-glance)
+- [Shell timeline at a glance](#shell-timeline-at-a-glance)
+- [Perl — from duct tape to solipsism](#perl--from-duct-tape-to-solipsism)
+- [The throughline](#the-throughline)
+- [rak as the outer layer: the best of both worlds](#rak-as-the-outer-layer-the-best-of-both-worlds)
+  - [Naked strings without Perl's trap](#naked-strings-without-perls-trap)
+  - [Spacing makes room for shell syntax](#spacing-makes-room-for-shell-syntax)
+  - [Redirection on values, not only bytes](#redirection-on-values-not-only-bytes)
+  - [Walking data, à la jq](#walking-data-à-la-jq)
+  - [Pipes: a stage can still be a command](#pipes-a-stage-can-still-be-a-command)
+  - [irak: the REPL as a pipe through time](#irak-the-repl-as-a-pipe-through-time)
+  - [Speed](#speed)
+  - [Open questions](#open-questions)
+  - [Status](#status)
+- [rak and the Perl Power Tools](#rak-and-the-perl-power-tools)
+  - [Where they meet](#where-they-meet)
+  - [What rak lacks that PPT had](#what-rak-lacks-that-ppt-had)
+  - [What PPT teaches](#what-ppt-teaches)
+- [Larry Wall, natural language and pragmatics](#larry-wall-natural-language-and-pragmatics)
+  - [Pragmatics](#pragmatics)
+  - [Spoken first](#spoken-first)
+  - [The command line is a conversation](#the-command-line-is-a-conversation)
+- [Huffing: rak and the Huffman principle](#huffing-rak-and-the-huffman-principle)
+  - [Natural language huffs itself](#natural-language-huffs-itself)
+  - [What rak huffs](#what-rak-huffs)
+  - [What huffing costs](#what-huffing-costs)
+- [forking rakudo to rak to make it a (also) a shell](#forking-rakudo-to-rak-to-make-it-a-also-a-shell)
+  - [examples](#examples)
+- [naked strings](#naked-strings)
+- [operators](#operators)
+  - [Binary operators](#binary-operators)
+- [other adaptations](#other-adaptations)
+- [Boxing, Scalars, and why rak sigils skip them](#boxing-scalars-and-why-rak-sigils-skip-them)
+  - [The cost of `$`](#the-cost-of-)
+  - [The rak sigils: native by default, no boxing](#the-rak-sigils-native-by-default-no-boxing)
+  - [Why native values, not boxes?](#why-native-values-not-boxes)
+  - [What you give up](#what-you-give-up)
+- [The `~` sigil — native `str`](#the--sigil--native-str)
+- [The `#` sigil — native `int`](#the--sigil--native-int)
+- [Proposed `^` sigil — native `num` (float)](#proposed--sigil--native-num-float)
+- [Walking data structures with `.` (dotty subscript sugar)](#walking-data-structures-with--dotty-subscript-sugar)
+  - [The problem `~`/`#` solve](#the-problem--solve)
+  - [The dotty sugar (`.rak` mode)](#the-dotty-sugar-rak-mode)
+  - [`->` for parameterless method calls](#--for-parameterless-method-calls)
+  - [Why `~`/`#` are the prerequisite](#why--are-the-prerequisite)
+  - [What about `^` in the dotty sugar?](#what-about--in-the-dotty-sugar)
+
 ## Implementation stages
 
 We keep the hard parts last.
@@ -446,13 +513,15 @@ a library network that no other language matched for years. TIMTOWTDI
 ("There's More Than One Way To Do It") was celebrated as freedom from
 dogma.
 
-In 1998–99 Tom Christiansen launched the **Perl Power Tools** (also
-called ppt or PIT), a project that rewrote every standard Unix command
-— `cat`, `ls`, `grep`, `find`, `sort`, `diff`, `make`, `yacc`, and
-hundreds more — entirely in pure Perl. The goal was portability: if you
-had the Perl interpreter, you had a Unix environment, whether you were
-on VMS, Windows, or an embedded board. The project reached over 200
-commands and was bundled as `ppt` on CPAN. It was a logical end point
+In 1999 Tom Christiansen launched the **Perl Power Tools** (PPT), a
+project that rewrote the standard Unix commands — `cat`, `ls`, `grep`,
+`find`, `sort`, `diff`, `od`, `tar` and many more — in pure Perl, one
+standalone script per command. The goal was portability: wherever Perl
+ran, Unix's tools ran too, including systems that came without them.
+Many contributors joined (Abigail wrote `cat`), and some commands got
+competing versions. The project stalled in the 2000s; brian d foy
+revived it, and it ships on CPAN as `PerlPowerTools` (`ppt` was its old
+name), with about 120 programs today. It was a logical end point
 for Perl's original mission — the language that began as "better awk +
 sed" now swallowed the entire Unix toolchain — but it also foreshadowed
 a turn inward: rather than improving the system's tools, Perl would
@@ -699,6 +768,52 @@ Done: naked strings, spacing as syntax, redirection with formats and
 loads, dotty subscripts, the irak topic, and the new sigils. Planned:
 running external commands, pipes, `alias`/`type`, globbing, indentation
 in place of braces, and URL redirection targets.
+
+## rak and the Perl Power Tools
+
+The [Perl Power Tools](#perl--from-duct-tape-to-solipsism) and rak ask
+the same question: how should the Unix toolbox relate to a language of
+the Perl family? They give opposite answers. PPT rewrote the *commands*
+in Perl, and Perl stayed a guest in someone else's shell. rak rewrites
+the *shell* into the language, and commands become optional.
+
+| | Perl Power Tools (1999) | rak |
+|---|---|---|
+| **What is reimplemented** | The commands (`cat`, `ls`, `grep`…), one script each | The shell: words, pipes, redirections, aliases, as syntax of the language |
+| **Unit of reuse** | A process: run `cat` from `$PATH` | A routine, method or block called in-process; external commands remain possible stages |
+| **Who owns the pipe** | The host shell (`sh`, `cmd.exe`) | rak: `\|` is the [pipe](../GLOSSARY.md#pipe) in the [shell strategy](../GLOSSARY.md#shell-strategy) |
+| **Data between stages** | Bytes and lines, parsed again by every program | Typed values (lazy `Seq` or `Supply`); bytes only where a stage is an external command |
+| **Redirection** | The host shell's, moving bytes | In the language, and format-aware: `@a >a.json`, `my %h <h.json` |
+| **Goal** | Portability: wherever Perl runs, Unix's tools run | Expressivity: a shell's brevity and a language's power in one statement |
+| **Model** | Clones of the POSIX tools, flags included | jq: stages are filters over values, and the language takes over what commands did |
+| **Process cost** | Each command pays a full Perl startup, slower than the C tool | One process; the `~` and `#` sigils target the "too slow for small tools" complaint |
+
+### Where they meet
+
+Both move work from external binaries into the language. PPT did it by
+duplication: each tool kept its interface and its process boundary. The
+scripts have no callable API, so reusing one from Perl meant copying its
+code or running it with `system`. Some PPT commands were not even pure
+Perl: `awk` is a front end to Larry Wall's `a2p` translator. rak does it
+by absorption: `<data.json | .users | map .name` replaces
+`cat data.json | jq '.users[].name'` with no process at all. rak needs no
+`cat.pl`, because a [load](../GLOSSARY.md#load) (`<file`) is syntax.
+
+### What rak lacks that PPT had
+
+rak has no library of command equivalents. The plan does not say yet
+whether `sort`, `uniq` or `wc` become rak routines, stay as `$PATH`
+commands, or both. The open question on name resolution (Raku `sort` or
+`/usr/bin/sort`?) is where PPT's idea could return, in a form PPT never
+had: in-process routines that behave like the commands and pass values,
+not bytes.
+
+### What PPT teaches
+
+Cloning every POSIX flag of a hundred tools is endless work with little
+reward, and it is part of why PPT stalled. rak's jq-like route avoids
+it: a few composable operations on values, and real commands for
+everything else.
 
 ## Larry Wall, natural language and pragmatics
 
