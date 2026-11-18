@@ -67,3 +67,25 @@ The prefix form `STMT` written as `<target STMT`.
 The file the operator is attached to. It is a naked string, a quoted string, or a
 variable.
 _Avoid_: filename argument, path expression, output file.
+
+**load**:
+The suffix form `LVALUE <target`: the target's content, decoded by its format, is assigned
+to the left-hand side, which can be anything assignable (`my %cfg <cfg.json`). A bare
+`<target` with nothing on the left loads into the topic `$_`. Unlike input redirection,
+the standard input stream is not involved.
+_Avoid_: slurp-assign, suffix input redirection.
+
+**format**:
+How a redirection target's content is decoded and encoded, chosen from the target's
+extension, ignoring case (`.json`, `.jsonl`). A target whose extension has no format is
+plain text.
+_Avoid_: codec, file type, serializer.
+
+**text mode**:
+How output redirection behaves when the statement prints: the printed text is what goes to
+the target. If the target has a format, that text must decode in it, and is re-encoded in
+standard form.
+
+**value mode**:
+How output redirection behaves when the statement prints nothing and the target has a
+format: the statement's value is encoded and written.
