@@ -107,11 +107,11 @@ sub f(~x, #y) { … }
 | `%h.~k` | `%h{~k}` |
 | `@a.#i` | `@a[#i]` |
 | `%h.toto.#i` | `%h<toto>[#i]` |
+| `@a.1.0`, `%h.users.1.name` | `@a[1][0]`, `%h<users>[1]<name>` |
 
-All of them are lvalues: `%h.x = 3`, `@a.0 = 9`.
+They stack, and all of them are lvalues: `%h.x = 3`, `@a.0 = 9`, `@a.1.1 = 9`.
 
-`.1.1` chaining is not done yet. Write `.1[1]` for now. `%h.$key` keeps its Raku
-meaning (indirect method call). It is not a subscript.
+`%h.$key` keeps its Raku meaning (indirect method call). It is not a subscript.
 
 ### Method calls
 
@@ -143,7 +143,9 @@ given { a => 1, b => [5, 6] } {
 ## Redirection
 
 The operator touches its target. The target is a naked string, a quoted string or
-a variable. A naked target that starts with a digit (`>123.txt`) is not a target.
+a variable. A naked target that starts with a digit (`>123.txt`) is not a target,
+except for a load: `$a <5` loads the file `5` and warns at compile time. Write
+`$a < 5` to compare.
 
 | Form | Meaning |
 |---|---|
