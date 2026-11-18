@@ -40,19 +40,30 @@ The file extension decides. A file with no extension falls back to
 | `spurt 'f.json', to-json @a` | `@a >f.json` |
 | `my %h = from-json slurp 'f.json'` | `my %h <f.json` |
 
-## Naked strings
+## Words: routine calls and naked strings
 
-An unquoted word is a `Str` literal when it starts with a letter or `_`, contains
-no whitespace, and is **not**:
+An unquoted word that names a routine already known *at that point in the file*
+(your own `sub`s or built-ins) calls it. No parentheses are needed: the words
+after it are its arguments.
+
+```rak
+sub double($x) { $x * 2 }
+say double 3                  # 6
+say uc hello                  # HELLO
+```
+
+Any other word is a **naked string**: a `Str` literal. That applies to a word that
+starts with a letter or `_`, contains no whitespace, and is **not**:
 
 - a keyword (`if`, `given`, `return`, …),
-- a routine or variable already known *at that point in the file*,
-- followed directly by `(`.
+- a routine or variable already known at that point,
+- followed directly by `(` (that is always a call, even before the declaration).
 
 ```rak
 say foo                       # foo
 say foo; sub foo { 42 }       # foo  (foo not yet declared)
-sub foo { 42 }; say foo       # 42
+sub foo { 42 }; say foo       # 42   (foo is known: it is called)
+say bar(1); sub bar($x) { $x + 1 }   # 2
 say log123                    # log123
 ```
 
@@ -242,7 +253,7 @@ Welcome to irak, the rak shell.
   compile inside `(…)` or `[…]` with "Unexpected closing bracket":
   `[<a b>, <c d>]` breaks. Use `qw` or quotes there.
 - `foo` is a string until `sub foo` has been parsed. Declare routines before you
-  call them without parentheses.
+  call them without parentheses, or call them with `foo(…)`.
 - `.meth` without parentheses is now a subscript. When porting Raku, change it to
   `->meth`.
 
