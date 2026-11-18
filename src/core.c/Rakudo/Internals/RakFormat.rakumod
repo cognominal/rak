@@ -25,6 +25,19 @@ my class X::Rak::Format::Decode is X::Rak::Format {
     }
 }
 
+# Load found content whose shape does not fit the left-hand side's sigil.
+my class X::Rak::Format::Shape is X::Rak::Format {
+    has Str $.name;
+    has Str $.expected;
+    has Str $.found;
+    method message() {
+        my $what := $.format ?? $.format.uc ~ ' ' ~ $!expected !! $!expected;
+        "$.target: expected {self!a($what)} $what for $!name, "
+          ~ "found {self!a($!found)} $!found"
+    }
+    method !a(Str:D $word) { nqp::index('aeiou', nqp::substr($word, 0, 1)) >= 0 ?? 'an' !! 'a' }
+}
+
 # A relaxed JSON decoder: on top of standard JSON it accepts unquoted
 # (identifier) keys, single-quoted strings, trailing commas, a leading `+` on
 # numbers, and `//` and `/* */` comments. Objects decode to Hash, arrays to
@@ -414,6 +427,44 @@ sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code) is implementation-detail
         my \result = code();
         nqp::istype(result, Seq) ?? result.eager !! result
     }
+}
+
+# Load, `LVALUE <target`: the target's content, for assignment to LVALUE. A
+# target with a format is decoded and must have the shape the sigil asks for
+# (@ an array, % an object, ~ a string, # an integer, $ anything). A target
+# without one loads as lines for @, as the whole text otherwise.
+sub RAK-LOAD(Str() $target, Str:D $sigil, Str:D $name) is raw is implementation-detail {
+    my $format := Rakudo::Internals::RakFormat.of($target);
+    my $text   := $target.IO.slurp;
+    $text.throw if nqp::istype($text, Failure);
+
+    sub shape(\v) {
+        nqp::istype(v, Failure)                ?? 'failure'
+          !! nqp::not_i(nqp::isconcrete(v))    ?? 'null'
+          !! nqp::istype(v, Bool)              ?? 'boolean'
+          !! nqp::istype(v, Str)               ?? 'string'
+          !! nqp::istype(v, Int)               ?? 'integer'
+          !! nqp::istype(v, Numeric)           ?? 'number'
+          !! nqp::istype(v, Map)               ?? 'object'
+          !! nqp::istype(v, Positional)        ?? 'array'
+          !! v.^name
+    }
+    my %expected := { '@' => 'array', '%' => 'object', '~' => 'string', '#' => 'integer' };
+
+    my \value = $format
+      ?? Rakudo::Internals::RakFormat.decode($format, $text, $target)
+      !! $sigil eq '@' ?? $text.lines.Array
+      !! $sigil eq '#' ?? ($text.trim.Int // $text.trim)
+      !! $text;
+
+    if %expected{$sigil} -> $expected {
+        my $found := shape(value);
+        X::Rak::Format::Shape.new(
+          :$target, :format($format // Str), :$name, :$expected, :$found,
+          :reason("expected $expected for $name, found $found")
+        ).throw unless $found eq $expected;
+    }
+    $sigil eq '@' || $sigil eq '%' ?? value<> !! value
 }
 
 # vim: expandtab shiftwidth=4

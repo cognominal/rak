@@ -1472,6 +1472,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           | <EXPR>
             :dba('statement end')
             [
+              || <?{ $*RAK-SEMANTICS }> <statement-mod-load>
               || <?{ $*RAK-SEMANTICS }> <statement-mod-redir>
               || <?MARKED('end-statement')>
               || :dba('statement modifier')
@@ -1963,6 +1964,21 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         <.ws>
         $<op> = [ '>>' | '>' ]
         <?{ !self.after-ws($/) }> <redir-filename>
+    }
+
+    # Load, `LVALUE <target`: a `<` touching its target at the end of a
+    # statement assigns the target's decoded content to the left-hand side.
+    # A spaced `<` is a comparison (infix:sym«<» needs the space), so a
+    # touching numeric target still loads, but warns.
+    token statement-mod-load {
+        <.ws>
+        '<' <?{ !self.after-ws($/) }>
+        [
+        || <redir-filename>
+        || $<numeric>=[<[0..9]> <[a..zA..Z0..9_./\-]>*]
+           { $/.worry("`<" ~ $<numeric> ~ "` loads the file '" ~ $<numeric>
+               ~ "'; put a space after `<` to compare") }
+        ]
     }
 
     token redir-filename {

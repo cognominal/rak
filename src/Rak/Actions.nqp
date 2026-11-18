@@ -1084,7 +1084,19 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
                   :infix(Nodify('Infix').new(',').to-begin-time($*R, $context)),
                   :operands($ast.colonpairs);
             }
-            $statement := Nodify('Statement::Expression').new(:expression($ast.to-begin-time($*R, $context)));
+            $ast := $ast.to-begin-time($*R, $context);
+            # Load (.rak syntax), `LVALUE <target`: the left-hand side is
+            # handed, as a container, to the setting's RAK-LOAD together with
+            # its sigil, which decides the shape the content must have.
+            if $<statement-mod-load> && $*RAK-SEMANTICS {
+                my $load := $<statement-mod-load>;
+                $ast := self.load-expression($<EXPR>, $ast,
+                  $load<redir-filename>
+                    ?? $load<redir-filename>.ast
+                    !! Nodify('QuotedString').new(
+                         segments => [Nodify('StrLiteral').new(~$load<numeric>)]));
+            }
+            $statement := Nodify('Statement::Expression').new(:expression($ast));
             $statement.replace-condition-modifier($<statement-mod-cond>.ast)
               if $<statement-mod-cond>;
             $statement.replace-loop-modifier($<statement-mod-loop>.ast)
@@ -1773,6 +1785,37 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             ))
         )
     }
+
+    # Load: `LVALUE <target` becomes `LVALUE = RAK-LOAD(target, sigil, name)`.
+    # The sigil comes from a declared or plain variable on the left; anything
+    # else (a subscript, a call) is treated like a `$` and accepts any shape.
+    method load-expression($expr-match, $lvalue, $filename-ast) {
+        my str $sigil := '$';
+        my str $name  := nqp::join(' ', nqp::split("\n", ~$expr-match));
+        if nqp::istype($lvalue, Nodify('VarDeclaration::Simple'))
+          || nqp::istype($lvalue, Nodify('Var::Lexical'))
+          || nqp::istype($lvalue, Nodify('Var::Dynamic'))
+          || nqp::istype($lvalue, Nodify('Var::Package')) {
+            $sigil := $lvalue.sigil;
+            $name  := $lvalue.name if nqp::can($lvalue, 'name') && nqp::isstr($lvalue.name);
+        }
+        my $load := Nodify('Call::Name').new(
+            name => Nodify('Name').from-identifier('RAK-LOAD'),
+            args => Nodify('ArgList').new(
+                $filename-ast,
+                Nodify('StrLiteral').new($sigil),
+                Nodify('StrLiteral').new($name)
+            )
+        );
+        Nodify('ApplyInfix').new(
+            infix => Nodify('Assignment').new(
+                :item(!($sigil eq '@' || $sigil eq '%'))),
+            left  => $lvalue,
+            right => $load
+        )
+    }
+
+    method statement-mod-load($/) { }
 
     method statement-mod-redir($/) {
         my $ast := $<redir-filename>.ast;
