@@ -1,7 +1,8 @@
 # Roadmap
 
 This is a tentative roadmap, not a timeline: it says in which version of rak each
-feature is expected to land.
+feature is expected to land. It is unrelated to `docs/ROADMAP`, the upstream Rakudo
+roadmap, which has not been updated in more than ten years.
 
 No version has been released yet. I intend to publish 0.1 and later versions on the
 AUR. Rakudo itself is not in the official Arch repositories; it is only in the AUR
