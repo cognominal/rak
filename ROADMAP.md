@@ -30,7 +30,9 @@ lists: DONE and TBD.
 - **0.3**: pattern matching in data structures (live or deserialized) using double sigilled vars. Support of YAML
 - **0.4**: indentation as syntax.
 - **0.5**: tooling: [LSP](https://microsoft.github.io/language-server-protocol/)
-  support, syntax highlighting.
+  support, syntax highlighting. irak will also need new interactions to fully fit it as a
+  [spoken language](PLANS/background/larry-wall.md#the-command-line-is-a-conversation);
+  what they would be is still unknown.
 - **0.6** for performance support utf-8 regexen by adapting the eponymous rust package. Default in irak. Raku syntax unchanged.
 - **0.7**: a github.io site, and a programming course built with the `/teachme`
   skills that uses irak, rak and agents. It may use [Tauri](https://tauri.app/) and
