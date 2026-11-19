@@ -19,6 +19,7 @@ lists: DONE and TBD.
   - TBD: aliases, web redirections, globbing, recalling and editing previous
     submissions with the up and down arrows.
 - **0.2**: ZLE-style completion, a configurable prompt.
+- **0.3**: reserved for features I don't anticipate yet.
 - **0.4**: indentation as syntax.
 - **0.5**: tooling: LSP support, syntax highlighting.
 - **0.6**: a github.io site, and a programming course built with the `/teachme`
