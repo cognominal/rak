@@ -102,7 +102,7 @@ using a `$` prefix"
 [copy](https://gist.github.com/uzluisf/9ef7a3ede109b32e15085a6beccfa7c4)).
 rak's naked strings take that distinction back: a naked string mentions
 a word, and a sigil uses a variable. Raku went further toward the formal
-register. rak takes up the opportunity: the standard strategy is the
+[register](https://en.wikipedia.org/wiki/Register_(sociolinguistics)). rak takes up the opportunity: the standard strategy is the
 written register, the shell strategy is the spoken one, and irak is the
 conversation, where the irak topic `$_` is the "it" of the previous irak
 submission.
