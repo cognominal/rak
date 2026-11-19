@@ -2906,7 +2906,8 @@ grammar Raku::Grammar is HLL::Grammar does Raku::Common {
     # stringify-a-call) vs `~ foo`/`~(foo)` (still stringify). `~$x`, `~42`,
     # `~(...)` etc. are unaffected: none of them have an identifier
     # immediately after a bare `~`.
-    token prefix:sym<~>  { <sym> <!before [ <.ident> | <[.!^:*?=~]> <.alpha> ] > }
+    # Only in rak code: in Raku, `~foo` and `~.foo` stringify as before.
+    token prefix:sym<~>  { <sym> [ <!{ $*RAK-SEMANTICS }> || <!before [ <.ident> | <[.!^:*?=~]> <.alpha> ] > ] }
     token prefix:sym<->  { <sym> }
     token prefix:sym<−>  { <sym> }
     token prefix:sym<|>  { <sym> }
@@ -5638,7 +5639,9 @@ grammar Raku::Grammar is HLL::Grammar does Raku::Common {
         ]
     }
 
-    token sigil { <[$@%&#~]> }
+    # `~` (str) and `#` (int) are sigils only in rak code; in Raku, `~.foo`
+    # stays prefix `~` on a method call on $_.
+    token sigil { <[$@%&]> | <?{ $*RAK-SEMANTICS }> <[#~]> }
 
     proto token twigil {*}
     token twigil:sym<.> { <sym> <?before <alpha>> }
@@ -6035,6 +6038,8 @@ Rakudo significantly on *every* run."
     # Anything else after `#` (whitespace, EOL, or a character that can't
     # start a `desigilname` either way, e.g. `#123`, `#----`) still reads as
     # an ordinary comment.
+    # Only under rak semantics: in a .raku or .rakumod file, `#foo` stays a
+    # comment, so modules (core's NativeCall has `#to disting...`) still parse.
 
     token comment:sym<#COMPILER> {
         '#COMPILER::'
@@ -6062,7 +6067,7 @@ Rakudo significantly on *every* run."
     }
 
     token comment:sym<#> {
-       '#' [ <?before \s> || <!before [ <.ident> | <[.!^:*?=~]> <.alpha> ] > ]
+       '#' [ <!{ $*RAK-SEMANTICS }> || <?before \s> || <!before [ <.ident> | <[.!^:*?=~]> <.alpha> ] > ]
        {} \N*
     }
 

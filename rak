@@ -9,5 +9,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export RAKUDO_RAK_FRONTEND=1
 export RAKU_RAK_MODE=1
+# In the build tree, core modules (NativeCall, Test) are only in lib/; irak's
+# line editor needs NativeCall.
+export RAKULIB="$SCRIPT_DIR/lib${RAKULIB:+,$RAKULIB}"
 
 exec "$SCRIPT_DIR/rakudo-m" "$@"

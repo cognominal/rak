@@ -143,6 +143,18 @@
 	$(NOECHO)$(MKPATH) @nfpq(@base_dir@/gen/build_rakudo_home/templates/)@
 @if(platform==windows 	$(NOECHO)$(CP) win-runner.exe-tmpl @nfpq(@base_dir@/gen/build_rakudo_home/templates/)@)@@if(platform!=windows 	$(NOECHO)$(CP) @nfp(src/runner/posix-runner-tmpl)@ @nfpq(@base_dir@/gen/build_rakudo_home/templates/)@)@
 
+# irak's line editor: Terminal::LineEditor and its dependencies, pinned in
+# tools/build/rak-line-editor-dists. Installed into the build tree's vendor
+# repository so ./rak has it; the install target puts it in the installed one.
+# The stamp sits in that repository, so `make clean` resets it too.
+@bpv(RAK_LINE_EDITOR)@ = @nfp(@base_dir@/gen/build_rakudo_home/vendor/.rak-line-editor)@
+
+@backend_prefix@-all:: @bpm(RAK_LINE_EDITOR)@
+
+@bpm(RAK_LINE_EDITOR)@: @nfp(tools/build/rak-line-editor-dists)@ @bpm(RUNNER)@@for_specs( @bsm(SETTING_@ucspec@)@)@
+	$(NOECHO)$(PERL5) @shquot(@script(rak-line-editor.pl)@)@ @nfpq(tools/build/rak-line-editor-dists)@ @nfpq(@base_dir@/gen/rak-dists)@
+	$(NOECHO)@nfpq($(BASE_DIR)/@bpm(RUNNER)@)@ @bpm(RUNNER_OPTS)@ @shquot(@script(install-rak-line-editor.raku)@)@ @nfpq(tools/build/rak-line-editor-dists)@ @nfpq(@base_dir@/gen/rak-dists)@ @nfpq(@base_dir@/gen/build_rakudo_home/vendor)@ @nfpq(@bpm(RAK_LINE_EDITOR)@)@
+
 @backend_prefix@-test: @backend_prefix@-coretest
 
 @backend_prefix@-test5: @backend_prefix@-coretest5
@@ -289,6 +301,7 @@
 	@echo(+++ Preparing installation)@
 	$(NOECHO)@nfpq($(BASE_DIR)/@bpm(RUNNER)@)@ @bpm(RUNNER_OPTS)@ @shquot(@script(upgrade-repository.raku)@)@  @nfpq($(PREFIX)/bin)@ @nfpq($(DESTDIR)$(RAKUDO_HOME)/core)@ @nfpq($(DESTDIR)$(RAKUDO_HOME)/vendor)@ @nfpq($(DESTDIR)$(RAKUDO_HOME)/site)@
 	$(NOECHO)@nfpq($(BASE_DIR)/@bpm(RUNNER)@)@ @bpm(RUNNER_OPTS)@ @shquot(@script(install-core-dist.raku)@)@ @nfpq($(DESTDIR)$(RAKUDO_HOME)/core)@
+	$(NOECHO)@nfpq($(BASE_DIR)/@bpm(RUNNER)@)@ @bpm(RUNNER_OPTS)@ @shquot(@script(install-rak-line-editor.raku)@)@ @nfpq(tools/build/rak-line-editor-dists)@ @nfpq(@base_dir@/gen/rak-dists)@ @nfpq($(DESTDIR)$(RAKUDO_HOME)/vendor)@
 
 @backend_prefix@-install:: @backend_prefix@-all @backend_prefix@-install-pre @backend_prefix@-install-main @backend_prefix@-install-post
 	@echo(+++ @uc(@backend@)@ BACKEND INSTALLED)@

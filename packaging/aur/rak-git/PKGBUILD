@@ -1,0 +1,144 @@
+# Maintainer: Stéphane Payrard <cognominal at gmail dot com>
+#
+# rak: a Rakudo fork with a .rak frontend (naked strings, dotty subscripts,
+# shellish redirection) and irak, its REPL. See PLANS/build/AUR.md in the
+# source tree for why the package looks like this.
+#
+# rak pins newer nqp and MoarVM than the AUR's nqp/moarvm packages, so it
+# builds its own and installs the whole toolchain under /usr/lib/rak. Only
+# /usr/bin/rak lands on PATH, so it coexists with rakudo, rakudo-bin, nqp
+# and moarvm.
+
+pkgname=rak-git
+pkgver=2026.08.r0.g0000000
+pkgrel=1
+pkgdesc='Rakudo with the rak frontend: a shell-flavoured Raku, and irak, its REPL'
+arch=(x86_64 aarch64)
+url='https://github.com/cognominal/rak'
+license=(Artistic-2.0 MIT)
+depends=(glibc zstd)
+makedepends=(git perl)
+provides=(rak)
+conflicts=(rak)
+options=(!makeflags !lto)
+
+# Raku modules for the irak line editor, installed into rak's vendor
+# repository. Order matters: each one's dependencies come before it.
+_dists=(
+  Terminal-ANSIColor-0.14
+  Terminal-ANSIParser-0.0.4
+  Terminal-API-1.0.5
+  Terminal-Capabilities-0.0.21
+  Text-MiscUtils-0.0.13
+  Terminal-LineEditor-0.0.23
+)
+
+# Every git repository Configure.pl would clone. build() redirects their
+# GitHub URLs to these local mirrors, so the build itself is offline.
+_repos=(
+  nqp::https://github.com/Raku/nqp.git
+  MoarVM::https://github.com/MoarVM/MoarVM.git
+  nqp-configure::https://github.com/Raku/nqp-configure.git
+  libuv::https://github.com/MoarVM/libuv.git
+  dyncall::https://github.com/MoarVM/dyncall.git
+  dynasm::https://github.com/MoarVM/dynasm.git
+  libtommath::https://github.com/MoarVM/libtommath
+  cmp::https://github.com/MoarVM/cmp.git
+  libatomic_ops::https://github.com/MoarVM/libatomic_ops
+  zmij::https://github.com/vitaut/zmij
+  mimalloc::https://github.com/microsoft/mimalloc.git
+  rapidhash::https://github.com/Nicoshev/rapidhash
+)
+
+_zef=https://360.zef.pm
+source=(
+  'rak::git+https://github.com/cognominal/rak.git#branch=rak'
+  'nqp::git+https://github.com/Raku/nqp.git'
+  'MoarVM::git+https://github.com/MoarVM/MoarVM.git'
+  'nqp-configure::git+https://github.com/Raku/nqp-configure.git'
+  'libuv::git+https://github.com/MoarVM/libuv.git'
+  'dyncall::git+https://github.com/MoarVM/dyncall.git'
+  'dynasm::git+https://github.com/MoarVM/dynasm.git'
+  'libtommath::git+https://github.com/MoarVM/libtommath'
+  'cmp::git+https://github.com/MoarVM/cmp.git'
+  'libatomic_ops::git+https://github.com/MoarVM/libatomic_ops'
+  'zmij::git+https://github.com/vitaut/zmij'
+  'mimalloc::git+https://github.com/microsoft/mimalloc.git'
+  'rapidhash::git+https://github.com/Nicoshev/rapidhash'
+  "Terminal-ANSIColor-0.14.tar.gz::$_zef/T/ER/TERMINAL_ANSICOLOR/35a0b2ba99bee55aae932ed029af3a912422c249.tar.gz"
+  "Terminal-ANSIParser-0.0.4.tar.gz::$_zef/T/ER/TERMINAL_ANSIPARSER/9f3b0eebd54f5779711e2ede60054fafda4737cf.tar.gz"
+  "Terminal-API-1.0.5.tar.gz::$_zef/T/ER/TERMINALAPI/4ef0b3bbf03955baaf76ff8fa10f4795eb208551.tar.gz"
+  "Terminal-Capabilities-0.0.21.tar.gz::$_zef/T/ER/TERMINAL_CAPABILITIES/fe5401936a9ba10ae4af8bfb5eb994023bcad0e6.tar.gz"
+  "Text-MiscUtils-0.0.13.tar.gz::$_zef/T/EX/TEXT_MISCUTILS/746e88a35bf0cf644f94d1dd5f93f4d107fe0b0b.tar.gz"
+  "Terminal-LineEditor-0.0.23.tar.gz::$_zef/T/ER/TERMINAL_LINEEDITOR/2799b876ac19de9e9005822e0e0512acd48f453f.tar.gz"
+  rak.sh
+)
+noextract=("${_dists[@]/%/.tar.gz}")
+sha256sums=(SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP SKIP
+  38a72b223a2f1b9fcd05a7a99bfefe0de5e8be88368414dc341712d60e729bea
+  6b62950d465514a25c07e8ffe2d5b10f25664feb43e0546d355685fc43382c40
+  9c5fd6b4f32b9b64b6918d4ba4d472ea9e585b7fa5d02c47e71057566d342f56
+  5f3c7bcd1c827583dd3df4310e9101394be62365e8c42e8b99f7b56123b7182d
+  502772adaa8c490d296afa07310eefbd169c00ab091251df3528b01da9bab433
+  bba9f2dd119a8e9f59115ae541455f75ed54e5733eacc81b6301b990c1132dfc
+  SKIP)
+
+# Point git at the local mirrors: url.<mirror>.insteadOf=<github url>.
+# Configure.pl runs `git submodule sync`, which rewrites per-repo submodule
+# URLs from .gitmodules, so the rewrite has to live in the environment.
+_offline_git() {
+  local i=0 r name url mirror
+  for r in "${_repos[@]}"; do
+    name=${r%%::*} url=${r#*::}
+    mirror=$(git -C "$srcdir/$name" remote get-url origin)
+    export "GIT_CONFIG_KEY_$i=url.$mirror.insteadOf" "GIT_CONFIG_VALUE_$i=$url"
+    i=$((i + 1))
+  done
+  # Local mirrors use the file transport, which git blocks for submodules.
+  export "GIT_CONFIG_KEY_$i=protocol.file.allow" "GIT_CONFIG_VALUE_$i=always"
+  export GIT_CONFIG_COUNT=$((i + 1))
+}
+
+pkgver() {
+  cd rak
+  # The fork carries no tags, so use Rakudo's VERSION plus a commit count.
+  printf '%s.r%s.g%s' "$(<VERSION)" "$(git rev-list --count HEAD)" \
+    "$(git rev-parse --short=7 HEAD)"
+}
+
+# The build installs the line editor itself (tools/build/rak-line-editor.pl):
+# hand it the tarballs makepkg fetched so it doesn't download them.
+prepare() {
+  local d
+  mkdir -p rak/gen/rak-dists
+  for d in "${_dists[@]}"; do
+    cp "$d.tar.gz" rak/gen/rak-dists/
+  done
+}
+
+# --gen-moar and --gen-nqp `make install` MoarVM and nqp into the prefix at
+# configure time, so the prefix can't be /usr/lib/rak, and there is no
+# DESTDIR for those steps. Instead the toolchain is built relocatable (paths
+# found relative to the binaries, as in rakudo.org's binary releases) and
+# installed into $srcdir/root, which package() copies to /usr/lib/rak.
+build() {
+  _offline_git
+  cd rak
+  perl Configure.pl --gen-moar --gen-nqp --backends=moar --relocatable \
+    --prefix="$srcdir/root"
+  make
+  make install   # also installs the line editor into the vendor repository
+}
+
+package() {
+  install -d "$pkgdir/usr/lib"
+  cp -a "$srcdir/root" "$pkgdir/usr/lib/rak"
+  # The only file that records the build prefix.
+  sed -i "s|$srcdir/root|/usr/lib/rak|g" "$pkgdir/usr/lib/rak/share/pkgconfig/moar.pc"
+
+  cd rak
+  install -Dm755 "$srcdir/rak.sh" "$pkgdir/usr/bin/rak"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "gen/rak-dists/Terminal-ANSIColor-0.14/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/Terminal-ANSIColor.LICENSE"
+}

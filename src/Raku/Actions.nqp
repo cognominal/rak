@@ -417,6 +417,29 @@ class Raku::Actions is HLL::Actions does Raku::CommonActions {
 
     # Perform all actions that are needed before any actual parsing can
     # be done by a grammar.
+    # The file of the code that called EVAL ('' outside EVAL), from the
+    # outer context the compilation is given.
+    method rak-caller-file($context) {
+        return '' unless nqp::isconcrete($context);
+        my $code := nqp::ctxcode($context);
+        return '' if nqp::isnull($code);
+        my $file := nqp::getcodelocation($code)<file>;
+        nqp::isconcrete($file) ?? $file !! ''
+    }
+
+    # Is this the source name of a module? Installed modules are named like
+    # "vendor#sources/<id> (Name)"; others by their .rakumod / .pm6 / .pm path.
+    method rak-module-file(str $file) {
+        # A module compiled for loading is named "<path> (<Name>)".
+        my int $paren := nqp::rindex($file, " (");
+        $file := nqp::substr($file, 0, $paren) if $paren > 0 && nqp::eqat($file, ")", nqp::chars($file) - 1);
+        my int $n := nqp::chars($file);
+        nqp::index($file, '#sources/') >= 0
+          || ($n >= 8 && nqp::eqat($file, '.rakumod', $n - 8))
+          || ($n >= 4 && nqp::eqat($file, '.pm6', $n - 4))
+          || ($n >= 3 && nqp::eqat($file, '.pm', $n - 3))
+    }
+
     method comp-unit-prologue($/) {
 
         # Be ready to do Nodify lookups
@@ -445,7 +468,17 @@ class Raku::Actions is HLL::Actions does Raku::CommonActions {
             $*RAK-SEMANTICS := 0;
         }
         elsif nqp::getenvhash<RAKU_RAK_MODE> {
-            $*RAK-SEMANTICS := 1;
+            # No source name: -e, the REPL, stdin, or EVAL. RAKU_RAK_MODE
+            # is inherited by every process and every EVAL, so it must not
+            # reach code that comes from a module: a precompilation child
+            # compiles a module, and an EVAL follows the file that calls it.
+            my str $caller := self.rak-caller-file(%*OPTIONS<outer_ctx>);
+            my int $caller-len := nqp::chars($caller);
+            $*RAK-SEMANTICS :=
+                $caller-len >= 4 && nqp::eqat($caller, '.rak', $caller-len - 4) ?? 1
+             !! nqp::existskey(nqp::getenvhash(), 'RAKUDO_PRECOMP_WITH')     ?? 0
+             !! self.rak-module-file($caller)                               ?? 0
+             !! 1;
         }
         else {
             $*RAK-SEMANTICS := 0;

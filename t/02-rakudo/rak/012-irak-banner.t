@@ -2,7 +2,8 @@ use Test;
 use nqp;
 
 # irak greets with its own banner, naming the rak repository and the HEAD it
-# was built from, and replaces the line-editor advice with "line editor TBD".
+# was built from. Without a line editor, it names the one irak wants,
+# Terminal::LineEditor, instead of the plain REPL's generic advice.
 # The plain REPL keeps the Rakudo banner.
 #
 # The REPL needs a tty, so each session runs under script(1).
@@ -12,10 +13,17 @@ plan :skip-all('script(1) is needed to give the REPL a tty') unless $script;
 
 plan 7;
 
+my sub has-module($name) {
+    so $*REPO.resolve(CompUnit::DependencySpecification.new(:short-name($name)))
+}
+my $editor = <Readline Linenoise Terminal::LineEditor>.first(&has-module);
+
 sub banner(:$irak = True) {
     my %env = %*ENV;
     %env<RAKUDO_NO_VERSION>:delete;
-    %env<RAKUDO_LINE_EDITOR>:delete;
+    # Terminal::LineEditor asks the tty for the cursor position and waits for
+    # an answer that script(1) never gives: run without it when it's there.
+    if $editor { %env<RAKUDO_LINE_EDITOR> = 'none' } else { %env<RAKUDO_LINE_EDITOR>:delete }
     if $irak {
         %env<RAKUDO_RAK_FRONTEND> = 1;
         %env<RAKU_RAK_MODE>       = 1;
@@ -36,21 +44,17 @@ my $config := nqp::gethllsym('default', 'SysConfig').rakudo-build-config;
 my $where   = (nqp::atkey($config, 'rak-repo-url'), nqp::atkey($config, 'rak-head'))
                 .grep(*.chars).join(' @ ');
 
-my sub has-module($name) {
-    so $*REPO.resolve(CompUnit::DependencySpecification.new(:short-name($name)))
-}
-my $editor = <Readline Linenoise Terminal::LineEditor>.first(&has-module);
-
 my $out = banner;
 ok $out.starts-with("Welcome to irak, the rak shell.\n"), 'irak banner comes first';
 ok !$where || $out.contains("\n$where\n"),               'banner names the repository and HEAD';
 nok $out.contains('Rakudo'),                              'no Rakudo banner in irak';
-nok $out.contains('zef install'),                         'no line-editor advice in irak';
+nok $out.contains('Linenoise'),                           'no generic line-editor advice in irak';
 if $editor {
     skip "$editor is installed, so no line-editor note";
 }
 else {
-    ok $out.contains("\nline editor TBD\n"), 'irak notes that its line editor is TBD';
+    ok $out.contains("irak: no line editor") && $out.contains('Terminal::LineEditor'),
+      'irak says to install Terminal::LineEditor';
 }
 
 $out = banner :!irak;

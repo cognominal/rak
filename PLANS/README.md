@@ -33,6 +33,7 @@ are recorded in [docs/adr/](../docs/adr/), and usage is in
 
 - [One-pass compilation](build/onepass-compile.md): the CORE setting in one pass,
   `#COMPILER::` directives.
+- [AUR](build/AUR.md): the `rak-git` package, its bundled line editor, building offline.
 
 ## Background
 

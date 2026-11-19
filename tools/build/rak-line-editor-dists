@@ -1,0 +1,13 @@
+# The line editor irak needs (Terminal::LineEditor) and its dependencies,
+# pinned, from the zef ecosystem CDN https://360.zef.pm/. Dependencies come
+# before the distributions that need them: they are installed in this order.
+# Used by tools/build/rak-line-editor.pl, tools/build/install-rak-line-editor.raku
+# and packaging/aur/rak-git/PKGBUILD.
+#
+# name                          sha256                                                            path under https://360.zef.pm/
+Terminal-ANSIColor-0.14         38a72b223a2f1b9fcd05a7a99bfefe0de5e8be88368414dc341712d60e729bea  T/ER/TERMINAL_ANSICOLOR/35a0b2ba99bee55aae932ed029af3a912422c249.tar.gz
+Terminal-ANSIParser-0.0.4       6b62950d465514a25c07e8ffe2d5b10f25664feb43e0546d355685fc43382c40  T/ER/TERMINAL_ANSIPARSER/9f3b0eebd54f5779711e2ede60054fafda4737cf.tar.gz
+Terminal-API-1.0.5              9c5fd6b4f32b9b64b6918d4ba4d472ea9e585b7fa5d02c47e71057566d342f56  T/ER/TERMINALAPI/4ef0b3bbf03955baaf76ff8fa10f4795eb208551.tar.gz
+Terminal-Capabilities-0.0.21    5f3c7bcd1c827583dd3df4310e9101394be62365e8c42e8b99f7b56123b7182d  T/ER/TERMINAL_CAPABILITIES/fe5401936a9ba10ae4af8bfb5eb994023bcad0e6.tar.gz
+Text-MiscUtils-0.0.13           502772adaa8c490d296afa07310eefbd169c00ab091251df3528b01da9bab433  T/EX/TEXT_MISCUTILS/746e88a35bf0cf644f94d1dd5f93f4d107fe0b0b.tar.gz
+Terminal-LineEditor-0.0.23      bba9f2dd119a8e9f59115ae541455f75ed54e5733eacc81b6301b990c1132dfc  T/ER/TERMINAL_LINEEDITOR/2799b876ac19de9e9005822e0e0512acd48f453f.tar.gz

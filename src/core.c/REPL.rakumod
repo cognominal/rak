@@ -310,6 +310,13 @@ do {
                 return $self but FallbackBehavior;
             }
 
+            # irak needs a line editor: Terminal::LineEditor first, since the
+            # TAB / SHIFT-TAB navigation (PLANS/features/irak.md) builds on it.
+            if irak() {
+                my ( $new-self, $problem ) = mixin-terminal-lineeditor($self, :fallback<Readline>);
+                return $new-self if $new-self;
+            }
+
             my ( $new-self, $problem ) = mixin-readline($self, :fallback<Linenoise>);
             return $new-self if $new-self;
 
@@ -320,9 +327,10 @@ do {
             return $new-self if $new-self;
 
             if irak() {
-                say "line editor TBD\n"
-                  if $problem
-                  || !( %*ENV<_>:exists and %*ENV<_>.ends-with: 'rlwrap' );
+                say "irak: no line editor, so no history or completion.\n"
+                  ~ 'Install Terminal::LineEditor (`zef install --to=home Terminal::LineEditor`).'
+                  ~ "\n"
+                  unless %*ENV<_>:exists and %*ENV<_>.ends-with: 'rlwrap';
             }
             elsif $problem {
                 say "Continuing without tab completions or line editor.\n";
@@ -635,8 +643,9 @@ do {
                 else {
                     my $dir := $*HOME || $*TMPDIR;
                     my $old := $dir.add('.perl6/rakudo-history');
-                    my $new := $dir.add('.raku/rakudo-history');
-                    if $old.e && !$new.e {  # migrate old hist to new location
+                    # irak lines are rak, not Raku: keep them apart.
+                    my $new := $dir.add(irak() ?? '.raku/irak-history' !! '.raku/rakudo-history');
+                    if !irak() && $old.e && !$new.e {  # migrate old hist to new location
                         $new.spurt($old.slurp);
                         $old.unlink;
                     }
