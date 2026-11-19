@@ -32,4 +32,7 @@ lists: DONE and TBD.
 - **0.5**: tooling: [LSP](https://microsoft.github.io/language-server-protocol/)
   support, syntax highlighting.
 - **0.6**: a github.io site, and a programming course built with the `/teachme`
-  skills that uses irak, rak and agents. It may use Tauri and the tuios API.
+  skills that uses irak, rak and agents. It may use [Tauri](https://tauri.app/) and
+  [tuios](https://tuios.dev): its
+  [control protocol](https://tuios.dev/docs/control-protocol) is the API, and
+  [tuios-web](https://tuios.dev/docs/web) serves it in a browser.
