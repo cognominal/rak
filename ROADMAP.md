@@ -24,7 +24,7 @@ lists: DONE and TBD.
     ([dotty subscripts](GLOSSARY.md#dotty-subscript)),
     [redirections](GLOSSARY.md#redirection), recalling submissions
     (`!n`, `!!n`, up and down arrows).
-  - TBD: aliases, url based web redirections (see [github examples](PLANS/demos/github.md), [globbing](https://en.wikipedia.org/wiki/Glob_(programming)), pipelines (unix and jq style).
+  - TBD: aliases, url based web redirections (see [github examples](PLANS/demos/github.md)), [globbing](https://en.wikipedia.org/wiki/Glob_(programming)), pipelines (unix and jq style).
 - **0.2**: [ZLE](https://zsh.sourceforge.io/Doc/Release/Zsh-Line-Editor.html)-style
   completion, a configurable prompt.
 - **0.3**: pattern matching in data structures (live or deserialized) using double sigilled vars. Support of YAML
