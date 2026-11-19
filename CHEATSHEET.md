@@ -272,6 +272,16 @@ Welcome to irak, the rak shell.
 `$_` holds the value of the previous submission. A submission that fails, returns
 `Nil` or prints output leaves `$_` unchanged.
 
+Recalling submissions (only when the directive is the whole line; n is the
+prompt number, the last 1000 are kept):
+
+| Input | Effect |
+|---|---|
+| `!n` ENTER | re-runs submission n |
+| `!n` TAB | puts submission n's source in the edit buffer |
+| `!!n` | sets `$_` to submission n's value |
+| ↑ / ↓ | history, stops at both ends |
+
 ## Gotchas
 
 - `.5` is `$_[5]`, not a number. Write `0.5`.

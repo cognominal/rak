@@ -24,6 +24,7 @@ are recorded in [docs/adr/](../docs/adr/), and usage is in
 - [URL targets](features/url-targets.md): HTTP GET and POST as redirections.
 - [myaml](features/myaml.md): YAML literals and pattern matching on data.
 - [irak](features/irak.md): the interactive session, and TAB / SHIFT-TAB navigation.
+- [irak history](features/irak-history.md): `!n` / `!!n` recall of submissions.
 
 ## Demos
 

@@ -113,6 +113,8 @@ do {
 
         method init-line-editor {
             my sub get-completions($contents, $pos) {
+                # irak: `!n` TAB puts submission n's source in the buffer.
+                with self.irak-recall($contents) { return ($_,) }
                 eager self.completions-for-line($contents, $pos)
             }
             $cli = $cli-input.new(:&get-completions);
@@ -210,6 +212,12 @@ do {
         has $!grammar;
         has $!actions;
 
+        # irak submission store: prompt number => source of the submission
+        # made at that prompt, for the `!n` directive. Only the last
+        # IRAK-KEEP prompt numbers are kept.
+        has %!irak-sources;
+        my constant IRAK-KEEP = 1000;
+
         # irak: the REPL of the rak frontend (see GLOSSARY.md).
         sub irak(--> Bool:D) {
             so %*ENV<RAKUDO_RAK_FRONTEND> && %*ENV<RAKU_RAK_MODE>
@@ -223,6 +231,14 @@ do {
             my str $head = nqp::ifnull(nqp::atkey($config, 'rak-head'), '');
             my $where = ($url, $head).grep(*.chars).join(' @ ');
             "Welcome to irak, the rak shell." ~ ($where ?? "\n$where" !! '')
+        }
+
+        # irak: the source of submission n when $line is exactly `!n`
+        # (surrounding whitespace aside), else Nil. Used for `!n` TAB.
+        method irak-recall(Str() $line) {
+            irak() && $line ~~ /^ \s* '!' (\d+) \s* $/
+              ?? %!irak-sources{+$0} // Nil
+              !! Nil
         }
 
         # irak topic: after a submission whose value is shown, $_ holds that
@@ -539,6 +555,33 @@ do {
                     last;
                 }
 
+                # irak directives, only when they are the whole line of a
+                # fresh submission: `!n` re-runs submission n's source,
+                # `!!n` sets $_ to submission n's value.
+                if irak() && $code eq ''
+                  && $newcode ~~ /^ \s* ('!'?) '!' (\d+) \s* $/ {
+                    my $n = +$1;
+                    if $0.chars {
+                        if $n < $previous-evals.elems {
+                            self!set-irak-topic($previous-evals[$n]);
+                        }
+                        else {
+                            say "irak: no value for submission $n";
+                        }
+                        next;
+                    }
+                    with %!irak-sources{$n} {
+                        say $_;
+                        $newcode = $_;
+                        # The echo is not output of the re-run code.
+                        $initial_out_position = $*OUT.tell;
+                    }
+                    else {
+                        say "irak: no submission $n";
+                        next;
+                    }
+                }
+
                 $code = $code ~ $newcode ~ "\n";
 
                 if $code ~~ /^ <.ws> $/ {
@@ -572,6 +615,12 @@ do {
 
                 if $*MAIN_CTX {
                     $!save_ctx := $*MAIN_CTX;
+                }
+
+                if irak() {
+                    my $n = $previous-evals.elems;
+                    %!irak-sources{$n} = $code.chomp;
+                    %!irak-sources{$n - IRAK-KEEP}:delete;
                 }
 
                 # Print the result if:

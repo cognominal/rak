@@ -22,9 +22,9 @@ lists: DONE and TBD.
 - **0.1**: the first released version.
   - DONE: [naked strings](GLOSSARY.md#naked-string), jq-like subscripting
     ([dotty subscripts](GLOSSARY.md#dotty-subscript)),
-    [redirections](GLOSSARY.md#redirection).
-  - TBD: aliases, web redirections, globbing, recalling and editing previous
-    submissions with the up and down arrows.
+    [redirections](GLOSSARY.md#redirection), recalling submissions
+    (`!n`, `!!n`, up and down arrows).
+  - TBD: aliases, web redirections, globbing.
 - **0.2**: [ZLE](https://zsh.sourceforge.io/Doc/Release/Zsh-Line-Editor.html)-style
   completion, a configurable prompt.
 - **0.3**: reserved for features I don't anticipate yet.
