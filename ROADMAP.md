@@ -4,7 +4,8 @@ This is a tentative roadmap, not a timeline: it says in which version of rak eac
 feature is expected to land.
 
 No version has been released yet. I intend to publish 0.1 and later versions on the
-AUR; Rakudo itself is in neither the Arch repositories nor the AUR. The current focus
+AUR. Rakudo itself is not in the official Arch repositories; it is only in the AUR
+(`rakudo`, `rakudo-bin`). The current focus
 is irak, the interactive rak.
 
 Backward compatibility will not be preserved before 0.5: irak submissions are, by
