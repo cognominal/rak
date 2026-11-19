@@ -26,6 +26,25 @@ error "two terms in a row", so no valid Raku program changes meaning. Planned, n
 implemented.
 _Avoid_: shell mode, command mode.
 
+<a id="command"></a>**command**:
+What the first word of a shell-strategy statement names: a rak routine, a builtin or an
+external command. A word on its own at statement level that names an external
+command is a command, not a naked string. A rak name wins over an external command of
+the same name.
+_Avoid_: program (for a rak routine), stage (outside a pipeline).
+
+<a id="external-command"></a>**external command**:
+A program found on `$PATH` and run as a child process. Written `^name`, it is the
+external command even when a rak name hides it. At statement level its output goes
+straight to the terminal; when its value is used, its output is captured.
+_Avoid_: binary, executable.
+
+<a id="exit-status"></a>**exit status**:
+How an external command ended: its exit code, or the signal that killed it. `$?` holds
+the last one in the current routine; a rak routine run as a command leaves it
+unchanged. A non-zero exit status fails a `.rak` file; irak only shows it.
+_Avoid_: return code, error code.
+
 <a id="irak"></a>**irak**:
 An interactive rak session: the execution context in which rak evaluates statements with
 no source file (REPL, `-e`, standard input). An execution context, not a mode: its
