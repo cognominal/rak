@@ -20,18 +20,19 @@ A version is either marked as done (none is yet), or its features are split into
 lists: DONE and TBD.
 
 - **0.1**: the first released version.
-  - DONE: [naked strings](GLOSSARY.md#naked-string), jq-like subscripting
+  - DONE: [naked strings](GLOSSARY.md#naked-string), [jq](https://jqlang.org/manual/)-like subscripting
     ([dotty subscripts](GLOSSARY.md#dotty-subscript)),
     [redirections](GLOSSARY.md#redirection), recalling submissions
     (`!n`, `!!n`, up and down arrows).
-  - TBD: aliases, web redirections, globbing.
+  - TBD: aliases, url based web redirections (see [github examples](PLANS/demos/github.md), [globbing](https://en.wikipedia.org/wiki/Glob_(programming)), pipelines (unix and jq style).
 - **0.2**: [ZLE](https://zsh.sourceforge.io/Doc/Release/Zsh-Line-Editor.html)-style
   completion, a configurable prompt.
-- **0.3**: reserved for features I don't anticipate yet.
+- **0.3**: pattern matching in data structures (live or deserialized) using double sigilled vars. Support of YAML
 - **0.4**: indentation as syntax.
 - **0.5**: tooling: [LSP](https://microsoft.github.io/language-server-protocol/)
   support, syntax highlighting.
-- **0.6**: a github.io site, and a programming course built with the `/teachme`
+- **0.6** for performance support utf-8 regexen by adapting the eponymous rust package. Default in irak. Raku syntax unchanged.
+- **0.7**: a github.io site, and a programming course built with the `/teachme`
   skills that uses irak, rak and agents. It may use [Tauri](https://tauri.app/) and
   [tuios](https://tuios.dev): its
   [control protocol](https://tuios.dev/docs/control-protocol) is the API, and
