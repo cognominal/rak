@@ -18,7 +18,8 @@ my $x = ls           # not at statement level: the naked string 'ls'
 ```
 
 A rak name wins over an external command of the same name; `^name` forces the external
-one.
+one. Setting routines are rak names too, so `sort` and `run` are rak's unless written
+`^sort`, `^run`.
 
 ## Arguments
 
@@ -77,6 +78,8 @@ Pipelines, aliases, globbing, environment assignments (`FOO=1 cmd`), `pushd` and
 
 - Grammar and actions in `src/Rak/*` only; plain Raku is unchanged.
 - The shell strategy takes the "two terms in a row" slot; a lone word becomes a command
-  when it names a `$PATH` program at compile time.
-- `$PATH` is searched when the statement runs.
+  when it names a `$PATH` program at compile time: when a `.rak` file is compiled, and
+  in irak when each submission is compiled.
+- The program to run is looked up on `$PATH` again when the statement runs.
+- Known deviations from this spec are tickets in `.scratch/commands/issues/`.
 - Running, `$?`, `cd` and `type` live in a rak-only runtime module.
