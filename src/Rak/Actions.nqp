@@ -2356,6 +2356,17 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         );
     }
 
+    # `.'key'` / `."key"` (`.rak` mode only — see dotty-quote-sugar in
+    # Grammar.nqp) build the same node as `{'key'}` / `{"key"}`, so the
+    # double-quoted form interpolates and the result is an lvalue.
+    method dotty-quote-sugar($/) {
+        self.attach: $/, Nodify('Postcircumfix::HashIndex').new(
+          :index(Nodify('SemiList').new(
+            Nodify('Statement::Expression').new(expression => $<quote>.ast)
+          ))
+        );
+    }
+
     # SUBSCRIPT-OPERATOR.md §5 Phase 3: in `.rak`-mode source, ->identifier
     # is a real parameterless-method call, forwarding straight to whatever
     # AST <methodop> already built (see postfix:sym«->» in Grammar.nqp).

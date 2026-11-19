@@ -1,0 +1,37 @@
+use Test;
+
+plan 14;
+
+# `.'key'` and `."key"` are hash subscripts, like jq's `."key"`: `.'k'` is
+# `{'k'}` and `."k"` is `{"k"}`, which interpolates. With arguments,
+# `."name"(…)` stays Raku's quoted method name call.
+
+my %h = 'a b' => 1, toto => { x => [7, 8] }, k2 => 2;
+my $k = 'toto';
+my ~s = '2';
+
+is %h.'a b', 1, q[%h.'a b' is %h{'a b'}];
+is %h."a b", 1, q[%h."a b" is %h{"a b"}];
+is %h."$k".x.1, 8, q[%h."$k" interpolates a $ variable];
+is %h."k{~s}", 2, q[%h."k{~s}" interpolates a block];
+nok %h.'$k'.defined, q[%h.'$k' does not interpolate];
+is %h.toto.'x'.0, 7, 'quoted subscripts stack with .name and .1';
+
+%h."new" = 5;
+is %h<new>, 5, q[%h."new" is assignable];
+
+my @a = { n => 1 }, { n => 2 };
+is @a.1.'n', 2, 'a quoted subscript after .1';
+
+given %h {
+    is ."a b", 1, q[leading ."k" is $_{"k"}];
+    is .'toto'.x.0, 7, q[leading .'k' chains];
+    ."z" = 9;
+}
+is %h<z>, 9, q[leading ."k" is assignable];
+
+class F { method m($x) { "m$x" } }
+is F->new."m"(3), 'm3', q[."name"(args) stays a method call];
+is F->new.'m'(4), 'm4', q[.'name'(args) stays a method call];
+
+is "%h<k2>.", '2.', 'a dot ending an interpolated subscript is still text';

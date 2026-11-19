@@ -1,0 +1,34 @@
+use Test;
+
+plan 11;
+
+# In rak, `.` subscripts and `->` calls, so Raku's indirect method call
+# `$x.$meth` / `$x.&f` is spelled `$x->$meth` / `$x->&f`, and the `.`
+# spelling is a compile-time error. The `./rak` wrapper runs this file, so
+# each EVAL compiles in rak mode.
+
+my $m = -> %x { %x->elems };
+my %h = a => 1, b => 2;
+is %h->$m, 2, '->$var calls the callable in $var';
+
+my $n = -> $x, $k = 1 { $x * 2 * $k };
+is 5->$n, 10, '->$var without arguments';
+is 5->$n(10), 100, '->$var(args) passes the arguments';
+is 5->$n->$n, 20, '->$var chains';
+
+my &f = -> $x { $x + 1 };
+is 5->&f, 6, '->&f calls the routine in &f';
+given 5 { is $_->&f, 6, '$_->&f calls on the topic' }
+
+throws-like { EVAL 'my %h; my $key = 1; %h.$key' }, X::Comp,
+    message => /'->$key' .* '."$key"'/,
+    '.$var is an error that suggests ->$var and ."$var"';
+throws-like { EVAL 'my &f = { 1 }; 5.&f' }, X::Comp,
+    message => /'->&f'/, '.&f is an error that suggests ->&f';
+throws-like { EVAL 'my @m; 5.@m' }, X::Comp,
+    message => /'->@m'/, '.@var is an error';
+throws-like { EVAL 'given 5 { my &f = { 1 }; .&f }' }, X::Comp,
+    message => /'$_->&f'/, 'leading .&f is an error that suggests $_->&f';
+
+my $k = 'a';
+is "$k.x", 'a.x', 'a dot after a variable in a string is still text';

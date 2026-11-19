@@ -40,11 +40,13 @@ frontend) also honours both gates for now, until the rak code is removed from it
 | `f 'a', 'b'` | `f a b` (juxtaposed words are separate arguments) |
 | `%h<name>` | `%h.name` |
 | `@a[1]` | `@a.1` |
+| `%h{'a b'}`, `%h{"$k"}` | `%h.'a b'`, `%h."$k"` |
 | `%h{$k}` | `%h.~k` (with `my ~k`) |
 | `@a[$i]` | `@a.#i` (with `my #i`) |
 | `$_<name>`, `$_[1]` | `.name`, `.1` |
 | `$obj.meth` (no arguments) | `$obj->meth` |
 | `.meth` (on `$_`) | `->meth` |
+| `$obj.$meth`, `$obj.&f` | `$obj->$meth`, `$obj->&f` |
 | `$obj.meth(1)`, `$obj.meth: 1` | unchanged |
 | `my str $s` / `my int $n` | `my ~s` / `my #n` |
 | `{ my $*OUT = open 'f', :w; say 1 }` | `say 1 >f` |

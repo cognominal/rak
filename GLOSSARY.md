@@ -58,8 +58,11 @@ addition to Raku's existing sigils.
 
 <a id="dotty-subscript"></a>**dotty subscript**:
 A leading `.` spelling a subscript without brackets: `.name` is the hash subscript
-`<name>`, and `.1` / `.~expr` / `.#expr` subscript by an expression. The `->name`
-spelling instead calls a parameterless method. With nothing before it, a leading `.`
+`<name>`, `.'key'` / `."key"` are the hash subscripts `{'key'}` / `{"key"}` (the
+double-quoted one interpolates), and `.1` / `.~expr` / `.#expr` subscript by an
+expression. The `->name`
+spelling instead calls a parameterless method, and `->$var` / `->&f` make Raku's
+indirect method call (`.$var` / `.&f` are errors in rak mode). With nothing before it, a leading `.`
 subscripts the topic `$_` (`.name` is `$_<name>`), and a leading `->name` calls the method
 on `$_`.
 _Avoid_: dot syntax, method sugar.

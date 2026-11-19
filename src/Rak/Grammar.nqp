@@ -2582,6 +2582,18 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           # matches at all there.
           || <?{ $*RAK-SEMANTICS }> '.' <OPER=dotty-name-sugar>
 
+          # `.'key'` / `."key"` (jq's `."key"`) are sugar for `{'key'}` /
+          # `{"key"}`. Raku reads a quoted method name only with arguments,
+          # so `."name"(…)` keeps meaning a method call: dotty-quote-sugar
+          # refuses it and the `||` branch below takes it.
+          || <?{ $*RAK-SEMANTICS }> '.' <?['"]> <OPER=dotty-quote-sugar>
+
+          # `.$var` / `.@var` / `.&var` (Raku's indirect method call) are
+          # errors: in rak `.` subscripts and `->` calls, so the call is
+          # `->$var`, and a subscript by a `$` variable is `."$var"`.
+          || <?{ $*RAK-SEMANTICS }> <!{ $*QSIGIL }> '.' <?[$@&]>
+             <.dotty-indirect-call-obs>
+
           || [
           | <OPER=postfix>
 
@@ -2763,6 +2775,36 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         <identifier>
         <!before <.unspace>? '('>
         <!before <.unspace>? ':' \s>
+    }
+
+    # `.'key'` / `."key"` sugar for `{'key'}` / `{"key"}`, gated by
+    # $*RAK-SEMANTICS. The double-quoted form interpolates as any `"…"`
+    # does. Not inside an interpolating string, where `"$x."` keeps its
+    # Raku meaning. When `(`, `.(` or `\\` follows, the token fails and
+    # Raku's quoted method name call (`$x."name"()`) takes over.
+    # Rejects `.$var` / `.@var` / `.&var` in rak mode; see postfixish. On
+    # the topic, a leading `->$var` would start a pointy block, so the
+    # suggested call there is `$_->$var`.
+    token dotty-indirect-call-obs($topic = 0) {
+        <variable>
+        {
+            my str $var := ~$<variable>;
+            my str $arrow := $topic ?? '$_->' !! '->';
+            $/.panic(
+              "In rak, '.$var' is not an indirect method call: use '$arrow$var'"
+                ~ " to call it"
+                ~ (nqp::eqat($var, '$', 0)
+                    ?? ", or '.\"$var\"' to subscript by it"
+                    !! '')
+            );
+        }
+    }
+
+    token dotty-quote-sugar {
+        :dba('quoted postfix subscript sugar')
+        <!{ $*QSIGIL }>
+        <?['"]> <quote>
+        <!before '(' | '.(' | '\\'>
     }
 
 #-------------------------------------------------------------------------------
@@ -3761,7 +3803,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
 
     # In rak mode, a leading `.` with no term before it is the dotty
     # subscript applied to the topic: `.name` is `$_<name>`, `.1` is `$_[1]`,
-    # `.~k`/`.#i` are `$_{~k}`/`$_[#i]`. Tried before <dotty> for the same
+    # `.'k'`/`."k"` are `$_{'k'}`/`$_{"k"}`, `.~k`/`.#i` are `$_{~k}`/`$_[#i]`. Tried before <dotty> for the same
     # reason as in postfixish: `.identifier` overlaps a method call, and
     # dotty-name-sugar itself refuses `.name(args)` / `.name: args`, which
     # fall through to the ordinary topic method call.
@@ -3769,6 +3811,8 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         || <?{ $*RAK-SEMANTICS }> '.'
            [
              | <rak-topic-index=.dotty-name-sugar>
+             | <?['"]> <rak-topic-index=.dotty-quote-sugar>
+             | <?[$@&]> <.dotty-indirect-call-obs(1)>
              | <?before \d> <rak-topic-index=.dotty-numeric-index>
              | <?[~#]> <rak-topic-index=.dotty-sigil-index>
            ]
