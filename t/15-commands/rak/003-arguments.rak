@@ -1,0 +1,17 @@
+use Test;
+
+plan 9;
+
+# Arguments parse like a <<…>> list.
+
+my $s = 'two words';
+my @f = <a.txt b.txt>;
+is (^printf '[%s]' $s), '[two words]', '$x is not split';
+is (^printf '[%s]' @f), '[a.txt][b.txt]', '@l gives one argument per element';
+is (^printf '[%s]' "my file"), '[my file]', 'double quotes group';
+is (^printf '[%s]' {1+1}), '[2]', '{} interpolates';
+is (^printf '[%s]' x$s), '[xtwo words]', 'touching pieces form one word';
+is (^printf '[%s]' -l --long=3), '[-l][--long=3]', 'options pass through';
+is (^printf '[%s]' /abs/path), '[/abs/path]', 'a leading / starts a naked path';
+is (^printf '[%s]' ./m/x), '[./m/x]', './m/ is a relative path';
+$_ = 'pre'; is (^printf '[%s]' m/re/), '[re]', 'm/…/ is a match against $_';

@@ -1,0 +1,9 @@
+use Test;
+
+plan 2;
+
+# A rak name wins; ^name forces the external command.
+
+sub echo(*@a) { 'rak echo' }
+is (echo hi), 'rak echo', 'rak routine wins';
+is (^echo hi), "hi\n", '^name runs the external command';

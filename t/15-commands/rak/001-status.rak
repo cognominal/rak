@@ -1,0 +1,21 @@
+use Test;
+
+plan 6;
+
+# A lone word naming a $PATH program runs it at statement level, and $?
+# holds its Proc, which numifies to the exit code.
+
+true;
+is +$?, 0, 'true: $? is 0';
+isa-ok $?, Proc, '$? is a Proc';
+
+sh -c 'exit 3';
+is $?->exitcode, 3, 'exitcode of a failing command';
+ok $? == 3, '$? numifies to the exit code';
+
+my $x = true;
+is $x, 'true', 'not at statement level: a naked string';
+
+sub mine { 'rak' }
+mine;
+is $?->exitcode, 3, 'a rak routine leaves $? unchanged';

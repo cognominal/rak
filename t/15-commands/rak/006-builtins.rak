@@ -1,0 +1,19 @@
+use Test;
+
+plan 6;
+
+my $start = $*CWD;
+cd /;
+is ~$*CWD, '/', 'cd dir';
+is ~(pwd)->trim, '/', 'process directory changed';
+cd -;
+is ~$*CWD, ~$start, 'cd - goes back';
+cd;
+is ~$*CWD, ~$*HOME, 'cd alone goes home';
+cd $start;
+
+my @t = (type ls);
+ok @t[0] ~~ /^'ls is '/, 'type ls: bash wording';
+sub ls { }
+@t = (type ls);
+is @t[0], 'ls is a rak routine', 'type: rak first';

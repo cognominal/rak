@@ -282,6 +282,34 @@ prompt number, the last 1000 are kept):
 | `!!n` | sets `$_` to submission n's value |
 | ↑ / ↓ | history, stops at both ends |
 
+## Commands
+
+A statement whose first word is followed by more words runs a command; so does a
+lone word naming a program on `$PATH`.
+
+```rak
+ls -l @files "my file" {1+1}   # external command; @files gives one argument each
+^sort data.txt                 # ^ forces the external command over rak's sort
+my $out = (ls)                 # value used: standard output captured as a Str
+~(pwd)                         # same, in a contextualizer
+say $? == 0, $?.exitcode       # $? is the last exit status, a Proc
+make 2>err >out >>log <in 2>&1 # redirections, touching their target
+```
+
+In arguments, a leading `/` starts a naked path and `m/` starts a regex; write
+`./m/x` for a relative path named `m/…`.
+
+Builtins:
+
+| Builtin     | Effect                                             |
+|-------------|----------------------------------------------------|
+| `cd dir`    | change `$*CWD` and the process directory           |
+| `cd`        | go to `$*HOME`                                     |
+| `cd -`      | go back to the previous directory                  |
+| `type name` | list every meaning of `name`, marking the one that wins |
+
+A non-zero exit status fails a `.rak` file; irak shows it.
+
 ## Gotchas
 
 - `.5` is `$_[5]`, not a number. Write `0.5`.
@@ -297,7 +325,7 @@ prompt number, the last 1000 are kept):
 
 ## Planned, not implemented
 
-Planned in `PLANS/`, not available yet: shell mode (running external commands,
-pipes, `alias`, `type`), globbing, indentation in place of braces, sigilless
+Planned in `PLANS/`, not available yet: pipelines, `alias`,
+globbing, indentation in place of braces, sigilless
 one-letter variables (`i`, `s`, …), a `^` sigil for native `num` (unsettled), URL redirection targets, YAML and myaml data
 pattern matching, `has ~.x` / `has #.x` attributes, and `#n.WHAT` autoboxing.

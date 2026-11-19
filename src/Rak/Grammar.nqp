@@ -1466,6 +1466,8 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         <!!{ nqp::rebless($/, self.slang_grammar('MAIN')); 1 }>
 
         [
+        || <?{ $*RAK-SEMANTICS }> :my $*RAK-CAPTURE := nqp::ifnull(nqp::getlexdyn('$*RAK-IN-PAREN'), 0); :my $*RAK-IN-PAREN := 0; <rak-command>
+        || [
           | <label> <statement>
           | <statement-control>
           | <?{ $*RAK-SEMANTICS }> '<' <?{ !self.after-ws($/) }> <redir-filename> <.ws>
@@ -1505,6 +1507,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           | <?[;]>
           #| <?stopper>
           | {} <.panic: "Bogus statement">
+          ]
         ]
     }
 
@@ -2008,6 +2011,65 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         '$' <identifier>
     }
 
+
+    # Commands (.rak syntax): a statement or parenthesized group whose first
+    # word names an external command on $PATH (or `cd`, `type`, or `^name`)
+    # runs it, the words after it being its arguments.
+    token rak-command {
+        [
+        | '^' <identifier> $<forced>=<?>
+        | <identifier> <!before '('>
+          <?{ self.rak-is-command(~$<identifier>) }>
+        ]
+        <!before <[\w\-']>>
+        [ \h+ [ <rak-redir> || <rak-arg> ] ]* \h*
+        <?before ';' | '}' | ')' | \v | $ | '#'>
+    }
+
+    method rak-is-command($name) {
+        return 1 if $name eq 'cd' || $name eq 'type';
+        return 0 if nqp::existskey(self.rak-keywords, $name);
+        return 0 if $*R.is-identifier-known($name);
+        self.rak-on-path($name)
+    }
+
+    method rak-keywords() {
+        my %h;
+        for nqp::split(' ', 'if unless with without orwith elsif else for while until loop repeat given when default my our has state constant sub method submethod multi proto only class role grammar module package unit enum subset use need require import no return do try gather supply react whenever start sink so not succeed proceed take emit last next redo die fail exit quietly lazy eager hyper race once BEGIN END INIT CHECK ENTER LEAVE KEEP UNDO FIRST NEXT LAST PRE POST CATCH CONTROL CLOSE QUIT DOC') -> $k {
+            %h{$k} := 1;
+        }
+        %h
+    }
+
+    method rak-on-path($name) {
+        my $path := nqp::atkey(nqp::getenvhash(), 'PATH');
+        return 0 unless nqp::isconcrete($path);
+        for nqp::split(':', $path) -> $dir {
+            my $f := ($dir eq '' ?? '.' !! $dir) ~ '/' ~ $name;
+            return 1 if nqp::stat($f, nqp::const::STAT_EXISTS)
+                     && !nqp::stat($f, nqp::const::STAT_ISDIR);
+        }
+        0
+    }
+
+    token rak-redir {
+        | '2>&1' $<merge>=<?>
+        | '2>' <redir-filename> $<err>=<?>
+        | '>>' <redir-filename> $<append>=<?>
+        | '>' <redir-filename> $<out>=<?>
+        | '<' <redir-filename> $<in>=<?>
+        | '>' <?before \h | $> { $/.panic("A redirection is written touching its target: use >target") }
+    }
+
+    token rak-arg { <rak-piece>+ }
+
+    token rak-piece {
+        | <?['"]> <quote>
+        | <?before 'm/'> <quote>   # m/…/ is a regex; a bare / starts a path
+        | <variable>
+        | <?[{]> <block=.LANG('MAIN','block')>
+        | <!before '#'> $<literal>=[<-[\s;{}()'"$<>]>+]
+    }
 #-------------------------------------------------------------------------------
 # Phasers
 
@@ -3353,8 +3415,10 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     proto token circumfix {*}
     token circumfix:sym<( )> {
         :my $*ADVERB-AS-INFIX := 0;
+        :my $*RAK-CAPTURE := 1;
+        :my $*RAK-IN-PAREN := 1;
         :dba('parenthesized expression')
-        '(' ~ ')' <semilist>
+        '(' ~ ')' [ <?{ $*RAK-SEMANTICS }> \s* <rak-command> \s* <?before ')'> || <semilist> ]
     }
 
     token circumfix:sym<[ ]> {
@@ -3574,6 +3638,11 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         <identifier>
         <!before '('>
         <?{ !$*R.is-identifier-known(~$<identifier>) }>
+    }
+
+    # In rak mode, `$?` is the last exit status of an external command.
+    token term:sym<rak-status> {
+        <?{ $*RAK-SEMANTICS }> '$?' <!before \w>
     }
 
     token term:sym<variable> {
@@ -4193,6 +4262,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
 
     token contextualizer {
         :dba('contextualizer')
+        :my $*RAK-IN-PAREN := 1;
         [ <?{ $*IN-DECL }> <.panic: "Cannot declare a contextualizer"> ]?
         [
           | <sigil> '(' ~ ')'    <coercee=sequence>

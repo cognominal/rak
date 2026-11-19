@@ -1108,8 +1108,14 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         my $statement-id := $*STATEMENT-ID;
         my $statement;
 
+        # Command (.rak syntax), see PLANS/features/commands.md.
+        if $<rak-command> {
+            $statement := Nodify('Statement::Expression').new(
+              :expression($<rak-command>.ast));
+        }
+
         # Handle expression with optional condition/loop modifiers
-        if $<EXPR> {
+        elsif $<EXPR> {
             my $ast := $<EXPR>.ast;
             my $context := $*CU ?? $*CU.context !! Nodify('IMPL::QASTContext'); # Might be too early to even have a CU
             if nqp::istype($ast, Nodify('ColonPairs')) {
@@ -1876,6 +1882,84 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             $/.panic("Redirection filename AST is not concrete (term raw: '$raw')");
         }
         self.attach: $/, $ast;
+    }
+
+    # Commands (.rak syntax), see PLANS/features/commands.md.
+    sub rak-call($name, *@args) {
+        Nodify('Call::Name').new(
+          name => Nodify('Name').from-identifier($name),
+          args => Nodify('ArgList').new(|@args))
+    }
+
+    method rak-command($/) {
+        my $name    := ~$<identifier>;
+        my $capture := Nodify('IntLiteral').new($*RAK-CAPTURE);
+        my @args;
+        my @redirs;
+        for $<rak-arg> -> $a { nqp::push(@args, $a.ast) }
+        for $<rak-redir> -> $r { nqp::push(@redirs, $r.ast) }
+        my $ast;
+        if !$<forced> && $name eq 'cd' {
+            $ast := rak-call('RAK-CD', |@args);
+        }
+        elsif !$<forced> && $name eq 'type' {
+            my @names;
+            my @known;
+            for $<rak-arg> -> $a {
+                my $n := ~$a;
+                nqp::push(@names, Nodify('StrLiteral').new($n));
+                nqp::push(@known, Nodify('IntLiteral').new(
+                  $*R.is-identifier-known($n) ?? 1 !! 0));
+            }
+            $ast := rak-call('RAK-TYPE',
+              Nodify('Circumfix::ArrayComposer').new(Nodify('SemiList').new(
+                Nodify('Statement::Expression').new(:expression(
+                  Nodify('ApplyListInfix').new(
+                    :infix(Nodify('Infix').new(',')), :operands(@names)))))),
+              Nodify('Circumfix::ArrayComposer').new(Nodify('SemiList').new(
+                Nodify('Statement::Expression').new(:expression(
+                  Nodify('ApplyListInfix').new(
+                    :infix(Nodify('Infix').new(',')), :operands(@known)))))),
+              $capture);
+        }
+        else {
+            $ast := rak-call('RAK-RUN-COMMAND',
+              Nodify('StrLiteral').new($name), $capture, |@args, |@redirs);
+        }
+        self.attach: $/, $ast.to-begin-time($*R, $*CU.context);
+    }
+
+    method rak-redir($/) {
+        self.attach: $/, $<merge>
+          ?? Nodify('ColonPair::True').new('merge')
+          !! Nodify('ColonPair::Value').new(
+               :key($<err> ?? 'err' !! $<append> ?? 'append'
+                    !! $<out> ?? 'out' !! 'in'),
+               :value($<redir-filename>.ast));
+    }
+
+    method rak-arg($/) {
+        my @pieces := $<rak-piece>;
+        if nqp::elems(@pieces) == 1 && @pieces[0]<variable> {
+            self.attach: $/, @pieces[0].ast;
+        }
+        else {
+            my @segments;
+            for @pieces -> $p { nqp::push(@segments, $p.ast) }
+            self.attach: $/, Nodify('QuotedString').new(:segments(@segments));
+        }
+    }
+
+    method rak-piece($/) {
+        self.attach: $/,
+             $<quote>    ?? $<quote>.ast
+          !! $<variable> ?? $<variable>.ast
+          !! $<block>    ?? $<block>.ast
+          !! Nodify('StrLiteral').new($*LITERALS.intern-Str(~$<literal>));
+    }
+
+    method term:sym<rak-status>($/) {
+        self.attach: $/, rak-call('RAK-STATUS');
     }
 
     method redir-filename($/) {
@@ -2875,8 +2959,12 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
 # Circumfix operators
 
     method circumfix:sym<( )>($/) {
-        self.attach: $/,
-          Nodify('Circumfix::Parentheses').new($<semilist>.ast)
+        self.attach: $/, $<rak-command>
+          ?? Nodify('Circumfix::Parentheses').new(
+               Nodify('SemiList').new(
+                 Nodify('Statement::Expression').new(
+                   :expression($<rak-command>.ast))))
+          !! Nodify('Circumfix::Parentheses').new($<semilist>.ast)
     }
 
     method circumfix:sym<[ ]>($/) {

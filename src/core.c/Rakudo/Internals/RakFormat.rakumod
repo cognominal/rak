@@ -516,4 +516,63 @@ sub RAK-LOAD(Str() $target, Str:D $sigil, Str:D $name) is raw is implementation-
     $sigil eq '@' || $sigil eq '%' ?? value<> !! value
 }
 
+# Commands (see PLANS/features/commands.md). The value of a command run at
+# statement level is its Proc, which is not an error when sunk.
+my class Rakudo::Internals::RakProc is Proc {
+    method sink(--> Nil) { }
+}
+
+my $RAK-STATUS;                   # last exit status, process-global
+my $RAK-OLDPWD;                   # for `cd -`
+
+sub RAK-STATUS() is implementation-detail { $RAK-STATUS }
+
+# Runs an external command. The redirection targets come as named
+# arguments. With $capture, standard output is captured and returned as a Str.
+sub RAK-RUN-COMMAND(Str:D $name, $capture, *@args,
+  :$out is copy, :$append, :$in is copy, :$err is copy, :$merge
+) is implementation-detail {
+    my @open;
+    $out = $out.defined    ?? open(~$out, :w)    !! Nil;
+    $out = open(~$append, :a) if $append.defined;
+    $in  = $in.defined     ?? open(~$in, :r)     !! '-';
+    $err = $err.defined    ?? open(~$err, :w)    !! '-';
+    @open.push($_) for ($out, $in, $err).grep(IO::Handle);
+    $out = $capture ?? True !! '-' without $out;
+    my $proc := Rakudo::Internals::RakProc.new(:$in, :$out, :$err, :merge(?$merge));
+    $proc.spawn($name, |@args.map(*.Str), :cwd($*CWD));
+    my $result := $capture && $out ~~ Bool ?? $proc.out.slurp(:close) !! $proc;
+    $proc.exitcode;               # waits for the child
+    .close for @open;
+    $RAK-STATUS = $proc;
+    $result
+}
+
+sub RAK-CD(*@args) is implementation-detail {
+    my $old = $*CWD;
+    my $dir = !@args          ?? $*HOME
+           !! @args[0] eq '-' ?? ($RAK-OLDPWD // $*CWD)
+           !! @args[0];
+    &*chdir(~$dir);
+    $RAK-OLDPWD = $old;
+    $*CWD
+}
+
+# `type name`: every meaning of each name, rak first, in bash's wording.
+sub RAK-TYPE(@names, @known, $capture) is implementation-detail {
+    my @lines;
+    for @names.kv -> $i, $name {
+        my $before = +@lines;
+        @lines.push: "$name is a rak routine" if @known[$i];
+        @lines.push: "$name is a shell builtin" if $name eq 'cd' | 'type';
+        for $*SPEC.path -> $dir {
+            my $p = $dir.IO.add($name);
+            @lines.push: "$name is $p" if $p.f && $p.x;
+        }
+        @lines.push: "type: $name: not found" if +@lines == $before;
+    }
+    unless $capture { .say for @lines }
+    @lines
+}
+
 # vim: expandtab shiftwidth=4

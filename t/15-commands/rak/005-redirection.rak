@@ -1,0 +1,21 @@
+use Test;
+
+plan 6;
+
+my $d = $*TMPDIR->add("rak-cmd-$*PID");
+mkdir $d;
+my $o = "$d/out";
+my $e = "$d/err";
+
+echo one >$o;
+is $o->IO->slurp, "one\n", '>target';
+echo two >>$o;
+is $o->IO->slurp, "one\ntwo\n", '>>target appends';
+is (tr a-z A-Z <$o), "ONE\nTWO\n", '<target';
+sh -c 'echo bad >&2' 2>$e;
+is $e->IO->slurp, "bad\n", '2>target';
+is (sh -c 'echo bad >&2' 2>&1), "bad\n", '2>&1';
+
+throws-like { EVAL 'echo one > out' }, X::Comp, 'spaced > is a compile error';
+
+run 'rm', '-r', $d;

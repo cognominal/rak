@@ -1,0 +1,11 @@
+use Test;
+
+plan 4;
+
+# When its value is used, a command's standard output is captured as a Str.
+
+my $out = (echo hello world);
+is $out, "hello world\n", 'captured output';
+isa-ok $out, Str, 'a Str';
+is (^printf '%s-%s' a b), 'a-b', 'quoted argument';
+is +$?, 0, '$? set by a captured command';

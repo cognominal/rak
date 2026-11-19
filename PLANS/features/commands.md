@@ -24,7 +24,8 @@ one.
 
 Arguments parse like a Raku `<<…>>` list: whitespace separates words, quotes group, `$x`
 and `{…}` interpolate. `$x` is never word-split; a list variable gives one argument per
-element.
+element. A leading `/` starts a naked path and `m/` a regex (matched against `$_`); a
+relative path starting with `m/` is written `./m/…`.
 
 ```rak
 my @f = <a.txt b.txt>;

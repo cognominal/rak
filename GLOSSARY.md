@@ -22,8 +22,7 @@ _Avoid_: standard mode, normal mode, Raku mode.
 The way a statement or parenthesized group parses when it reads as a command line: the
 first word names what to run (an alias, a routine, a builtin or an external command)
 and the words after it are its arguments. It takes the slot that Raku reports as the
-error "two terms in a row", so no valid Raku program changes meaning. Planned, not
-implemented.
+error "two terms in a row", so no valid Raku program changes meaning.
 _Avoid_: shell mode, command mode.
 
 <a id="command"></a>**command**:

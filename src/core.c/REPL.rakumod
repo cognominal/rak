@@ -549,6 +549,7 @@ do {
 
                 $stopped = 0;
                 my $initial_out_position = $*OUT.tell;
+                my $status-before := RAK-STATUS();
 
                 # An undef $newcode implies ^D or similar
                 if !$newcode.defined {
@@ -627,8 +628,23 @@ do {
                 # - there wasn't some other output
                 # - the result is an *unhandled* Failure
                 # - print an exception if one had occured
+                # irak shows a non-zero exit status of the last command, dimmed.
+                if irak() {
+                    my $status := RAK-STATUS();
+                    if $status.DEFINITE
+                      && nqp::not_i(nqp::eqaddr($status, $status-before))
+                      && $status.exitcode {
+                        say $*OUT.t
+                          ?? "\e[2mexit {$status.exitcode}\e[0m"
+                          !! "exit {$status.exitcode}";
+                    }
+                }
+
                 if $exception.DEFINITE {
                     self.repl-print($exception);
+                }
+                elsif irak() && nqp::istype($output, Rakudo::Internals::RakProc) {
+                    # a command's Proc prints nothing and leaves $_ alone
                 }
                 elsif $initial_out_position == $*OUT.tell
                     or nqp::istype($output, Failure) and not $output.handled {
