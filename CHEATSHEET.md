@@ -179,16 +179,18 @@ given { a => 1, b => [5, 6] } {
 
 ## Redirection
 
-The operator touches its target. The target is a naked string, a quoted string or
-a variable. A naked target that starts with a digit (`>123.txt`) is not a target,
+Three forms: **output redirection** (`STMT >file`, `STMT >>file`), **input
+redirection** (`<file STMT`) and **load** (`LVALUE <file`, or `<file` alone).
+The operator touches its target, which is a naked string, a quoted string or a
+variable. A naked target that starts with a digit (`>123.txt`) is not a target,
 except for a load: `$a <5` loads the file `5` and warns at compile time. Write
 `$a < 5` to compare.
 
 | Form | Meaning |
 |---|---|
-| `STMT >file` | Bind `$*OUT` to `file` (truncated) for this statement only. |
+| `STMT >file` | **Output redirection**: bind `$*OUT` to `file` (truncated) for this statement only. |
 | `STMT >>file` | The same, but appending. |
-| `<file STMT` | Bind `$*IN` to `file` for this statement only. |
+| `<file STMT` | **Input redirection**: bind `$*IN` to `file` for this statement only. |
 | `LVALUE <file` | **Load**: decode `file` and assign it to the left-hand side. |
 | `<file` (on its own) | Load into `$_`. |
 
