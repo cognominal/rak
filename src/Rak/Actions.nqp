@@ -2037,9 +2037,42 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
     method redir-filename($/) {
         # Propagate the matched alternative's AST to this level.
         self.attach: $/,
-          nqp::isconcrete($<redir-naked-filename>) ?? $<redir-naked-filename>.ast
+          nqp::isconcrete($<redir-url>) ?? $<redir-url>.ast
+          !! nqp::isconcrete($<redir-naked-filename>) ?? $<redir-naked-filename>.ast
           !! nqp::isconcrete($<redir-quoted-filename>) ?? $<redir-quoted-filename>.ast
+          !! nqp::isconcrete($<redir-dquoted-filename>) ?? $<redir-dquoted-filename><quote>.ast
           !! $<redir-var-filename>.ast;
+    }
+
+    # A naked URL: its literal pieces and its `$name` interpolations.
+    method redir-url($/) {
+        my @segments := [Nodify('StrLiteral').new($*LITERALS.intern-Str(
+          nqp::substr(~$/, 0, nqp::index(~$/, '://') + 3)))];
+        # The pieces in source order: literal runs and variables interleave.
+        my @pieces;
+        if $<lit> {
+            for $<lit> -> $l { nqp::push(@pieces, [$l.from, Nodify('StrLiteral').new($*LITERALS.intern-Str(~$l))]) }
+        }
+        if $<identifier> {
+            for $<identifier> -> $v {
+                nqp::push(@pieces, [$v.from, Nodify('Var::Lexical').new('$' ~ ~$v)]);
+            }
+        }
+        # Sort by position (few pieces: insertion sort).
+        my int $n := nqp::elems(@pieces);
+        my int $i := 1;
+        while $i < $n {
+            my $p := @pieces[$i];
+            my int $j := $i - 1;
+            while $j >= 0 && @pieces[$j][0] > $p[0] {
+                @pieces[$j + 1] := @pieces[$j];
+                $j--;
+            }
+            @pieces[$j + 1] := $p;
+            $i++;
+        }
+        for @pieces -> $p { nqp::push(@segments, $p[1]) }
+        self.attach: $/, Nodify('QuotedString').new(:@segments)
     }
 
     method redir-naked-filename($/) {

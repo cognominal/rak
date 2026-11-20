@@ -1475,6 +1475,8 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
             # statement after it, it is input redirection.
             [
             || <?before ';' | '}' | $ > $<load-topic>=<?>
+            || <?{ $<redir-filename><redir-url> }>
+               { $/.panic("Input redirection from a URL is not supported: load it instead, my \$x <" ~ ~$<redir-filename>) }
             || <statement>
             ]
           | <EXPR>
@@ -1973,7 +1975,10 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     token statement-mod-redir {
         <.ws>
         $<op> = [ '>>' | '>' ]
-        <?{ !self.after-ws($/) }> <redir-filename>
+        <?{ !self.after-ws($/) }>
+        [ <?{ ~$<op> eq '>>' }> <?redir-url-ahead>
+          { $/.panic("Cannot append to a URL target: use >url to POST") } ]?
+        <redir-filename>
     }
 
     # Load, `LVALUE <target`: a `<` touching its target at the end of a
@@ -1992,10 +1997,31 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     }
 
     token redir-filename {
+        || <redir-url>
         || <redir-naked-filename>
         || <redir-quoted-filename>
+        || <redir-dquoted-filename>
         || <redir-var-filename>
     }
+
+    # A URL target (PLANS/features/url-targets.md): `http://` or `https://`,
+    # then URL characters and `$name` interpolations. `{`, `}`, `(`, `)`,
+    # `;`, `#` and whitespace end it; a URL needing more is double-quoted.
+    token redir-url {
+        'http' 's'? '://'
+        [
+        | $<lit>=[ <[\w\-.~:/?&=+%@!,*']>+ ]
+        | '$' <identifier>
+        ]+
+    }
+
+    token redir-dquoted-filename {
+        <?["]> <quote>
+    }
+
+    # Is the redirection target at the cursor a URL? For the operators a URL
+    # target does not support.
+    token redir-url-ahead { 'http' 's'? '://' }
 
     token redir-naked-filename {
         # A filename/path starting with alpha, /, ~, ./, or ../
@@ -2075,12 +2101,17 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     }
 
     token rak-redir {
+        # Checked first: the alternatives below would take the URL as a file.
+        [ <?before [ '2>' | '>>' | '<' ] <.redir-url-ahead>>
+          { $/.panic("A command's output can only be sent to a URL with >url") } ]?
+        [
         | '2>&1' $<merge>=<?>
         | '2>' <redir-filename> $<err>=<?>
         | '>>' <redir-filename> $<append>=<?>
         | '>' <redir-filename> $<out>=<?>
         | '<' <redir-filename> $<in>=<?>
         | '>' <?before \h | $> { $/.panic("A redirection is written touching its target: use >target") }
+        ]
     }
 
     token rak-arg { <rak-piece>+ }

@@ -1,0 +1,136 @@
+use Test;
+use lib 't/packages/RakHTTPFixture/lib';
+use RakHTTPFixture;
+
+plan 23;
+
+# ---------------------------------------------------------------------------
+# Loading a URL target (PLANS/features/url-targets.md): `LVALUE <http://…` is
+# a GET. A JSON media type decodes as JSON, anything else is text. Errors throw
+# X::Rak::HTTP. A local fixture stands in for the network.
+# ---------------------------------------------------------------------------
+
+my $srv = RakHTTPFixture.new(routes => {
+    'GET /obj'           => (200, 'application/json', '{"name": "rak", "tags": ["a", "b"]}'),
+    'GET /arr'           => (200, 'application/json; charset=utf-8', '[1, 2, 3]'),
+    'GET /vnd'           => (200, 'application/vnd.github+json', '{"login": "octocat"}'),
+    'GET /text'          => (200, 'text/plain', "alpha\nbeta\n"),
+    'GET /users/octocat' => (200, 'application/json', '{"login": "octocat"}'),
+    'GET /search?q=rak&page=2' => (200, 'application/json', '{"page": 2}'),
+    'GET /boom'          => (500, 'text/plain', "it broke\nsecond line\n"),
+});
+my $port = $srv->port;
+my $user = 'octocat';
+
+# The headers file is looked up under XDG_CONFIG_HOME.
+my $config = $*TMPDIR->add("rak-url-load-$*PID");
+$config->add('rak')->mkdir;
+END {
+    $config->add('rak/http-headers.json')->unlink;
+    $config->add('rak')->rmdir;
+    $config->rmdir;
+}
+%*ENV<XDG_CONFIG_HOME> = ~$config;
+%*ENV<RAK_TEST_TOKEN> = 's3cret';
+$config->add('rak/http-headers.json')->spurt(q:to/END/);
+    // keyed by host
+    {
+      '127.0.0.1': { auth: '$RAK_TEST_TOKEN', 'X-Api-Version': 'v1', 'X-Unset': '$RAK_NO_SUCH_VAR' },
+    }
+    END
+
+# 1-2. An object into %, an array into @.
+{
+    my %h <http://127.0.0.1:$port/obj;
+    is-deeply %h, { name => 'rak', tags => ['a', 'b'] }, '1: my %h <url (application/json)';
+    my @a <http://127.0.0.1:$port/arr;
+    is-deeply @a, [1, 2, 3], '2: my @a <url (a media type parameter is ignored)';
+}
+
+# 3. A +json media type is JSON.
+{
+    my %h <http://127.0.0.1:$port/vnd;
+    is %h<login>, 'octocat', '3: application/vnd.github+json decodes';
+}
+
+# 4-5. Text loads as for a file with no format.
+{
+    my $s <http://127.0.0.1:$port/text;
+    is $s, "alpha\nbeta\n", '4: text/plain loads as a string';
+    my @l <http://127.0.0.1:$port/text;
+    is-deeply @l, ['alpha', 'beta'], '5: text/plain loads as lines into @';
+}
+
+# 6. A variable interpolates; its name ends where an identifier does.
+{
+    my %u <http://127.0.0.1:$port/users/$user;
+    is %u<login>, 'octocat', '6: $var interpolates in a naked URL';
+    is $srv->last<path>, '/users/octocat', '6: the interpolated path was requested';
+}
+
+# 7. A query string is part of the target.
+{
+    my %r <http://127.0.0.1:$port/search?q=rak&page=2;
+    is %r<page>, 2, '7: ? and & belong to the URL';
+}
+
+# 8. A double-quoted target interpolates blocks too.
+{
+    my $what = 'obj';
+    my %h <"http://127.0.0.1:$port/{$what}";
+    is %h<name>, 'rak', '8: a double-quoted URL target';
+}
+
+# 9. A variable holding a URL is a URL target.
+{
+    my $url = "http://127.0.0.1:$port/arr";
+    my @a <$url;
+    is-deeply @a, [1, 2, 3], '9: <$var holding a URL';
+}
+
+# 10. A bare load into the topic.
+{
+    <http://127.0.0.1:$port/obj;
+    is .name, 'rak', '10: <url loads into $_';
+}
+
+# 11. The shape is checked as for a file.
+throws-like { my @a <http://127.0.0.1:$port/obj }, X::Rak::Format::Shape,
+    '11: an object into @ is a shape error';
+
+# 12-14. Errors.
+{
+    my $e;
+    try { my %h <http://127.0.0.1:$port/missing; CATCH { default { $e = $_ } } }
+    isa-ok $e, X::Rak::HTTP, '12: a 404 throws X::Rak::HTTP';
+    is $e->status, 404, '12: with its status';
+    like $e->message, /'Not Found'/, '12: and the JSON message';
+}
+{
+    my $e;
+    try { my $s <http://127.0.0.1:$port/boom; CATCH { default { $e = $_ } } }
+    is $e->status, 500, '13: a 500 throws';
+    is $e->reason, 'it broke', '13: the reason is the first line of a text body';
+}
+{
+    # A port nobody listens on: the fixture's, once it is closed.
+    my $dead = RakHTTPFixture->new;
+    my $dead-port = $dead->port;
+    $dead->stop;
+    my $e;
+    try { my $s <http://127.0.0.1:$dead-port/x; CATCH { default { $e = $_ } } }
+    isa-ok $e, X::Rak::HTTP, '14: a connection failure throws X::Rak::HTTP';
+    nok $e->status.defined, '14: with no status';
+}
+
+# 15-16. Headers come from the config file, keyed by host.
+{
+    my %h <http://127.0.0.1:$port/obj;
+    my %sent = $srv->last<headers>;
+    is %sent<authorization>, 'Bearer s3cret', '15: auth: $VAR is a Bearer token';
+    is %sent<x-api-version>, 'v1', '15: other headers are sent as written';
+    nok %sent<x-unset>:exists, '15: a header whose variable is unset is left out';
+    like %sent<user-agent>, /^rak/, '16: the user agent is rak';
+}
+
+$srv->stop;

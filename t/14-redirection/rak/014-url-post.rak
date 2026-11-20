@@ -1,0 +1,103 @@
+use Test;
+use lib 't/packages/RakHTTPFixture/lib';
+use RakHTTPFixture;
+
+plan 21;
+
+# ---------------------------------------------------------------------------
+# Output redirection to a URL target (PLANS/features/url-targets.md, ADR 0005):
+# `STMT >http://…` is a POST of JSON. The value is sent when nothing is printed,
+# the printed text otherwise (ADR 0004). The statement's value is the decoded
+# response.
+# ---------------------------------------------------------------------------
+
+my $srv = RakHTTPFixture.new(routes => {
+    'POST /issues' => (201, 'application/json', '{"number": 7, "html_url": "http://x/7"}'),
+    'POST /empty'  => (204, '', ''),
+    'POST /text'   => (200, 'text/plain', 'ok'),
+    'POST /bad'    => (422, 'application/json', '{"message": "Validation Failed"}'),
+});
+my $port = $srv->port;
+%*ENV<XDG_CONFIG_HOME> = ~$*TMPDIR->add("rak-url-post-none-$*PID");
+
+sub body() { Rakudo::Internals::JSON.from-json($srv->last<body>) }
+
+# 1-5. Value mode: the value is sent as JSON, the response is the value.
+{
+    my %issue = title => 'Test', body => 'from rak';
+    my $r = do { %issue >http://127.0.0.1:$port/issues };
+    is $srv->last<method>, 'POST', '1: >url is a POST';
+    is $srv->last<headers><content-type>, 'application/json', '2: of JSON';
+    is-deeply body(), { title => 'Test', body => 'from rak' }, '3: the value is the body';
+    is $r<number>, 7, '4: the statement value is the decoded response';
+    is $r<html_url>, 'http://x/7', '5: all of it';
+}
+
+# 6. Text mode: what is printed must be JSON, and is what is sent.
+{
+    print '{ a: 1 }' >http://127.0.0.1:$port/issues;
+    is-deeply body(), { a => 1 }, '6: printed text is sent, re-encoded';
+}
+
+# 7. Printed text that is not JSON sends nothing.
+{
+    my $before = +$srv->requests;
+    throws-like { print 'not json' >http://127.0.0.1:$port/issues },
+        X::Rak::Format::Decode, '7: printed text must decode as JSON';
+    is +$srv->requests, $before, '7: and no request is made';
+}
+
+# 8. No body in the response: Nil.
+{
+    my $r = do { %(a => 1) >http://127.0.0.1:$port/empty };
+    nok $r->defined, '8: a 204 gives no value';
+}
+
+# 9. A text response is a string.
+{
+    my $r = do { %(a => 1) >http://127.0.0.1:$port/text };
+    is $r, 'ok', '9: a text response is a string';
+}
+
+# 10. An error response throws.
+{
+    my $e;
+    try { %(a => 1) >http://127.0.0.1:$port/bad; CATCH { default { $e = $_ } } }
+    isa-ok $e, X::Rak::HTTP, '10: a 422 throws X::Rak::HTTP';
+    is $e->status, 422, '10: with its status';
+    is $e->reason, 'Validation Failed', '10: and the server message';
+}
+
+# 11. A variable holding a URL.
+{
+    my $url = "http://127.0.0.1:$port/issues";
+    my $r = do { %(b => 2) >$url };
+    is $r<number>, 7, '11: >$var holding a URL posts';
+}
+
+# 12-13. Appending to a URL is an error.
+throws-like { EVAL q[%(a => 1) >>http://127.0.0.1:1/x] }, X::Comp,
+    message => /'URL'/, '12: >>url is a compile-time error';
+{
+    my $url = "http://127.0.0.1:$port/issues";
+    throws-like { %(a => 1) >>$url }, X::Rak::HTTP, '13: >>$var holding a URL throws';
+}
+
+# 14. Input redirection from a URL is not supported yet.
+throws-like { EVAL q[<http://127.0.0.1:1/x say 1] }, X::Comp,
+    message => /'load'/, '14: <url STMT is a compile-time error that suggests a load';
+
+# 15-17. A command's output can be posted.
+{
+    my $before = +$srv->requests;
+    my $r = do { echo '{"c": 3}' >http://127.0.0.1:$port/issues };
+    is +$srv->requests, $before + 1, '15: a command redirected to a URL posts';
+    is-deeply body(), { c => 3 }, '16: its output, as JSON';
+    is $r<number>, 7, '17: the command value is the decoded response';
+}
+
+# 18. A command's output can't be appended to a URL.
+throws-like { EVAL q[echo 1 >>http://127.0.0.1:1/x] }, X::Comp,
+    message => /'URL'/, '18: cmd >>url is a compile-time error';
+
+$srv->stop;

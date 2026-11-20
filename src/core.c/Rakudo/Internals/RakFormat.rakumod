@@ -431,11 +431,216 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
     }
 }
 
+# URL targets (PLANS/features/url-targets.md): a load from an http(s) URL is a
+# GET, output redirection to one is a POST of JSON. Every request goes through
+# RakHTTP.request, which runs curl, or HTTP::UserAgent when curl is missing.
+my class X::Rak::HTTP is Exception {
+    has Str $.url;
+    has $.status;                 # an Int, or Nil when no response came back
+    has Str $.reason;
+    method message() {
+        $!status.defined ?? "$!url: HTTP $!status: $!reason" !! "$!url: $!reason"
+    }
+}
+
+my int $RAK-HTTP-SEQ;
+
+my class Rakudo::Internals::RakHTTP is implementation-detail {
+
+    method is-url(Str:D $target) {
+        my str $lc = nqp::lc($target);
+        nqp::eqat($lc, 'http://', 0) || nqp::eqat($lc, 'https://', 0)
+    }
+
+    # A JSON media type: application/json, or any +json one.
+    method is-json(Str:D $type) {
+        my $mt := nqp::lc($type.split(';')[0].trim);
+        $mt eq 'application/json' || $mt.ends-with('+json')
+    }
+
+    method which(Str:D $name) {
+        $*SPEC.path.map({ .IO.add($name) }).first({ .f && .x })
+    }
+
+    # The URL's host:port and host.
+    method authority(Str:D $url) {
+        my $rest := $url.substr($url.index('://') + 3);
+        my $end  := $rest.chars;
+        for '/', '?', '#' { with $rest.index($_) { $end := $_ if $_ < $end } }
+        my $auth := $rest.substr(0, $end);
+        $auth := $auth.substr($auth.rindex('@') + 1) if $auth.contains('@');
+        ($auth, $auth.contains(':') ?? $auth.substr(0, $auth.rindex(':')) !! $auth)
+    }
+
+    method config-file() {
+        (%*ENV<XDG_CONFIG_HOME> || "$*HOME/.config").IO.add('rak/http-headers.json')
+    }
+
+    # The headers for a URL: rak's user agent, then those the config file
+    # gives its host (host:port first). A value `$NAME` is that environment
+    # variable, and the header is left out when it is unset; `auth: TOKEN` is
+    # `Authorization: Bearer TOKEN`. With no authorization configured,
+    # api.github.com gets the token of `gh auth token`.
+    method headers(Str:D $url) {
+        my ($auth, $host) = self.authority($url);
+        my @headers = 'User-Agent' => 'rak';
+        my %config;
+        my $file := self.config-file;
+        if $file.e {
+            my $c := Rakudo::Internals::RakFormat.decode('json', $file.slurp, ~$file);
+            my $for := nqp::istype($c, Map) ?? ($c{$auth} // $c{$host}) !! Nil;
+            X::Rak::Format.new(:target(~$file), :format<json>,
+              :reason("expected an object of headers for each host")
+            ).throw unless nqp::istype($c, Map) && (!$for.defined || nqp::istype($for, Map));
+            %config = $for if $for.defined;
+        }
+        my $has-auth := False;
+        for %config.sort(*.key) -> (:key($name), :value($raw)) {
+            my $value := ~$raw;
+            if $value.starts-with('$') {
+                $value := %*ENV{$value.substr(1)} // next;
+            }
+            if nqp::lc($name) eq 'auth' {
+                @headers.push: 'Authorization' => "Bearer $value";
+                $has-auth := True;
+            }
+            else {
+                $has-auth := True if nqp::lc($name) eq 'authorization';
+                @headers.push: $name => $value;
+            }
+        }
+        if !$has-auth && $host eq 'api.github.com' {
+            with self!gh-token -> $token {
+                @headers.push: 'Authorization' => "Bearer $token";
+            }
+        }
+        @headers
+    }
+
+    method !gh-token() {
+        self.which('gh') or return Nil;
+        my $proc := Proc.new(:out, :err);
+        $proc.spawn('gh', 'auth', 'token');
+        my $token := $proc.out.slurp(:close).trim;
+        $proc.err.slurp(:close);
+        $proc.exitcode == 0 && $token ?? $token !! Nil
+    }
+
+    # The response (status, media type, body). A failed connection or an
+    # error status throws X::Rak::HTTP.
+    method request(Str:D $method, Str:D $url, Str $body?) {
+        my @headers = self.headers($url);
+        @headers.push: 'Content-Type' => 'application/json' if $body.defined;
+        my ($status, $type, $content) = self.which('curl')
+          ?? self!curl($url, @headers, $body)
+          !! self!user-agent($method, $url, @headers, $body);
+        X::Rak::HTTP.new(:$url, :$status, :reason(self!reason($type, $content, $status))).throw
+          if $status >= 400;
+        ($status, $type, $content)
+    }
+
+    # The server's message: a JSON body's `message`, else the first line.
+    method !reason(Str:D $type, Str:D $content, $status) {
+        if self.is-json($type) {
+            my $v := try Rakudo::Internals::RakFormat.decode('json', $content, 'response');
+            return ~$v<message> if nqp::istype($v, Map) && $v<message>.defined;
+        }
+        $content.lines.first(*.trim) // "no message"
+    }
+
+    # The decoded value of a response body: JSON by its media type, else the
+    # text; Nil for an empty body.
+    method value(Str:D $url, Str:D $type, Str:D $content) {
+        $content.chars == 0      ?? Nil
+          !! self.is-json($type) ?? Rakudo::Internals::RakFormat.decode('json', $content, $url)
+          !! $content
+    }
+
+    method post(Str:D $url, Str:D $body) {
+        my ($, $type, $content) = self.request('POST', $url, $body);
+        self.value($url, $type, $content)
+    }
+
+    # curl reads its options from standard input, so the URL and the
+    # headers (tokens) never appear in a process listing.
+    method !curl(Str:D $url, @headers, $body) {
+        sub q(Str() $s) {
+            '"' ~ $s.subst('\\', '\\\\', :g).subst('"', '\\"', :g)
+                    .subst("\n", '\\n', :g).subst("\r", '\\r', :g) ~ '"'
+        }
+        my $seq  := ++$RAK-HTTP-SEQ;
+        my $out  := $*TMPDIR.add("rak-http-$*PID-$seq.out");
+        my $in   := $*TMPDIR.add("rak-http-$*PID-$seq.in");
+        LEAVE { $out.unlink if $out.e; $in.unlink if $in.e }
+        my @config = "url = {q $url}", "output = {q $out}",
+          'silent', 'show-error', 'location',
+          'write-out = "%{http_code}\n%{content_type}"';
+        @config.push: "header = {q "{.key}: {.value}"}" for @headers;
+        if $body.defined {
+            $in.spurt($body);
+            @config.push: "data-binary = {q '@' ~ $in}";
+        }
+        my $proc := Proc.new(:in, :out, :err);
+        $proc.spawn('curl', '--config', '-');
+        $proc.in.print(@config.join("\n") ~ "\n");
+        # Closing the input pipe returns the Proc: sunk, it would throw
+        # X::Proc::Unsuccessful before the exit code is looked at.
+        my $closed := $proc.in.close;
+        my $meta := $proc.out.slurp(:close);
+        my $err  := $proc.err.slurp(:close).trim;
+        if $proc.exitcode -> $code {
+            $err := $err.substr($err.index(') ') + 2)
+              if $err.starts-with('curl: (') && $err.contains(') ');
+            X::Rak::HTTP.new(:$url, :reason($err || "curl failed with exit code $code")).throw;
+        }
+        my @meta = $meta.lines;
+        (@meta[0].Int, @meta[1] // '', $out.e ?? $out.slurp !! '')
+    }
+
+    # Without curl: HTTP::UserAgent, if it is installed.
+    method !user-agent(Str:D $method, Str:D $url, @headers, $body) {
+        sub need(Str:D $name) {
+            my $unit := $*REPO.need(CompUnit::DependencySpecification.new(:short-name($name)));
+            $unit.handle.globalish-package.AT-KEY('HTTP').WHO.AT-KEY($name.substr(6))
+        }
+        my \UA = try need('HTTP::UserAgent');
+        X::Rak::HTTP.new(:$url,
+          :reason('a URL target needs curl on $PATH, or the HTTP::UserAgent module')
+        ).throw unless UA.^name eq 'HTTP::UserAgent';
+        my \Request = need('HTTP::Request');
+        my $req := Request.new(|($method => $url));
+        $req.header.field(|%(@headers));
+        $req.add-content($body) if $body.defined;
+        my $res := try UA.new(:useragent<rak>, :!throw-exceptions).request($req);
+        X::Rak::HTTP.new(:$url, :reason(~($! // 'no response'))).throw unless $res.defined;
+        ($res.code.Int, ~($res.content-type // ''), ~($res.decoded-content // ''))
+    }
+}
+
 # Output redirection, `STMT >target` / `STMT >>target`: run the thunked
 # statement with $*OUT bound to the target for that statement alone. A target
 # with a format is written whole, from the printed text or, if nothing was
 # printed, from the encoded value.
 sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code) is implementation-detail {
+    # A URL target: the statement's output is POSTed as JSON, and its value
+    # is the response (docs/adr/0005-a-url-target-gives-the-response-as-the-statement-value.md).
+    if Rakudo::Internals::RakHTTP.is-url($target) {
+        X::Rak::HTTP.new(:url($target),
+          :reason('cannot append to a URL target, use >url to POST')
+        ).throw if $mode eq 'a';
+        my $capture := Rakudo::Internals::RakCapture.new;
+        my \result = do {
+            my $*OUT := $capture;
+            my \r = code();
+            nqp::istype(r, Seq) ?? r.eager !! r
+        };
+        return Rakudo::Internals::RakHTTP.post: $target,
+          Rakudo::Internals::RakFormat.encode('json',
+            $capture.printed
+              ?? Rakudo::Internals::RakFormat.decode('json', $capture.text, $target)
+              !! result,
+            $target);
+    }
     my $format := Rakudo::Internals::RakFormat.of($target);
     if $format {
         X::Rak::Format.new(:$target, :$format,
@@ -483,9 +688,18 @@ sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code) is implementation-detail
 # (@ an array, % an object, ~ a string, # an integer, $ anything). A target
 # without one loads as lines for @, as the whole text otherwise.
 sub RAK-LOAD(Str() $target, Str:D $sigil, Str:D $name) is raw is implementation-detail {
-    my $format := Rakudo::Internals::RakFormat.of($target);
-    my $text   := $target.IO.slurp;
-    $text.throw if nqp::istype($text, Failure);
+    my $format;
+    my $text;
+    if Rakudo::Internals::RakHTTP.is-url($target) {
+        my ($, $type, $content) = Rakudo::Internals::RakHTTP.request('GET', $target);
+        $format = Rakudo::Internals::RakHTTP.is-json($type) ?? 'json' !! Nil;
+        $text   = $content;
+    }
+    else {
+        $format = Rakudo::Internals::RakFormat.of($target);
+        $text   = $target.IO.slurp;
+        $text.throw if nqp::istype($text, Failure);
+    }
 
     sub shape(\v) {
         nqp::istype(v, Failure)                ?? 'failure'
@@ -533,7 +747,7 @@ sub RAK-STATUSES() is implementation-detail { $RAK-STATUSES<> }
 
 # Runs an external command. The redirection targets come as named
 # arguments. With $capture, standard output is captured and returned as a Str.
-sub RAK-RUN-COMMAND(Str:D $name, $capture, *@args,
+sub RAK-RUN-COMMAND(Str:D $name, $capture is copy, *@args,
   :$out is copy, :$append, :$in is copy, :$err is copy, :$merge,
   Mu :$stdin is raw = Rakudo::Internals::RakNoStdin, :$piped
 ) is implementation-detail {
@@ -542,6 +756,18 @@ sub RAK-RUN-COMMAND(Str:D $name, $capture, *@args,
     # value, and RAK-PIPE-END waits for it.
     my @open;
     my $feed := nqp::not_i(nqp::eqaddr($stdin, Rakudo::Internals::RakNoStdin));
+    # A URL target: the output is captured, then POSTed as JSON.
+    my $url;
+    for ($append, $in, $err) -> $t {
+        X::Rak::HTTP.new(:url(~$t),
+          :reason("a command's output can only be sent to a URL with >url")
+        ).throw if $t.defined && Rakudo::Internals::RakHTTP.is-url(~$t);
+    }
+    if $out.defined && Rakudo::Internals::RakHTTP.is-url(~$out) {
+        $url = ~$out;
+        $out = Nil;
+        $capture = 1;
+    }
     $out = $out.defined    ?? open(~$out, :w)    !! Nil;
     $out = open(~$append, :a) if $append.defined;
     $in  = $in.defined     ?? open(~$in, :r)
@@ -574,6 +800,12 @@ sub RAK-RUN-COMMAND(Str:D $name, $capture, *@args,
     .close for @open;
     $RAK-STATUS = $proc;
     $RAK-STATUSES = ($proc,);
+    # A command that failed sends nothing.
+    return $proc if $url.defined && $proc.exitcode;
+    $result := Rakudo::Internals::RakHTTP.post: $url,
+      Rakudo::Internals::RakFormat.encode('json',
+        Rakudo::Internals::RakFormat.decode('json', $result, $url), $url)
+      if $url.defined;
     $result
 }
 
