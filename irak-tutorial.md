@@ -1311,6 +1311,20 @@ mean, and documents them in its **manual page**, which `man` shows:
 
 (`q` quits `man`, as it quits `less`.)
 
+A manual page lists every option, which is a lot to read when you only want the usual
+case. `tldr` (for "too long; didn't read") shows a short page of common examples
+instead, written by its community:
+
+```
+> tldr tar
+  - [c]reate an archive and write it to a [f]ile:    tar cf path/to/target.tar path/to/file1 …
+  - E[x]tract a (compressed) archive [f]ile into the current directory [v]erbosely:    tar xvf path/to/source.tar.ext
+  …
+```
+
+`tldr` is not always installed: your system's package manager has it, often as `tldr` or
+`tealdeer`. Start with `tldr`; go to `man` when you need the details.
+
 ### 5.3 Who wins a name
 
 A name can mean several things at once. `sort` is a rak routine *and* a program in
@@ -4799,8 +4813,8 @@ this tutorial did not touch: classes and objects, grammars to parse any text, co
 with promises and supplies, and a large module ecosystem.
 
 **Learn the shell itself.** rak runs your system's programs, and the more of them you
-know, the more you can do. `man` followed by a command name shows its manual:
-`man sort`, `man find`. "The Linux Command Line", by William Shotts, is free online and
+know, the more you can do. `tldr` followed by a command name shows its common uses, and
+`man` its full manual: `tldr find`, `man find`. "The Linux Command Line", by William Shotts, is free online and
 excellent.
 
 **Learn jq.** If you work with JSON from the web, `jq` is the standard tool. Its paths
@@ -4815,6 +4829,61 @@ the next beginner too.
 **Try a real API.** GitHub's is a good playground: its answers are JSON, and its public
 data needs no token. [`PLANS/demos/github.md`](PLANS/demos/github.md) lists the useful endpoints, with rak next to `curl`, `jq` and
 plain Raku.
+
+### Going forward: tools worth knowing
+
+irak runs any program on your system, so every good command-line tool is also an irak
+tool. Here are some worth meeting, most of them young and friendly. `tldr NAME`
+([5.2](#52-arguments)) is the quickest way to start with each.
+
+**Installing them.** Most of them are not installed by default. Your system's **package
+manager** installs a program, and keeps it up to date, with one command:
+
+| System | Package manager | Installing `btop` |
+|---|---|---|
+| macOS | Homebrew (install it first, from [brew.sh](https://brew.sh)) | `brew install btop` |
+| Arch Linux, Omarchy | pacman | `sudo pacman -S btop` |
+| Debian, Ubuntu, Linux Mint | apt | `sudo apt install btop` |
+| Fedora | dnf | `sudo dnf install btop` |
+| openSUSE | zypper | `sudo zypper install btop` |
+
+`sudo` runs a command as the administrator, and asks for your password. Omarchy comes
+with several of these tools already. The package is usually named after the command; the
+table below gives the exceptions. A tool missing from your distribution has install
+instructions on its own page, often a single file to download. Homebrew also runs on
+Linux, and has nearly all of them.
+
+| Command | What it does | Package, where the name differs |
+|---|---|---|
+| **Watching your system** | | |
+| `btop` | A live view of processes, CPU, memory, disks and network; it can also stop a process. Chapter [3](#3-processes), in pictures. | |
+| `pstree` | The tree of processes of [3.1](#31-programs-and-processes); `pstree -p` adds their PIDs. | `psmisc` on Linux |
+| `tuios` | A window manager inside the terminal: several shells side by side, irak next to `btop`. | from [tuios.dev](https://tuios.dev) |
+| **Finding things** | | |
+| `fd` | Finds files by name, more simply than `find`: `fd report`. | `fd-find` with apt and dnf; on Debian and Ubuntu the command is `fdfind` |
+| `rg` | Searches text inside files, fast, skipping what `.gitignore` excludes: `rg TODO`. | `ripgrep` |
+| `fzf` | A fuzzy finder: type a few letters to pick a file, or a line, from a list. | |
+| `zoxide` | `z orbit` jumps to a directory you have visited ([2.3](#23-moving-around)). It hooks into bash, zsh and fish, not into irak yet. | |
+| **Looking at files** | | |
+| `bat` | `cat` with colours and line numbers. | on Debian and Ubuntu the command is `batcat` |
+| `eza` | `ls` with colours and git status; `eza --tree` draws the tree. | |
+| `glow` | Shows Markdown nicely. `glow -p irak-tutorial.md` reads this tutorial, a page at a time, as `less` does. | from [charm.sh](https://charm.sh) where your distribution lacks it |
+| `yazi` | A file manager in the terminal, with previews. | |
+| **Disks** | | |
+| `dust` | What takes up the space in a directory tree. | `du-dust` with apt |
+| `duf` | The free space of each disk, as a readable table. | |
+| **Data and the web** | | |
+| `yq` | `jq` for YAML and TOML. rak itself will load YAML one day; until then, `yq` converts. | `go-yq` with pacman (its `yq` is another program) |
+| `xh` | A friendly HTTP client, to compare with rak's URL targets ([chapter 13](#13-the-web-as-a-file-url-targets)). | |
+| `gh` | GitHub from the terminal. rak borrows its token ([13.7](#137-credentials-headers-from-a-config-file)). | `github-cli` with pacman |
+| **Code and history** | | |
+| `git` | Version control: the history of your files, and how people share code. | |
+| `lazygit` | git in a full-screen interface: a gentle way to learn git. | |
+| `atuin` | A searchable shell history, shared across sessions and machines. It hooks into bash, zsh and fish, not into irak, whose history is [6.3](#63-recalling-earlier-submissions)'s. | |
+| **Editing and scripting** | | |
+| `micro` | A text editor with the keys you know: Ctrl-S saves, Ctrl-Q quits. | |
+| `nvim` | Neovim, a powerful editor for later. The free book [LazyVim for Ambitious Developers](https://lazyvim-ambitious-devs.phillips.codes/course/chapter-1/) teaches it from the start. | `neovim` |
+| `gum` | Pretty prompts, menus and spinners for your scripts, from the charmbracelet tools ([terminals](PLANS/background/terminals.md)). | from [charm.sh](https://charm.sh) where your distribution lacks it |
 
 Happy hacking.
 

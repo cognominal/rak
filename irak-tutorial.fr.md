@@ -1378,6 +1378,21 @@ du sens de ses options, et les documente dans sa **page de manuel**, que `man` a
 
 (`q` quitte `man`, comme il quitte `less`.)
 
+Une page de manuel liste toutes les options, ce qui fait beaucoup à lire quand vous ne
+voulez que le cas habituel. `tldr` (pour « too long; didn't read », « trop long, pas lu »)
+montre plutôt une courte page d'exemples courants, écrite par sa communauté :
+
+```
+> tldr tar
+  - [c]reate an archive and write it to a [f]ile:    tar cf path/to/target.tar path/to/file1 …
+  - E[x]tract a (compressed) archive [f]ile into the current directory [v]erbosely:    tar xvf path/to/source.tar.ext
+  …
+```
+
+`tldr` n'est pas toujours installé : le gestionnaire de paquets de votre système l'a,
+souvent sous le nom `tldr` ou `tealdeer`. Commencez par `tldr` ; passez à `man` quand
+vous avez besoin des détails.
+
 ### 5.3 Qui l'emporte pour un nom
 
 Un nom peut signifier plusieurs choses à la fois. `sort` est une routine rak *et* un
@@ -5021,8 +5036,8 @@ analyser n'importe quel texte, concurrence avec promesses et *supplies*, et un v
 écosystème de modules.
 
 **Apprenez le shell lui-même.** rak exécute les programmes de votre système, et plus
-vous en connaissez, plus vous pouvez en faire. `man` suivi d'un nom de commande affiche
-son manuel : `man sort`, `man find`. « The Linux Command Line », de William Shotts, est
+vous en connaissez, plus vous pouvez en faire. `tldr` suivi d'un nom de commande affiche
+ses usages courants, et `man` son manuel complet : `tldr find`, `man find`. « The Linux Command Line », de William Shotts, est
 gratuit en ligne et excellent.
 
 **Apprenez jq.** Si vous travaillez avec du JSON venu du web, `jq` est l'outil standard.
@@ -5037,6 +5052,62 @@ vous avez trouvé : une surprise pour vous en est une aussi pour le prochain dé
 **Essayez une vraie API.** Celle de GitHub est un bon terrain de jeu : ses réponses sont
 en JSON, et ses données publiques ne demandent pas de jeton. [`PLANS/demos/github.md`](PLANS/demos/github.md) liste les points
 d'accès utiles, avec rak à côté de `curl`, `jq` et Raku pur.
+
+### Pour aller plus loin : des outils à connaître
+
+irak lance n'importe quel programme de votre système : tout bon outil en ligne de
+commande est donc aussi un outil irak. En voici quelques-uns qui valent la rencontre,
+pour la plupart jeunes et aimables. `tldr NOM` ([5.2](#52-arguments)) est la façon la
+plus rapide de débuter avec chacun.
+
+**Les installer.** La plupart ne sont pas installés d'office. Le **gestionnaire de
+paquets** de votre système installe un programme, et le tient à jour, en une commande :
+
+| Système | Gestionnaire de paquets | Installer `btop` |
+|---|---|---|
+| macOS | Homebrew (à installer d'abord, depuis [brew.sh](https://brew.sh)) | `brew install btop` |
+| Arch Linux, Omarchy | pacman | `sudo pacman -S btop` |
+| Debian, Ubuntu, Linux Mint | apt | `sudo apt install btop` |
+| Fedora | dnf | `sudo dnf install btop` |
+| openSUSE | zypper | `sudo zypper install btop` |
+
+`sudo` lance une commande en tant qu'administrateur, et demande votre mot de passe.
+Omarchy est livré avec plusieurs de ces outils. Le paquet porte d'ordinaire le nom de la
+commande ; le tableau ci-dessous donne les exceptions. Un outil absent de votre
+distribution a des instructions d'installation sur sa propre page, souvent un seul
+fichier à télécharger. Homebrew fonctionne aussi sous Linux, et les a presque tous.
+
+| Commande | Ce qu'elle fait | Paquet, quand le nom diffère |
+|---|---|---|
+| **Surveiller le système** | | |
+| `btop` | Une vue en direct des processus, du processeur, de la mémoire, des disques et du réseau ; il peut aussi arrêter un processus. Le [chapitre 3](#3-processus), en images. | |
+| `pstree` | L'arbre des processus du [3.1](#31-programmes-et-processus) ; `pstree -p` ajoute leurs PID. | `psmisc` sous Linux |
+| `tuios` | Un gestionnaire de fenêtres dans le terminal : plusieurs shells côte à côte, irak à côté de `btop`. | depuis [tuios.dev](https://tuios.dev) |
+| **Trouver des choses** | | |
+| `fd` | Trouve des fichiers par leur nom, plus simplement que `find` : `fd report`. | `fd-find` avec apt et dnf ; sous Debian et Ubuntu la commande est `fdfind` |
+| `rg` | Cherche du texte dans les fichiers, vite, en sautant ce que `.gitignore` exclut : `rg TODO`. | `ripgrep` |
+| `fzf` | Un chercheur approximatif : tapez quelques lettres pour choisir un fichier, ou une ligne, dans une liste. | |
+| `zoxide` | `z orbit` saute dans un répertoire déjà visité ([2.3](#23-se-déplacer)). Il s'accroche à bash, zsh et fish, pas encore à irak. | |
+| **Regarder des fichiers** | | |
+| `bat` | `cat` avec des couleurs et des numéros de ligne. | sous Debian et Ubuntu la commande est `batcat` |
+| `eza` | `ls` avec des couleurs et l'état git ; `eza --tree` dessine l'arbre. | |
+| `glow` | Affiche joliment le Markdown. `glow -p irak-tutorial.fr.md` lit ce tutoriel, page par page, comme `less`. | depuis [charm.sh](https://charm.sh) si votre distribution ne l'a pas |
+| `yazi` | Un gestionnaire de fichiers dans le terminal, avec aperçus. | |
+| **Disques** | | |
+| `dust` | Ce qui prend de la place dans une arborescence. | `du-dust` avec apt |
+| `duf` | L'espace libre de chaque disque, en tableau lisible. | |
+| **Données et web** | | |
+| `yq` | `jq` pour YAML et TOML. rak chargera lui-même du YAML un jour ; d'ici là, `yq` convertit. | `go-yq` avec pacman (son `yq` est un autre programme) |
+| `xh` | Un client HTTP aimable, à comparer aux cibles URL de rak ([chapitre 13](#13-le-web-comme-un-fichier--les-cibles-url)). | |
+| `gh` | GitHub depuis le terminal. rak emprunte son jeton ([13.7](#137-identifiants--des-en-têtes-tirés-dun-fichier-de-configuration)). | `github-cli` avec pacman |
+| **Code et historique** | | |
+| `git` | La gestion de versions : l'histoire de vos fichiers, et la façon dont on partage du code. | |
+| `lazygit` | git dans une interface plein écran : une façon douce d'apprendre git. | |
+| `atuin` | Un historique de shell où l'on cherche, partagé entre sessions et machines. Il s'accroche à bash, zsh et fish, pas à irak, dont l'historique est celui du [6.3](#63-rappeler-des-soumissions-précédentes). | |
+| **Éditer et scripter** | | |
+| `micro` | Un éditeur de texte aux touches que vous connaissez : Ctrl-S enregistre, Ctrl-Q quitte. | |
+| `nvim` | Neovim, un éditeur puissant pour plus tard. Le livre gratuit (en anglais) [LazyVim for Ambitious Developers](https://lazyvim-ambitious-devs.phillips.codes/course/chapter-1/) l'enseigne depuis le début. | `neovim` |
+| `gum` | De jolies invites, menus et indicateurs d'attente pour vos scripts, parmi les outils charmbracelet ([terminaux](PLANS/background/terminals.md)). | depuis [charm.sh](https://charm.sh) si votre distribution ne l'a pas |
 
 Bon bidouillage !
 
