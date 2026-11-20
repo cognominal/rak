@@ -22,9 +22,17 @@ lists: DONE and TBD.
 - **0.1**: the first released version.
   - DONE: [naked strings](GLOSSARY.md#naked-string), [jq](https://jqlang.org/manual/)-like subscripting
     ([dotty subscripts](GLOSSARY.md#dotty-subscript)),
-    [redirections](GLOSSARY.md#redirection), recalling submissions
-    (`!n`, `!!n`, up and down arrows).
-  - TBD: aliases, url based web redirections (see [github examples](PLANS/demos/github.md)), [globbing](https://en.wikipedia.org/wiki/Glob_(programming)).
+    [redirections](GLOSSARY.md#redirection), [URL targets](GLOSSARY.md#url-target)
+    (GET and POST, see the [GitHub examples](PLANS/demos/github.md)),
+    [commands](GLOSSARY.md#command) and [pipelines](GLOSSARY.md#pipeline) (Unix and
+    jq style, mixed; `$?` and `@?`), recalling submissions (`!n`, `!!n`, up and down
+    arrows).
+  - TBD: aliases, [globbing](https://en.wikipedia.org/wiki/Glob_(programming)), the rest
+    of HTTP (`http` for PATCH, PUT and DELETE; following pages), a parenthesized command
+    as an argument, `cd (zoxide query orbit)`
+    ([issue 03](.scratch/commands/issues/03-parenthesized-command-as-argument.md)), and
+    trimming the trailing newline of captured output
+    ([issue 04](.scratch/commands/issues/04-captured-output-trailing-newline.md)).
 - **0.2**: [ZLE](https://zsh.sourceforge.io/Doc/Release/Zsh-Line-Editor.html)-style
   completion, a configurable prompt.
 - **0.3**: pattern matching in data structures (live or deserialized) using double sigilled vars. Support of YAML
