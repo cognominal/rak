@@ -4848,7 +4848,14 @@ manager** installs a program, and keeps it up to date, with one command:
 | openSUSE | zypper | `sudo zypper install btop` |
 
 `sudo` runs a command as the administrator, and asks for your password. Omarchy comes
-with several of these tools already. The package is usually named after the command; the
+with several of these tools already.
+
+On Arch and Omarchy, a few tools are not in the official repositories, only in the
+[AUR](https://aur.archlinux.org/) (Arch User Repository), where users contribute packages. `pacman` does
+not see the AUR; an **AUR helper** such as `yay` does, and installs from both with the
+same options: `yay -S tuios-bin`. Omarchy comes with `yay`; on plain Arch, install it
+first, by hand, from the AUR. An AUR package is not checked by Arch: glance at its page
+before installing it. The package is usually named after the command; the
 table below gives the exceptions. A tool missing from your distribution has install
 instructions on its own page, often a single file to download. Homebrew also runs on
 Linux, and has nearly all of them.
@@ -4858,7 +4865,7 @@ Linux, and has nearly all of them.
 | **Watching your system** | | |
 | `btop` | A live view of processes, CPU, memory, disks and network; it can also stop a process. Chapter [3](#3-processes), in pictures. | |
 | `pstree` | The tree of processes of [3.1](#31-programs-and-processes); `pstree -p` adds their PIDs. | `psmisc` on Linux |
-| `tuios` | A window manager inside the terminal: several shells side by side, irak next to `btop`. | from [tuios.dev](https://tuios.dev) |
+| `tuios` | A window manager inside the terminal: several shells side by side, irak next to `btop`. | `tuios-bin` from the AUR (`yay`); elsewhere, from [tuios.dev](https://tuios.dev) |
 | **Finding things** | | |
 | `fd` | Finds files by name, more simply than `find`: `fd report`. | `fd-find` with apt and dnf; on Debian and Ubuntu the command is `fdfind` |
 | `rg` | Searches text inside files, fast, skipping what `.gitignore` excludes: `rg TODO`. | `ripgrep` |

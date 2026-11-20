@@ -5072,7 +5072,14 @@ paquets** de votre système installe un programme, et le tient à jour, en une c
 | openSUSE | zypper | `sudo zypper install btop` |
 
 `sudo` lance une commande en tant qu'administrateur, et demande votre mot de passe.
-Omarchy est livré avec plusieurs de ces outils. Le paquet porte d'ordinaire le nom de la
+Omarchy est livré avec plusieurs de ces outils.
+
+Sous Arch et Omarchy, quelques outils ne sont pas dans les dépôts officiels, seulement
+dans l'[AUR](https://aur.archlinux.org/) (Arch User Repository), où des utilisateurs contribuent des
+paquets. `pacman` ne voit pas l'AUR ; un **assistant AUR** comme `yay` la voit, et
+installe depuis les deux avec les mêmes options : `yay -S tuios-bin`. Omarchy est livré
+avec `yay` ; sous Arch nu, installez-le d'abord, à la main, depuis l'AUR. Un paquet de
+l'AUR n'est pas vérifié par Arch : jetez un œil à sa page avant de l'installer. Le paquet porte d'ordinaire le nom de la
 commande ; le tableau ci-dessous donne les exceptions. Un outil absent de votre
 distribution a des instructions d'installation sur sa propre page, souvent un seul
 fichier à télécharger. Homebrew fonctionne aussi sous Linux, et les a presque tous.
@@ -5082,7 +5089,7 @@ fichier à télécharger. Homebrew fonctionne aussi sous Linux, et les a presque
 | **Surveiller le système** | | |
 | `btop` | Une vue en direct des processus, du processeur, de la mémoire, des disques et du réseau ; il peut aussi arrêter un processus. Le [chapitre 3](#3-processus), en images. | |
 | `pstree` | L'arbre des processus du [3.1](#31-programmes-et-processus) ; `pstree -p` ajoute leurs PID. | `psmisc` sous Linux |
-| `tuios` | Un gestionnaire de fenêtres dans le terminal : plusieurs shells côte à côte, irak à côté de `btop`. | depuis [tuios.dev](https://tuios.dev) |
+| `tuios` | Un gestionnaire de fenêtres dans le terminal : plusieurs shells côte à côte, irak à côté de `btop`. | `tuios-bin` depuis l'AUR (`yay`) ; ailleurs, depuis [tuios.dev](https://tuios.dev) |
 | **Trouver des choses** | | |
 | `fd` | Trouve des fichiers par leur nom, plus simplement que `find` : `fd report`. | `fd-find` avec apt et dnf ; sous Debian et Ubuntu la commande est `fdfind` |
 | `rg` | Cherche du texte dans les fichiers, vite, en sautant ce que `.gitignore` exclut : `rg TODO`. | `ripgrep` |
