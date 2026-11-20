@@ -294,7 +294,7 @@ ls -l @files "my file" {1+1}   # external command; @files gives one argument eac
 ^sort data.txt                 # ^ forces the external command over rak's sort
 my $out = (ls)                 # value used: standard output captured as a Str
 ~(pwd)                         # same, in a contextualizer
-say $? == 0, $?.exitcode       # $? is the last exit status, a Proc
+say $? == 0, $?->exitcode      # $? is the last exit status, a Proc
 make 2>err >out >>log <in 2>&1 # redirections, touching their target
 ```
 

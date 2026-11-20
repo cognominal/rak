@@ -42,7 +42,7 @@ When its value is used, as in `my $out = (ls)`, its standard output is captured 
 ## Exit status
 
 `$?` holds the last [exit status](../../GLOSSARY.md#exit-status) as a `Proc`, per routine
-like `$!`. It numifies to the exit code: `$? == 0`, `$?.exitcode`, `$?.signal`. A rak
+like `$!`. It numifies to the exit code: `$? == 0`, `$?->exitcode`, `$?->signal`. A rak
 routine run as a command leaves `$?` unchanged.
 
 A non-zero exit status fails a `.rak` file, like `run` in sink context. irak only shows a
