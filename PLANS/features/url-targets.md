@@ -6,8 +6,9 @@ change them, and write them back. rak handles this with the same
 [redirection](redirection.md) syntax as files: a load from a URL is an HTTP GET, and an
 output redirection to a URL is a POST. No library, no `curl`, no `jq`.
 
-Status: planned. Every spelling here is tentative. [GitHub](../demos/github.md) is the
-planned demonstration.
+Status: GET (load) and POST (output redirection) are implemented; see
+[status](../status.md). Usage is in the [cheat sheet](../../CHEATSHEET.md#url-targets-http-https).
+[GitHub](../demos/github.md) is the planned demonstration.
 
 ```rak
 my $user = octocat
@@ -23,38 +24,54 @@ target, it touches the operator.
 ## HTTP headers
 
 A request needs the right headers for its host: authentication, API version, accepted
-media type. They come from `~/.config/rak/http-headers.yaml`, keyed by host:
+media type. They come from `~/.config/rak/http-headers.json` (under `$XDG_CONFIG_HOME`
+when it is set), keyed by host, or by `host:port` first. It is read with the relaxed JSON
+decoder, so comments and unquoted keys are allowed:
 
-```yaml
-api.github.com:
-  auth: $GITHUB_TOKEN
-  X-GitHub-Api-Version: 2022-11-28
+```json
+{
+  'api.github.com': { auth: '$GITHUB_TOKEN', 'X-GitHub-Api-Version': '2022-11-28' },
+}
 ```
 
 A value that starts with `$` is replaced by that environment variable, usually set from
-`~/.secret` by the login shell. `auth: $GITHUB_TOKEN` is short for
-`Authorization: Bearer $GITHUB_TOKEN`. When `~/.config/rak/` is missing, rak creates it
-with default files on first use.
+`~/.secret` by the login shell; when the variable is unset, the header is left out.
+`auth: $GITHUB_TOKEN` is short for `Authorization: Bearer $GITHUB_TOKEN`. With no
+authorization configured, `api.github.com` uses the token of `gh auth token`. rak does
+not create `~/.config/rak/`. The file will move to YAML once rak reads YAML.
 
-## Design questions
+## Decisions
 
-- **Format of a URL target.** A file target gets its [format](../../GLOSSARY.md#format)
-  from its extension, but API URLs have none. A URL target should get its format from
-  the response's `Content-Type` (`application/json`) when loading, and send JSON when
-  writing a value. An explicit override may still be needed.
-- **Which HTTP method.** A load (`<url`) is a GET, and `>url` with a value is a POST.
-  Nothing yet spells PATCH, PUT, or DELETE. `>>url` must not be guessed: for files, `>>`
-  to `.json` is an error (ADR 0004).
-- **The response to a POST.** The created object, which holds the new resource's number
-  and URL, is the useful result. It could become the statement's value, or the
-  [irak topic](../../GLOSSARY.md#irak-topic) in irak.
-- **Secrets.** The token must never be written in a script. A `gh auth token` fallback
-  for `api.github.com` would save configuring it.
+- **Transport.** Every request goes through one internal routine,
+  `Rakudo::Internals::RakHTTP.request`. It runs `curl`, which reads its options (the URL
+  and the headers, so the token) on standard input, never in its argument list. Without
+  `curl` on `$PATH`, it uses `HTTP::UserAgent`, which Rakudo Star bundles, through
+  `$*REPO.need`. Rakudo's core has no TLS, and requiring Star would cost a recompile of
+  its modules after every rakudo rebuild.
+- **Forms.** `LVALUE <url` and `<url` are a GET; `STMT >url` is a POST, also for a
+  command's output. `>>url`, `<url STMT` and `2>url` are compile-time errors (a run-time
+  error when the target is a variable). `<url STMT` may come later.
+- **Lexing.** A naked URL target starts with `http://` or `https://` and takes the
+  characters `[\w-.~:/?&=+%@!,*']`; whitespace, `;`, `#`, `{`, `}`, `(` and `)` end it. It
+  interpolates `$name` only, the name ending as a Raku identifier does (`$user-x` is the
+  variable `$user-x`). `{` is excluded because API docs write `{owner}` for a
+  placeholder. A double-quoted target interpolates everything.
+- **Format.** A response whose media type is `application/json` or ends in `+json` is
+  decoded as JSON; any other is text, and loads as text does from a file. A POST body is
+  always JSON: the value, or the printed text, which must decode as JSON (ADR 0004).
+- **The response to a POST** is the statement's value, decoded, and `Nil` when empty
+  ([ADR 0005](../../docs/adr/0005-a-url-target-gives-the-response-as-the-statement-value.md)).
+- **Errors.** A 4xx or 5xx response throws `X::Rak::HTTP` with `status`, `url` and
+  `reason` (the JSON body's `message`, or its first line). A failed connection throws it
+  with no status.
+- **Tests.** `t/14-redirection/rak/013-url-load.rak` and `014-url-post.rak` run against
+  `t/packages/RakHTTPFixture`, a local HTTP/1.1 server that serves canned responses and
+  records the requests.
+
+## Open questions
+
+- **Which HTTP method.** Nothing yet spells PATCH, PUT, or DELETE.
+- **Format override.** A way to force a format when the media type is wrong.
 - **Pagination.** Following the `Link` header could make a list endpoint a lazy `Seq` of
   all pages. It must stay lazy, or a single statement can use up a rate limit.
-- **Lexing.** A URL contains `:`, `/`, `?`, `&` and `{…}`. Which of these end the target,
-  and where an interpolated `$user` ends, has to be decided with the naked-string rules.
-- **Errors.** A `4xx` or `5xx` response should fail the statement with the server's
-  message, not load the error body as data.
-- **Tests.** Tests must not hit the network. They need a local HTTP fixture that serves
-  canned responses.
+- **Input redirection** from a URL, `<url STMT`.

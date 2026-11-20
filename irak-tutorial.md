@@ -84,8 +84,9 @@ differ, a red box like this one says so:
 > 🔴 **Does not (yet) behave as said.** The feature exists, but today it gives a
 > different result, or an error, in the case shown.
 
-The biggest gap is the web: loading from and writing to URLs
-([chapter 13](#13-the-web-as-a-file-url-targets)) is designed, but not implemented.
+The biggest gaps are in the web chapter ([chapter 13](#13-the-web-as-a-file-url-targets)):
+loading from and posting to URLs work, but the `http` routine for the other kinds of
+request, following pages, and binary answers are designed, not implemented.
 Everything without a red box was checked against the current rak.
 
 ### Conventions
@@ -3817,11 +3818,10 @@ With a program at the end, its output is redirected, as for any command:
 
 ## 13. The web as a file: URL targets
 
-> [!CAUTION]
-> 🔴 **Not implemented yet.** Nothing in this chapter works yet: URL targets (`<url`,
-> `STMT >url`), the `http` routine, `~/.config/rak/http-headers.yaml`, paging and
-> `X::Rak::HTTP` are designed but not implemented. The chapter shows how they will work.
-> Until then, a program does the job: `my %repo = (curl -s URL | from-json)`.
+Loading from a URL, posting to one, credentials and errors work today. A few parts of
+the chapter are still designs, and say so in a red box: the `http` routine
+([13.5](#135-other-kinds-of-request-http)), pages ([13.8](#138-pages)), and the
+JSON Lines and binary answers of [13.3](#133-what-comes-back).
 
 ### 13.1 Clients, servers and URLs
 
@@ -3894,10 +3894,23 @@ A file's format comes from its extension. A response's format comes from its
 | `text/…` (`text/plain`, `text/html`, …) | a string |
 | anything else (images, archives, …) | raw bytes, a `Blob` |
 
+A string loads as a text file does: whole into `$` or `~`, line by line into `@`.
+
 ```
-> my $page <https://example.com
-> $page->lines->head(3)
-(<!doctype html> <html> <head>)
+> my ~license <https://raw.githubusercontent.com/rakudo/rakudo/main/LICENSE
+> ~license->lines->head(1)
+(		       The Artistic License 2.0)
+> my @lines <https://raw.githubusercontent.com/rakudo/rakudo/main/LICENSE
+> @lines->elems
+201
+```
+
+> [!CAUTION]
+> 🔴 **Does not (yet) behave as said.** JSON Lines and binary answers are not decoded
+> yet: today, any `Content-Type` that is not JSON gives a string. The `$logo` example
+> below will not work.
+
+```
 > my $logo <https://raku.org/camelia-logo.png
 > $logo->elems
 14562
@@ -3914,7 +3927,8 @@ the kind a web form sends: "here is something new, take it". What is sent follow
 value and text modes of [11.5](#115-value-mode-and-text-mode):
 
 - if the statement printed nothing, its **value** is sent as JSON;
-- if it printed, the **printed text** is sent, as plain text.
+- if it printed, the **printed text** is sent. As for a `.json` file, it must be JSON,
+  and is checked before anything leaves your computer.
 
 Most APIs expect JSON, so you mostly send values:
 
@@ -3934,7 +3948,13 @@ it:
 https://github.com/me/notes/issues/42
 ```
 
-`>>url` has no meaning (you cannot "append" to a web service) and is an error.
+When the server answers with nothing (the status `204 No Content`), the value is `Nil`.
+
+The output of a program can be sent the same way: `cat draft.json >https://…` posts what
+`cat` printed, which must be JSON too.
+
+`>>url` has no meaning (you cannot "append" to a web service) and is an error, as are
+`<url STMT` and `2>url`. rak refuses them before running anything.
 
 ### 13.5 Other kinds of request: `http`
 
@@ -3948,6 +3968,10 @@ few more **methods**, each a different verb:
 | PUT | replace with this | overwrite something entirely |
 | PATCH | change these fields | update part of something |
 | DELETE | remove | delete something |
+
+> [!CAUTION]
+> 🔴 **Not implemented yet.** The `http` routine does not exist yet. Until it does, a
+> program does the job: `curl -s -X PATCH -H 'Content-Type: application/json' -d '…' URL`.
 
 The `http` routine gives you all of them, with the method as its first word. A body, when
 there is one, is sent as JSON:
@@ -3966,28 +3990,37 @@ spelling.
 
 ### 13.6 Writing URLs
 
-A URL target runs until a space or a `;`. Variables and blocks interpolate in it, as in
-a double-quoted string:
+A URL target starts with `http://` or `https://`. It runs until a space, a `;`, a `#`, a
+brace or a parenthesis. Variables with the `$` sigil interpolate in it:
 
 ```
 > my $owner = 'rakudo'
 rakudo
-> my ~repo = 'rakudo'
-rakudo
-> <https://api.github.com/repos/$owner/~repo
+> <https://api.github.com/repos/$owner/rakudo
 > .full_name
 rakudo/rakudo
+```
+
+Only `$` variables do. A `~` is common in URLs (`https://example.com/~ada/`), so `~`
+stays a plain character, and a `#` would start a comment. For a `~` or `#` variable, or
+any other code, quote the URL: in a double-quoted string, everything interpolates
+([4.3](#43-strings-naked-and-quoted)):
+
+```
+> my ~repo = 'rakudo'
+rakudo
 > my #n = 5
 5
-> <https://api.github.com/repos/$owner/~repo/issues?per_page={#n * 2}
+> <"https://api.github.com/repos/$owner/{~repo}/issues?per_page={#n * 2}"
 > ->elems
 10
 ```
 
-When the end of a variable's name is not obvious, wrap it in braces: `{$owner}-fork`,
-since `-` may be part of a name. A URL that contains a space must be quoted:
-`<"https://example.com/my file.txt"`. (Inside a URL, a space is usually written `%20`,
-which needs no quotes.)
+A variable's name ends where a Raku name does, and `-` may be part of a name:
+`<https://example.com/$owner-fork` reads the variable `$owner-fork`. Quote and use
+braces: `<"https://example.com/{$owner}-fork"`. A URL that contains a space must be
+quoted too: `<"https://example.com/my file.txt"`. (Inside a URL, a space is usually
+written `%20`, which needs no quotes.)
 
 ### 13.7 Credentials: headers from a config file
 
@@ -3996,30 +4029,44 @@ you read. You prove it with a **token**, a long secret string the service gives 
 sent in a header with each request.
 
 Typing a secret into your commands would leave it in your history, and in your scripts.
-So rak reads headers from a configuration file, `~/.config/rak/http-headers.yaml`, and
+So rak reads headers from a configuration file, `~/.config/rak/http-headers.json`, and
 adds them to every request sent to the matching host:
 
-```yaml
-api.github.com:
-  auth: $GITHUB_TOKEN
-  Accept: application/vnd.github+json
-api.example.com:
-  X-Api-Key: $EXAMPLE_KEY
+```
+// ~/.config/rak/http-headers.json
+{
+  'api.github.com': {
+    auth: '$GITHUB_TOKEN',
+    Accept: 'application/vnd.github+json',
+  },
+  'api.example.com': { 'X-Api-Key': '$EXAMPLE_KEY' },
+}
 ```
 
-- Each top-level key is a host. Its entries are the headers to send there.
-- `$NAME` is replaced by the environment variable `NAME`
+The file is read as relaxed JSON ([11.5](#115-value-mode-and-text-mode)): comments,
+single quotes, keys without quotes, trailing commas. Quote a key that contains a `.` or
+a `-`.
+
+- Each top-level key is a host (or `host:port`). Its entries are the headers to send
+  there.
+- `'$NAME'` is replaced by the environment variable `NAME`
   ([3.2](#32-what-every-process-carries)), so the secret itself can stay out of the file.
+  When `NAME` is not set, the header is not sent.
 - `auth: TOKEN` is short for the header `Authorization: Bearer TOKEN`, the most common
   way to send a token.
 
 For `api.github.com`, if no `auth` is configured, rak asks the GitHub command-line tool
 for one (`gh auth token`), so if you use `gh`, GitHub works with no setup at all.
 
-The file is YAML, a format for configuration that you write by hand: `key: value`, one
-per line, nested by indentation.
+rak never writes this file: create it yourself, with the directory
+(`mkdir -p ~/.config/rak`). If the variable `XDG_CONFIG_HOME` is set, rak looks in
+`$XDG_CONFIG_HOME/rak/` instead.
 
 ### 13.8 Pages
+
+> [!CAUTION]
+> 🔴 **Not implemented yet.** rak does not follow pages yet: a load gives the first page
+> only. Ask for bigger pages with a query option, such as `?per_page=100` on GitHub.
 
 An API with many results sends them in **pages**: the first 30 issues, say, and a
 header named `Link` saying where the next page is. rak follows those links for you, and
@@ -4050,23 +4097,29 @@ Each response carries a status code. In the 200s, all went well. In the 400s, th
 problem is your request: `404` "not found", `401` "who are you?", `403` "not allowed",
 `422` "I don't understand what you sent". In the 500s, the problem is the server's.
 
-For a 4xx or 5xx status, rak throws an error, an `X::Rak::HTTP`, with the status, the
-method, the URL and the server's own message:
+For a 4xx or 5xx status, rak throws an error, an `X::Rak::HTTP`, with the URL, the
+status and the server's own message:
 
 ```
 > <https://api.github.com/repos/rakudo/no-such-repo
-GET https://api.github.com/repos/rakudo/no-such-repo: 404 Not Found
-  Not Found
+https://api.github.com/repos/rakudo/no-such-repo: HTTP 404: Not Found
 ```
 
-When the target of a statement is a URL, the statement's value is not changed by a
-failure: `my %repo <url` that fails leaves `%repo` as it was. And as with files, a
-failed write to a file never writes half: `<url >data.json` either saves the whole
-answer or nothing.
+The message is the `message` field of a JSON answer, which is what most APIs send, or
+else the first line of the answer. When no answer comes back at all (no network, a
+wrong host name), the error is an `X::Rak::HTTP` too, without a status.
+
+A failure changes nothing: `my %repo <url` that fails leaves `%repo` as it was, and a
+POST whose printed text is not JSON sends nothing.
 
 You will learn to catch errors in [15.5](#155-when-things-go-wrong).
 
 ### 13.10 Files and URLs together
+
+> [!CAUTION]
+> 🔴 **Does not (yet) behave as said.** A load followed by an output redirection, as in
+> `<url >file` or `<file >url`, is refused today, for files as for URLs. Use two
+> statements: `<url; $_ >rakudo.json`, and `my %d <draft.json; %d >url`.
 
 Since files and URLs are both targets, you can move data between them in a single
 statement:
@@ -4099,9 +4152,8 @@ the shell's quoting rules sit on top of both.
 Here are the same tasks in irak and in bash. Each bash line is the usual way to do it.
 
 > [!CAUTION]
-> 🔴 **Not implemented yet.** The irak side of the web examples (loading, tokens,
-> posting, pages) needs the URL targets of this chapter. The JSON and pipeline examples
-> work today.
+> 🔴 **Not implemented yet.** Following pages and the `http` routine are not there yet.
+> The other examples work today.
 
 **Read a field from a JSON file.**
 
@@ -4161,7 +4213,7 @@ to lose a file. rak writes the target only once the value is ready
 $ curl -s https://api.github.com/repos/rakudo/rakudo | jq .stargazers_count   # bash
 ```
 
-**Send a token.** irak takes it from `~/.config/rak/http-headers.yaml`
+**Send a token.** irak takes it from `~/.config/rak/http-headers.json`
 ([13.7](#137-credentials-headers-from-a-config-file)), once. curl needs it on every line:
 
 ```
@@ -4230,16 +4282,19 @@ in one language.
 ### Recap
 
 - A URL names something on the web. A server answers HTTP requests about it.
-- `<url` sends a GET; `STMT >url` sends a POST (the value as JSON, or printed text as
-  plain text); `>>url` is an error.
-- `http patch|put|delete|get URL [BODY]` sends the other methods.
-- The answer's `Content-Type` picks its form: data, records, string or bytes. It becomes
-  the statement's value and the topic.
-- `$var`, `~var`, `#var` and `{expr}` interpolate in URLs. Quote URLs with spaces.
-- Headers and tokens live in `~/.config/rak/http-headers.yaml`; `auth:` is a bearer
+- `<url` sends a GET; `STMT >url` sends a POST of JSON (the value, or printed text that
+  must be JSON); `>>url` is an error.
+- `http patch|put|delete|get URL [BODY]` will send the other methods (not yet).
+- The answer's `Content-Type` picks its form: data for JSON, a string otherwise (records
+  and bytes are planned). The answer to a POST becomes the statement's value and the
+  topic.
+- `$var` interpolates in a naked URL. For `~var`, `#var` and `{expr}`, and for spaces,
+  quote the URL with double quotes.
+- Headers and tokens live in `~/.config/rak/http-headers.json`; `auth:` is a bearer
   token; GitHub falls back to `gh auth token`.
-- Pages are followed lazily into `$`, eagerly into `@`.
-- A 4xx or 5xx status throws `X::Rak::HTTP`, and the target is left as it was.
+- Pages will be followed lazily into `$`, eagerly into `@` (not yet).
+- A 4xx or 5xx status, or no answer, throws `X::Rak::HTTP`, and the target is left as it
+  was.
 
 ### Exercises
 
@@ -4258,19 +4313,20 @@ in one language.
    <details><summary>Answer</summary>
 
    ```
-   > <https://api.github.com/repos/rakudo/rakudo/issues?labels=docs >docs-issues.json
+   > <https://api.github.com/repos/rakudo/rakudo/issues?labels=docs&per_page=100; $_ >docs-issues.json
    > <docs-issues.json | map *.title
    ```
-   Only the first page is saved here: the statement's value is the lazy list, and saving
-   it to a file walks every page. Add `&per_page=100` to make fewer requests.
+   Until rak follows pages, only the first page is saved: `&per_page=100` makes it as
+   big as GitHub allows.
    </details>
 
 3. What does `say 'hello' >https://httpbin.org/post` send, and how?
    <details><summary>Answer</summary>
 
-   `say` printed, so text mode: a POST with the body `hello` and a newline, as plain
-   text. Without `say`, `'hello' >https://httpbin.org/post` sends the JSON string
-   `"hello"`.
+   Nothing: `say` printed, so text mode, and the printed `hello` is not JSON. rak throws
+   an `X::Rak::Format::Decode` before sending anything. Without `say`,
+   `'hello' >https://httpbin.org/post` sends the JSON string `"hello"`, and so does
+   `say '"hello"' >https://httpbin.org/post`.
    </details>
 
 ---
@@ -4300,23 +4356,15 @@ nothing, it is empty.
 
 ### 14.2 Fetching
 
-> [!CAUTION]
-> 🔴 **Not implemented yet.** Submission 4 below loads a URL, and submission 27 in
-> [14.7](#147-posting) posts to one: both need the URL targets of
-> [chapter 13](#13-the-web-as-a-file-url-targets). To follow along today, replace
-> submission 4 by
-> `my $open = (curl -s 'https://api.github.com/repos/ada/orbit/issues?state=open&per_page=100' | from-json); $open >open.json`.
-> The rest of the session works from the files, except the post of 14.7.
-
 ```
-[3] > my $owner = 'ada'; my ~repo = 'orbit'
+[3] > my $owner = 'ada'; my $repo = 'orbit'
 orbit
-[4] > <https://api.github.com/repos/$owner/~repo/issues?state=open&per_page=100 >open.json
+[4] > my @open <https://api.github.com/repos/$owner/$repo/issues?state=open&per_page=100; @open >open.json
 [5] > ls -l
 -rw-r--r-- 1 ada ada 184211 Nov 20 09:12 open.json
 ```
 
-One request, saved to a file ([13.10](#1310-files-and-urls-together)). From now on, you
+One request, loaded into `@open` and saved to a file ([13.10](#1310-files-and-urls-together)). From now on, you
 work from the file, and the API is not bothered again.
 
 ### 14.3 Looking around
@@ -4432,16 +4480,12 @@ redirection sent the same output to a file ([11.1](#111-output-redirection)).
 
 ### 14.7 Posting
 
-> [!CAUTION]
-> 🔴 **Not implemented yet.** Posting to a URL (`>https://…`) needs the URL targets of
-> [chapter 13](#13-the-web-as-a-file-url-targets).
-
 GitHub's API creates a comment on issue 1 when you POST `{ body => … }` to
 `/repos/OWNER/REPO/issues/1/comments`:
 
 ```
 [26] > my $text <report.md
-[27] > { body => $text } >https://api.github.com/repos/$owner/~repo/issues/1/comments
+[27] > { body => $text } >https://api.github.com/repos/$owner/$repo/issues/1/comments
 {body => ## Issues waiting…, html_url => https://github.com/ada/orbit/issues/1#issuecomment-…, …}
 [28] > .html_url
 https://github.com/ada/orbit/issues/1#issuecomment-2483119
@@ -4504,12 +4548,6 @@ and use variables where you used the topic.
 
 ### 15.2 Turning the session into a script
 
-> [!CAUTION]
-> 🔴 **Not implemented yet.** The scripts `waiting.rak` below, here and in
-> [15.3](#153-arguments-main) and [15.5](#155-when-things-go-wrong), load a URL, and
-> `X::Rak::HTTP` does not exist yet: see [chapter 13](#13-the-web-as-a-file-url-targets).
-> `stars.rak`, in [15.7](#157-a-second-example-starsrak), works today.
-
 Take the useful lines of [chapter 14](#14-a-complete-session), drop the exploration, and
 name things:
 
@@ -4517,7 +4555,7 @@ name things:
 # waiting.rak — list issues waiting for a first answer, oldest first.
 
 my $owner = 'ada';
-my ~repo  = 'orbit';
+my $repo  = 'orbit';
 
 sub age-in-days(~stamp) { (DateTime->now - DateTime.new(~stamp))->Int div 86400 }
 
@@ -4529,7 +4567,7 @@ sub report(@items) {
     }
 }
 
-my @open <https://api.github.com/repos/$owner/~repo/issues?state=open&per_page=100;
+my @open <https://api.github.com/repos/$owner/$repo/issues?state=open&per_page=100;
 
 my @waiting = @open
     .grep({ !.pull_request && .comments == 0 })
@@ -4556,8 +4594,8 @@ take them from the command line. Name a routine `MAIN`, and rak calls it with th
 script's arguments ([3.5](#35-how-a-process-ends)):
 
 ```
-sub MAIN($owner, ~repo, #min-days = 0) {
-    my @open <https://api.github.com/repos/$owner/~repo/issues?state=open&per_page=100;
+sub MAIN($owner, $repo, #min-days = 0) {
+    my @open <https://api.github.com/repos/$owner/$repo/issues?state=open&per_page=100;
     my @waiting = @open
         .grep({ !.pull_request && .comments == 0 })
         .map({ %( number => .number, title => .title,
@@ -4621,7 +4659,7 @@ my @open = try {
             exit 2;
         }
     }
-    my @o <https://api.github.com/repos/$owner/~repo/issues?state=open;
+    my @o <https://api.github.com/repos/$owner/$repo/issues?state=open;
     @o
 }
 ```
@@ -4636,7 +4674,7 @@ test with `$?->exitcode`.
 `die 'message'` raises an error of your own, when your script detects a problem:
 
 ```
-die "no issues found for $owner/~repo" unless @open;
+die "no issues found for $owner/$repo" unless @open;
 ```
 
 ### 15.6 Running it every week
@@ -4877,7 +4915,7 @@ meaning everywhere a pipeline does not start ([12.5](#125-when--is-a-pipe)).
 |---|---|
 | `<url` | a module such as `Cro::HTTP::Client` or `HTTP::Tiny` |
 | `STMT >url`, `http METHOD URL BODY` | the same modules |
-| `~/.config/rak/http-headers.yaml` | — |
+| `~/.config/rak/http-headers.json` | — |
 
 ### Chapter 15: scripts
 

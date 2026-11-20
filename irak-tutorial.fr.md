@@ -88,9 +88,11 @@ signale :
 > 🔴 **Ne se comporte pas (encore) comme décrit.** La fonctionnalité existe, mais elle
 > donne aujourd'hui un autre résultat, ou une erreur, dans le cas montré.
 
-Le plus grand écart concerne le web : lire depuis des URL et écrire vers elles
-([chapitre 13](#13-le-web-comme-un-fichier--les-cibles-url)) est conçu, mais pas implémenté. Tout
-ce qui n'est pas dans un encadré rouge a été vérifié sur le rak actuel.
+Les plus grands écarts sont dans le chapitre web
+([chapitre 13](#13-le-web-comme-un-fichier--les-cibles-url)) : lire depuis des URL et
+publier vers elles fonctionne, mais la routine `http` pour les autres sortes de requêtes,
+le suivi des pages et les réponses binaires sont conçus, pas implémentés. Tout ce qui
+n'est pas dans un encadré rouge a été vérifié sur le rak actuel.
 
 Les messages de rak et d'irak sont en anglais ; les exemples les montrent tels quels.
 
@@ -3999,12 +4001,11 @@ Avec un programme à la fin, sa sortie est redirigée, comme pour toute commande
 
 ## 13. Le web comme un fichier : les cibles URL
 
-> [!CAUTION]
-> 🔴 **Pas encore implémenté.** Rien dans ce chapitre ne marche encore : les cibles URL
-> (`<url`, `INSTR >url`), la routine `http`, `~/.config/rak/http-headers.yaml`, la
-> pagination et `X::Rak::HTTP` sont conçus mais pas implémentés. Le chapitre montre
-> comment ils fonctionneront. D'ici là, un programme fait le travail :
-> `my %repo = (curl -s URL | from-json)`.
+Lire depuis une URL, publier vers une URL, les identifiants et les erreurs fonctionnent
+aujourd'hui. Quelques parties du chapitre restent des projets, et le disent dans un
+encadré rouge : la routine `http` ([13.5](#135-les-autres-sortes-de-requêtes--http)), les
+pages ([13.8](#138-pages)), et les réponses JSON Lines et binaires du
+[13.3](#133-ce-qui-revient).
 
 ### 13.1 Clients, serveurs et URL
 
@@ -4082,10 +4083,24 @@ en-tête `Content-Type`, que le serveur fixe pour dire ce qu'est le corps :
 | `text/…` (`text/plain`, `text/html`, …) | une chaîne |
 | tout le reste (images, archives, …) | des octets bruts, un `Blob` |
 
+Une chaîne se charge comme un fichier texte : entière dans `$` ou `~`, ligne par ligne
+dans `@`.
+
 ```
-> my $page <https://example.com
-> $page->lines->head(3)
-(<!doctype html> <html> <head>)
+> my ~license <https://raw.githubusercontent.com/rakudo/rakudo/main/LICENSE
+> ~license->lines->head(1)
+(		       The Artistic License 2.0)
+> my @lines <https://raw.githubusercontent.com/rakudo/rakudo/main/LICENSE
+> @lines->elems
+201
+```
+
+> [!CAUTION]
+> 🔴 **Ne se comporte pas (encore) comme décrit.** Les réponses JSON Lines et binaires ne
+> sont pas encore décodées : aujourd'hui, tout `Content-Type` qui n'est pas du JSON donne
+> une chaîne. L'exemple `$logo` ci-dessous ne marchera pas.
+
+```
 > my $logo <https://raku.org/camelia-logo.png
 > $logo->elems
 14562
@@ -4103,7 +4118,9 @@ prends-le ». Ce qui est envoyé suit les modes valeur et texte du
 [11.5](#115-mode-valeur-et-mode-texte) :
 
 - si l'instruction n'a rien affiché, sa **valeur** est envoyée en JSON ;
-- si elle a affiché, le **texte affiché** est envoyé, en texte brut.
+- si elle a affiché, le **texte affiché** est envoyé. Comme pour un fichier `.json`, il
+  doit être du JSON, et c'est vérifié avant que quoi que ce soit ne quitte votre
+  ordinateur.
 
 La plupart des API attendent du JSON ; vous enverrez donc surtout des valeurs :
 
@@ -4123,8 +4140,13 @@ donc le topique. Parcourez-la :
 https://github.com/me/notes/issues/42
 ```
 
+Quand le serveur répond par rien (le statut `204 No Content`), la valeur est `Nil`.
+
+La sortie d'un programme s'envoie de la même façon : `cat draft.json >https://…` publie
+ce que `cat` a affiché, qui doit lui aussi être du JSON.
+
 `>>url` n'a pas de sens (on ne peut pas « ajouter à la fin » d'un service web) et est une
-erreur.
+erreur, tout comme `<url INSTR` et `2>url`. rak les refuse avant de rien exécuter.
 
 ### 13.5 Les autres sortes de requêtes : `http`
 
@@ -4138,6 +4160,11 @@ quelques autres **méthodes**, chacune un verbe différent :
 | PUT | remplace par ceci | écraser entièrement quelque chose |
 | PATCH | change ces champs | mettre à jour une partie de quelque chose |
 | DELETE | retire | supprimer quelque chose |
+
+> [!CAUTION]
+> 🔴 **Pas encore implémenté.** La routine `http` n'existe pas encore. D'ici là, un
+> programme fait le travail :
+> `curl -s -X PATCH -H 'Content-Type: application/json' -d '…' URL`.
 
 La routine `http` vous les donne toutes, avec la méthode en premier mot. Un corps, quand
 il y en a un, est envoyé en JSON :
@@ -4156,28 +4183,38 @@ la même façon.
 
 ### 13.6 Écrire des URL
 
-Une cible URL court jusqu'à une espace ou un `;`. Variables et blocs s'y interpolent,
-comme dans une chaîne entre guillemets doubles :
+Une cible URL commence par `http://` ou `https://`. Elle court jusqu'à une espace, un
+`;`, un `#`, une accolade ou une parenthèse. Les variables de sigil `$` s'y interpolent :
 
 ```
 > my $owner = 'rakudo'
 rakudo
-> my ~repo = 'rakudo'
-rakudo
-> <https://api.github.com/repos/$owner/~repo
+> <https://api.github.com/repos/$owner/rakudo
 > .full_name
 rakudo/rakudo
+```
+
+Seules les variables `$` s'interpolent. Un `~` est courant dans les URL
+(`https://example.com/~ada/`) : `~` y reste donc un caractère ordinaire, et un `#`
+commencerait un commentaire. Pour une variable `~` ou `#`, ou tout autre code, mettez
+l'URL entre guillemets : dans une chaîne entre guillemets doubles, tout s'interpole
+([4.3](#43-chaînes--nues-et-entre-guillemets)) :
+
+```
+> my ~repo = 'rakudo'
+rakudo
 > my #n = 5
 5
-> <https://api.github.com/repos/$owner/~repo/issues?per_page={#n * 2}
+> <"https://api.github.com/repos/$owner/{~repo}/issues?per_page={#n * 2}"
 > ->elems
 10
 ```
 
-Quand la fin du nom d'une variable n'est pas évidente, entourez-le d'accolades :
-`{$owner}-fork`, car `-` peut faire partie d'un nom. Une URL qui contient une espace doit
-être entre guillemets : `<"https://example.com/my file.txt"`. (Dans une URL, une espace
-s'écrit généralement `%20`, qui n'a pas besoin de guillemets.)
+Le nom d'une variable finit là où finit un nom Raku, et `-` peut faire partie d'un nom :
+`<https://example.com/$owner-fork` lit la variable `$owner-fork`. Mettez des guillemets
+et des accolades : `<"https://example.com/{$owner}-fork"`. Une URL qui contient une
+espace doit aussi être entre guillemets : `<"https://example.com/my file.txt"`. (Dans une
+URL, une espace s'écrit généralement `%20`, qui n'a pas besoin de guillemets.)
 
 ### 13.7 Identifiants : des en-têtes tirés d'un fichier de configuration
 
@@ -4187,21 +4224,29 @@ chaîne secrète que le service vous donne, envoyée dans un en-tête avec chaqu
 
 Taper un secret dans vos commandes le laisserait dans votre historique, et dans vos
 scripts. rak lit donc les en-têtes dans un fichier de configuration,
-`~/.config/rak/http-headers.yaml`, et les ajoute à chaque requête envoyée à l'hôte
+`~/.config/rak/http-headers.json`, et les ajoute à chaque requête envoyée à l'hôte
 correspondant :
 
-```yaml
-api.github.com:
-  auth: $GITHUB_TOKEN
-  Accept: application/vnd.github+json
-api.example.com:
-  X-Api-Key: $EXAMPLE_KEY
+```
+// ~/.config/rak/http-headers.json
+{
+  'api.github.com': {
+    auth: '$GITHUB_TOKEN',
+    Accept: 'application/vnd.github+json',
+  },
+  'api.example.com': { 'X-Api-Key': '$EXAMPLE_KEY' },
+}
 ```
 
-- Chaque clé de premier niveau est un hôte. Ses entrées sont les en-têtes à y envoyer.
-- `$NOM` est remplacé par la variable d'environnement `NOM`
+Le fichier est lu comme du JSON souple ([11.5](#115-mode-valeur-et-mode-texte)) :
+commentaires, apostrophes simples, clés sans guillemets, virgules finales. Mettez entre
+guillemets une clé qui contient un `.` ou un `-`.
+
+- Chaque clé de premier niveau est un hôte (ou `hôte:port`). Ses entrées sont les
+  en-têtes à y envoyer.
+- `'$NOM'` est remplacé par la variable d'environnement `NOM`
   ([3.2](#32-ce-que-porte-chaque-processus)) : le secret lui-même peut ainsi rester hors du
-  fichier.
+  fichier. Quand `NOM` n'est pas définie, l'en-tête n'est pas envoyé.
 - `auth: JETON` abrège l'en-tête `Authorization: Bearer JETON`, la façon la plus courante
   d'envoyer un jeton.
 
@@ -4209,10 +4254,16 @@ Pour `api.github.com`, si aucun `auth` n'est configuré, rak en demande un à l'
 ligne de commande de GitHub (`gh auth token`) : si vous utilisez `gh`, GitHub marche sans
 aucune configuration.
 
-Le fichier est en YAML, un format de configuration qu'on écrit à la main : `clé: valeur`,
-une par ligne, imbriquées par l'indentation.
+rak n'écrit jamais ce fichier : créez-le vous-même, avec son répertoire
+(`mkdir -p ~/.config/rak`). Si la variable `XDG_CONFIG_HOME` est définie, rak regarde
+plutôt dans `$XDG_CONFIG_HOME/rak/`.
 
 ### 13.8 Pages
+
+> [!CAUTION]
+> 🔴 **Pas encore implémenté.** rak ne suit pas encore les pages : un chargement ne donne
+> que la première. Demandez des pages plus grandes avec une option de requête, comme
+> `?per_page=100` sur GitHub.
 
 Une API qui a beaucoup de résultats les envoie par **pages** : les 30 premiers tickets,
 par exemple, et un en-tête nommé `Link` qui dit où se trouve la page suivante. rak suit
@@ -4245,23 +4296,30 @@ Chaque réponse porte un code de statut. Dans les 200, tout s'est bien passé. D
 `403` « interdit », `422` « je ne comprends pas ce que vous avez envoyé ». Dans les 500,
 le problème vient du serveur.
 
-Pour un statut 4xx ou 5xx, rak lève une erreur, un `X::Rak::HTTP`, avec le statut, la
-méthode, l'URL et le message du serveur lui-même :
+Pour un statut 4xx ou 5xx, rak lève une erreur, un `X::Rak::HTTP`, avec l'URL, le
+statut et le message du serveur lui-même :
 
 ```
 > <https://api.github.com/repos/rakudo/no-such-repo
-GET https://api.github.com/repos/rakudo/no-such-repo: 404 Not Found
-  Not Found
+https://api.github.com/repos/rakudo/no-such-repo: HTTP 404: Not Found
 ```
 
-Quand la cible d'une instruction est une URL, un échec ne change pas la valeur de
-l'instruction : un `my %repo <url` qui échoue laisse `%repo` tel quel. Et comme avec les
-fichiers, une écriture ratée dans un fichier n'écrit jamais à moitié : `<url >data.json`
-enregistre soit toute la réponse, soit rien.
+Le message est le champ `message` d'une réponse JSON, ce que la plupart des API envoient,
+ou sinon la première ligne de la réponse. Quand aucune réponse ne revient (pas de
+réseau, un nom d'hôte erroné), l'erreur est aussi un `X::Rak::HTTP`, sans statut.
+
+Un échec ne change rien : un `my %repo <url` qui échoue laisse `%repo` tel quel, et un
+POST dont le texte affiché n'est pas du JSON n'envoie rien.
 
 Vous apprendrez à intercepter les erreurs en [15.5](#155-quand-les-choses-tournent-mal).
 
 ### 13.10 Fichiers et URL ensemble
+
+> [!CAUTION]
+> 🔴 **Ne se comporte pas (encore) comme décrit.** Un chargement suivi d'une redirection
+> de sortie, comme `<url >fichier` ou `<fichier >url`, est refusé aujourd'hui, pour les
+> fichiers comme pour les URL. Utilisez deux instructions : `<url; $_ >rakudo.json`, et
+> `my %d <draft.json; %d >url`.
 
 Puisque fichiers et URL sont tous deux des cibles, vous pouvez déplacer des données de
 l'un à l'autre en une seule instruction :
@@ -4297,9 +4355,8 @@ Voici les mêmes tâches dans irak et dans bash. Chaque ligne bash est la façon
 de faire.
 
 > [!CAUTION]
-> 🔴 **Pas encore implémenté.** Le côté irak des exemples web (chargement, jetons, envoi,
-> pages) a besoin des cibles URL de ce chapitre. Les exemples JSON et pipeline
-> fonctionnent aujourd'hui.
+> 🔴 **Pas encore implémenté.** Le suivi des pages et la routine `http` n'existent pas
+> encore. Les autres exemples fonctionnent aujourd'hui.
 
 **Lire un champ d'un fichier JSON.**
 
@@ -4360,7 +4417,7 @@ classique de perdre un fichier. rak n'écrit la cible qu'une fois la valeur prê
 $ curl -s https://api.github.com/repos/rakudo/rakudo | jq .stargazers_count   # bash
 ```
 
-**Envoyer un jeton.** irak le prend dans `~/.config/rak/http-headers.yaml`
+**Envoyer un jeton.** irak le prend dans `~/.config/rak/http-headers.json`
 ([13.7](#137-identifiants--des-en-têtes-tirés-dun-fichier-de-configuration)), une fois pour toutes. curl en a
 besoin à chaque ligne :
 
@@ -4432,17 +4489,19 @@ courants longs d'une ligne, dans un seul langage.
 
 - Une URL désigne quelque chose sur le web. Un serveur répond aux requêtes HTTP qui la
   concernent.
-- `<url` envoie un GET ; `INSTR >url` envoie un POST (la valeur en JSON, ou le texte
-  affiché en texte brut) ; `>>url` est une erreur.
-- `http patch|put|delete|get URL [CORPS]` envoie les autres méthodes.
-- Le `Content-Type` de la réponse choisit sa forme : données, enregistrements, chaîne ou
-  octets. Elle devient la valeur de l'instruction et le topique.
-- `$var`, `~var`, `#var` et `{expr}` s'interpolent dans les URL. Mettez entre guillemets
-  les URL avec espaces.
-- En-têtes et jetons vivent dans `~/.config/rak/http-headers.yaml` ; `auth:` est un
+- `<url` envoie un GET ; `INSTR >url` envoie un POST de JSON (la valeur, ou un texte
+  affiché qui doit être du JSON) ; `>>url` est une erreur.
+- `http patch|put|delete|get URL [CORPS]` enverra les autres méthodes (pas encore).
+- Le `Content-Type` de la réponse choisit sa forme : des données pour du JSON, une chaîne
+  sinon (enregistrements et octets sont prévus). La réponse à un POST devient la valeur
+  de l'instruction et le topique.
+- `$var` s'interpole dans une URL nue. Pour `~var`, `#var` et `{expr}`, et pour les
+  espaces, mettez l'URL entre guillemets doubles.
+- En-têtes et jetons vivent dans `~/.config/rak/http-headers.json` ; `auth:` est un
   jeton *bearer* ; pour GitHub, rak se rabat sur `gh auth token`.
-- Les pages sont suivies paresseusement dans `$`, d'un coup dans `@`.
-- Un statut 4xx ou 5xx lève `X::Rak::HTTP`, et la cible reste telle quelle.
+- Les pages seront suivies paresseusement dans `$`, d'un coup dans `@` (pas encore).
+- Un statut 4xx ou 5xx, ou l'absence de réponse, lève `X::Rak::HTTP`, et la cible reste
+  telle quelle.
 
 ### Exercices
 
@@ -4461,20 +4520,20 @@ courants longs d'une ligne, dans un seul langage.
    <details><summary>Réponse</summary>
 
    ```
-   > <https://api.github.com/repos/rakudo/rakudo/issues?labels=docs >docs-issues.json
+   > <https://api.github.com/repos/rakudo/rakudo/issues?labels=docs&per_page=100; $_ >docs-issues.json
    > <docs-issues.json | map *.title
    ```
-   Ici, toutes les pages sont enregistrées : la valeur de l'instruction est la liste
-   paresseuse, et l'enregistrer dans un fichier parcourt toutes les pages. Ajoutez
-   `&per_page=100` pour faire moins de requêtes.
+   Tant que rak ne suit pas les pages, seule la première est enregistrée :
+   `&per_page=100` la rend aussi grande que GitHub le permet.
    </details>
 
 3. Qu'envoie `say 'hello' >https://httpbin.org/post`, et comment ?
    <details><summary>Réponse</summary>
 
-   `say` a affiché, donc mode texte : un POST avec le corps `hello` suivi d'un saut de
-   ligne, en texte brut. Sans `say`, `'hello' >https://httpbin.org/post` envoie la
-   chaîne JSON `"hello"`.
+   Rien : `say` a affiché, donc mode texte, et le `hello` affiché n'est pas du JSON. rak
+   lève un `X::Rak::Format::Decode` avant d'envoyer quoi que ce soit. Sans `say`,
+   `'hello' >https://httpbin.org/post` envoie la chaîne JSON `"hello"`, tout comme
+   `say '"hello"' >https://httpbin.org/post`.
    </details>
 
 ---
@@ -4505,23 +4564,15 @@ n'a rien affiché, il est vide.
 
 ### 14.2 Récupérer
 
-> [!CAUTION]
-> 🔴 **Pas encore implémenté.** La soumission 4 ci-dessous charge une URL, et la
-> soumission 27 en [14.7](#147-publier) publie vers une URL : les deux ont besoin des
-> cibles URL du [chapitre 13](#13-le-web-comme-un-fichier--les-cibles-url). Pour suivre
-> aujourd'hui, remplacez la soumission 4 par
-> `my $open = (curl -s 'https://api.github.com/repos/ada/orbit/issues?state=open&per_page=100' | from-json); $open >open.json`.
-> Le reste de la session travaille à partir des fichiers, sauf la publication du 14.7.
-
 ```
-[3] > my $owner = 'ada'; my ~repo = 'orbit'
+[3] > my $owner = 'ada'; my $repo = 'orbit'
 orbit
-[4] > <https://api.github.com/repos/$owner/~repo/issues?state=open&per_page=100 >open.json
+[4] > my @open <https://api.github.com/repos/$owner/$repo/issues?state=open&per_page=100; @open >open.json
 [5] > ls -l
 -rw-r--r-- 1 ada ada 184211 Nov 20 09:12 open.json
 ```
 
-Une requête, enregistrée dans un fichier ([13.10](#1310-fichiers-et-url-ensemble)).
+Une requête, chargée dans `@open` et enregistrée dans un fichier ([13.10](#1310-fichiers-et-url-ensemble)).
 Désormais, vous travaillez à partir du fichier, et l'API n'est plus dérangée.
 
 ### 14.3 Jeter un œil
@@ -4641,16 +4692,12 @@ redirection a envoyé la même sortie dans un fichier ([11.1](#111-redirection-d
 
 ### 14.7 Publier
 
-> [!CAUTION]
-> 🔴 **Pas encore implémenté.** Publier vers une URL (`>https://…`) a besoin des cibles
-> URL du [chapitre 13](#13-le-web-comme-un-fichier--les-cibles-url).
-
 L'API de GitHub crée un commentaire sur le ticket 1 quand vous envoyez par POST
 `{ body => … }` à `/repos/PROPRIÉTAIRE/DÉPÔT/issues/1/comments` :
 
 ```
 [26] > my $text <report.md
-[27] > { body => $text } >https://api.github.com/repos/$owner/~repo/issues/1/comments
+[27] > { body => $text } >https://api.github.com/repos/$owner/$repo/issues/1/comments
 {body => ## Issues waiting…, html_url => https://github.com/ada/orbit/issues/1#issuecomment-…, …}
 [28] > .html_url
 https://github.com/ada/orbit/issues/1#issuecomment-2483119
@@ -4716,12 +4763,6 @@ topique.
 
 ### 15.2 Transformer la session en script
 
-> [!CAUTION]
-> 🔴 **Pas encore implémenté.** Les scripts `waiting.rak` ci-dessous, ici et en
-> [15.3](#153-les-arguments--main) et [15.5](#155-quand-les-choses-tournent-mal), chargent une URL, et
-> `X::Rak::HTTP` n'existe pas encore : voir le [chapitre 13](#13-le-web-comme-un-fichier--les-cibles-url).
-> `stars.rak`, en [15.7](#157-un-second-exemple--starsrak), fonctionne aujourd'hui.
-
 Prenez les lignes utiles du [chapitre 14](#14-une-session-complète), laissez tomber
 l'exploration, et nommez les choses :
 
@@ -4729,7 +4770,7 @@ l'exploration, et nommez les choses :
 # waiting.rak — liste les tickets qui attendent une première réponse, les plus anciens d'abord.
 
 my $owner = 'ada';
-my ~repo  = 'orbit';
+my $repo  = 'orbit';
 
 sub age-in-days(~stamp) { (DateTime->now - DateTime.new(~stamp))->Int div 86400 }
 
@@ -4741,7 +4782,7 @@ sub report(@items) {
     }
 }
 
-my @open <https://api.github.com/repos/$owner/~repo/issues?state=open&per_page=100;
+my @open <https://api.github.com/repos/$owner/$repo/issues?state=open&per_page=100;
 
 my @waiting = @open
     .grep({ !.pull_request && .comments == 0 })
@@ -4768,8 +4809,8 @@ quel projet, prenez-les sur la ligne de commande. Nommez une routine `MAIN`, et 
 l'appelle avec les arguments du script ([3.5](#35-comment-un-processus-se-termine)) :
 
 ```
-sub MAIN($owner, ~repo, #min-days = 0) {
-    my @open <https://api.github.com/repos/$owner/~repo/issues?state=open&per_page=100;
+sub MAIN($owner, $repo, #min-days = 0) {
+    my @open <https://api.github.com/repos/$owner/$repo/issues?state=open&per_page=100;
     my @waiting = @open
         .grep({ !.pull_request && .comments == 0 })
         .map({ %( number => .number, title => .title,
@@ -4835,7 +4876,7 @@ my @open = try {
             exit 2;
         }
     }
-    my @o <https://api.github.com/repos/$owner/~repo/issues?state=open;
+    my @o <https://api.github.com/repos/$owner/$repo/issues?state=open;
     @o
 }
 ```
@@ -4849,7 +4890,7 @@ appelant peut tester avec `$?->exitcode`.
 `die 'message'` lève une erreur à vous, quand votre script détecte un problème :
 
 ```
-die "no issues found for $owner/~repo" unless @open;
+die "no issues found for $owner/$repo" unless @open;
 ```
 
 ### 15.6 L'exécuter chaque semaine
@@ -5100,7 +5141,7 @@ partout où un pipeline ne commence pas ([12.5](#125-quand--est-un-tube)).
 |---|---|
 | `<url` | un module comme `Cro::HTTP::Client` ou `HTTP::Tiny` |
 | `INSTR >url`, `http MÉTHODE URL CORPS` | les mêmes modules |
-| `~/.config/rak/http-headers.yaml` | — |
+| `~/.config/rak/http-headers.json` | — |
 
 ### Chapitre 15 : les scripts
 

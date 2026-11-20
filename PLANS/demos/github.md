@@ -8,9 +8,29 @@ subscripts. rak should do them with a [load](../../GLOSSARY.md#load) and dotty
 subscripts for GET, and with [value-mode](../../GLOSSARY.md#value-mode) output
 redirection for POST.
 
-This depends on [URL targets](../features/url-targets.md), which are planned; their
-design questions (format, HTTP method, headers, pagination) are listed there. Every rak
-spelling below is tentative.
+This rests on [URL targets](../features/url-targets.md): loads (GET) and output
+redirection (POST) are implemented, so every rak example below runs today. PATCH, PUT,
+DELETE and pagination are still open questions there; until they land, a list endpoint
+gives its first page only, so ask for `per_page=100`.
+
+## Setup
+
+Public data needs nothing. To write, or to get the authenticated rate limit (5000
+requests an hour instead of 60), rak needs a token:
+
+- if `gh` is installed and logged in, rak uses `gh auth token` for `api.github.com`;
+- otherwise, put it in `~/.config/rak/http-headers.json`:
+
+```json
+// ~/.config/rak/http-headers.json (relaxed JSON)
+{
+  'api.github.com': { auth: '$GITHUB_TOKEN', 'X-GitHub-Api-Version': '2022-11-28' },
+}
+```
+
+`auth:` sends `Authorization: Bearer …`, and `'$GITHUB_TOKEN'` is read from the
+environment, so the secret stays out of the file. GitHub's `application/vnd.github+json`
+responses decode as JSON.
 
 ## Reference documentation
 
@@ -72,7 +92,7 @@ with the new object.
 Updates use `PATCH`, for example closing an issue with `{state: closed}`, and
 deletes use `DELETE`.
 
-## Side by side (tentative rak)
+## Side by side
 
 Reading a repo's star count:
 
@@ -94,18 +114,52 @@ Listing the authors of the last commits:
 
 ```rak
 <https://api.github.com/repos/rakudo/rakudo/commits
-say .map(*.commit.author.name).unique
+say $_->map({ .commit.author.name })->unique
 ```
 
+In rak, `.map` would be the dotty subscript `$_<map>`, so methods are called with `->`;
+inside the block, `.commit.author.name` walks each commit.
+
 Opening an issue. This is value mode: the statement prints nothing, so its value is
-encoded as JSON and sent:
+encoded as JSON and sent. The statement's value is GitHub's answer, the new issue
+([ADR 0005](../../docs/adr/0005-a-url-target-gives-the-response-as-the-statement-value.md)),
+so in irak it becomes the topic:
 
 ```rak
 { title => 'Test', body => 'from rak' } >https://api.github.com/repos/OWNER/REPO/issues
+say .html_url
 ```
 
-Saving an API response to a file, with the format coming from the file's extension:
+A comment on an issue, from a file written earlier:
 
 ```rak
-<https://api.github.com/repos/rakudo/rakudo/languages >langs.json
+my $text <report.md
+{ body => $text } >https://api.github.com/repos/OWNER/REPO/issues/1/comments
+```
+
+A command's output can be posted too, as long as it is JSON:
+
+```rak
+cat issue.json >https://api.github.com/repos/OWNER/REPO/issues
+```
+
+Saving an API response to a file, with the format coming from the file's extension.
+The one-statement form `<url >langs.json` is not supported yet, so load into the topic
+first:
+
+```rak
+<https://api.github.com/repos/rakudo/rakudo/languages; $_ >langs.json
+```
+
+Errors. A 4xx or 5xx answer throws `X::Rak::HTTP`, whose message is GitHub's own
+`message` field:
+
+```rak
+my %r <https://api.github.com/repos/rakudo/no-such-repo
+# https://api.github.com/repos/rakudo/no-such-repo: HTTP 404: Not Found
+
+try {
+    my %r <https://api.github.com/repos/rakudo/no-such-repo;
+    CATCH { when X::Rak::HTTP { note "GitHub said {$_->status}: {$_->reason}" } }
+}
 ```

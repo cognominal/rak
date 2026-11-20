@@ -16,6 +16,7 @@ here, because they go stale.
 | The `~` and `#` sigils | [sigils](features/sigils.md) | `t/02-rakudo/rak/002-*`, `003-*` |
 | Dotty subscripts, quoted keys, `->name`, `->$var` | [dotty subscripts](features/dotty-subscripts.md) | `t/02-rakudo/rak/001-*`, `004-*`–`006-*`, `008-*`, `013-*`–`016-*` |
 | Redirection `>`, `>>`, `<`, loads, `.json` / `.jsonl` formats | [redirection](features/redirection.md), ADRs 0002 and 0004 | `t/14-redirection/rak/` |
+| URL targets: GET loads, POST output redirection, `X::Rak::HTTP` | [URL targets](features/url-targets.md), ADR 0005 | `t/14-redirection/rak/013-*`, `014-*` |
 | irak: the topic, the banner | [irak](features/irak.md) | `t/02-rakudo/rak/010-*`, `012-*` |
 | Pipelines: commands and rak stages, `$?` pipefail, `@?` | [pipelines](features/pipelines.md) | `t/16-pipelines/rak/` |
 | One-pass CORE setting, `#COMPILER::` directives | [one-pass compilation](build/onepass-compile.md) | the build itself |
@@ -33,7 +34,8 @@ variables.
   [tree expressions](features/tree-exprs.md).
 - One-letter variables without a sigil.
 - More redirection operators (`2>`, `&>`, here-documents) and stacking.
-- [URL targets](features/url-targets.md), with the [GitHub demo](demos/github.md).
+- The [GitHub demo](demos/github.md); PATCH, PUT, DELETE and pagination for
+  [URL targets](features/url-targets.md).
 - YAML, TOML and [myaml](features/myaml.md).
 - TAB / SHIFT-TAB data navigation in irak.
 

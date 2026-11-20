@@ -32,15 +32,15 @@ this list.
 ## Words and strings
 
 - **Escapes and interpolation in naked strings.** The backslash rules, and where an
-  interpolated `$var` ends inside a word or a URL.
-  [naked strings](features/naked-strings.md), [URL targets](features/url-targets.md#design-questions)
+  interpolated `$var` ends inside a word (URL targets settled it for URLs).
+  [naked strings](features/naked-strings.md), [URL targets](features/url-targets.md#decisions)
 
 ## Redirection and data
 
 - **Standard error and stacking.** File-descriptor prefixes (`2>file`, `2>&1`) or colon
   pairs (`:err>file`). [redirection](features/redirection.md#stacking)
-- **HTTP beyond GET and POST.** How to spell PATCH, PUT and DELETE, what a POST returns,
-  and how a URL target picks its format. [URL targets](features/url-targets.md#design-questions)
+- **HTTP beyond GET and POST.** How to spell PATCH, PUT and DELETE, overriding a URL
+  target's format, and pagination. [URL targets](features/url-targets.md#open-questions)
 - **myaml matching.** What a match returns over lists, and whether `::=` and `:::=` are
   two operators. [myaml](features/myaml.md#open-questions)
 

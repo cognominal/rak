@@ -31,7 +31,6 @@ is the universal interface" still holds at the edges, and structure holds inside
 - **Subscripted targets**: `>@files[0]`, `>%config<output>`, and with dotty subscripts
   `>%config.output`. Today a target is a single naked string, quoted string or `$`
   variable.
-- **URLs**: `<https://…` and `>https://…`. See [URL targets](url-targets.md).
 - **More formats**: YAML and TOML (`$struct <file.toml`), and [myaml](myaml.md) for
   pattern matching.
 

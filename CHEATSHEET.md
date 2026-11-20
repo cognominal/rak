@@ -256,6 +256,37 @@ my @r <r.jsonl       # array of records ($ gives the same array)
 | `X::Rak::Format::Shape` | Wrong sigil for the content, e.g. `my %h <array.json`. |
 | `X::Rak::Format` | `>>file.json`. Appending JSON is refused; use `.jsonl`. |
 
+### URL targets (`http://`, `https://`)
+
+A load from a URL is a GET, and `>url` is a POST of JSON. A naked URL
+interpolates `$name`; anything more complex goes in double quotes.
+
+```rak
+my %u <https://api.github.com/users/$user    # GET, JSON by Content-Type
+<https://api.github.com/repos/rakudo/rakudo; say .stargazers_count
+my %r <"https://api.github.com/{$path}?per_page=5"
+my %i = title => 'Test'
+%i >https://api.github.com/repos/OWNER/REPO/issues   # POST; value: the new issue
+echo '{"body": "hi"}' >https://…/comments           # a command's output, POSTed
+```
+
+- The response's media type picks the format: `application/json` or any `+json` is
+  JSON; anything else is text. An empty response (`204`) gives `Nil`.
+- The statement's value is the decoded response, not the value sent (ADR 0005).
+- `>>url`, `<url STMT`, `2>url` are compile-time errors.
+- A 4xx or 5xx response, or a failed connection, throws `X::Rak::HTTP`
+  (`.status`, `.reason`: the JSON `message`, or the first line of the body).
+- Headers come from `~/.config/rak/http-headers.json` (relaxed JSON), keyed by host.
+  A value `$NAME` is that environment variable; `auth:` means `Authorization: Bearer`.
+  With nothing configured, `api.github.com` uses `gh auth token`.
+
+```json
+// ~/.config/rak/http-headers.json
+{ 'api.github.com': { auth: '$GITHUB_TOKEN', 'X-GitHub-Api-Version': '2022-11-28' } }
+```
+
+Requests go through `curl`; without it, through `HTTP::UserAgent` (Rakudo Star).
+
 ## irak (the REPL)
 
 ```
@@ -363,5 +394,5 @@ Each stage gets the whole input, not one value at a time: use `map` for that.
 
 Planned in `PLANS/`, not available yet: `alias`,
 globbing, indentation in place of braces, sigilless
-one-letter variables (`i`, `s`, …), a `^` sigil for native `num` (unsettled), URL redirection targets, YAML and myaml data
+one-letter variables (`i`, `s`, …), a `^` sigil for native `num` (unsettled), YAML and myaml data
 pattern matching, `has ~.x` / `has #.x` attributes, and `#n.WHAT` autoboxing.

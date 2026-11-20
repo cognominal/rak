@@ -100,9 +100,15 @@ appends to it.
 The prefix form `STMT` written as `<target STMT`.
 
 <a id="redirection-target"></a>**redirection target**:
-The file the operator is attached to. It is a naked string, a quoted string, or a
+The file or URL the operator is attached to. It is a naked string, a quoted string, or a
 variable.
 _Avoid_: filename argument, path expression, output file.
+
+<a id="url-target"></a>**URL target**:
+A redirection target that names an `http://` or `https://` resource. Loading it reads
+the resource (GET); output redirection to it sends the statement's output (POST), and the
+statement's value is then the server's response.
+_Avoid_: endpoint, remote file.
 
 <a id="load"></a>**load**:
 The suffix form `LVALUE <target`: the target's content, decoded by its format, is assigned
@@ -113,8 +119,8 @@ _Avoid_: slurp-assign, suffix input redirection.
 
 <a id="format"></a>**format**:
 How a redirection target's content is decoded and encoded, chosen from the target's
-extension, ignoring case (`.json`, `.jsonl`). A target whose extension has no format is
-plain text.
+extension, ignoring case (`.json`, `.jsonl`), or, for a URL target, from the media type
+the server declares. A target whose extension has no format is plain text.
 _Avoid_: codec, file type, serializer.
 
 <a id="text-mode"></a>**text mode**:
