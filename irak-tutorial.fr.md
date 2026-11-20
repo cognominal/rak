@@ -4485,6 +4485,9 @@ Rien de tout cela ne rend jq ou curl obsolètes : ils sont toujours là, et irak
 comme n'importe quel programme ([16](#16-et-ensuite-)). irak rend simplement les cas
 courants longs d'une ligne, dans un seul langage.
 
+Pour d'autres tâches GitHub côte à côte avec `curl`, `jq` et Raku pur (lire un dépôt,
+lister des commits, ouvrir un ticket, commenter), voir [`PLANS/demos/github.md`](PLANS/demos/github.md) dans le dépôt.
+
 ### Résumé
 
 - Une URL désigne quelque chose sur le web. Un serveur répond aux requêtes HTTP qui la
@@ -5030,6 +5033,10 @@ comme n'importe quel programme : `<data.json | ^jq '.items[] | .name'`.
 listées dans le dépôt sous `PLANS/`. Quand quelque chose vous surprend, consultez
 l'[annexe B](#annexe-b--les-pièges), puis le gestionnaire de tickets, et signalez ce que
 vous avez trouvé : une surprise pour vous en est une aussi pour le prochain débutant.
+
+**Essayez une vraie API.** Celle de GitHub est un bon terrain de jeu : ses réponses sont
+en JSON, et ses données publiques ne demandent pas de jeton. [`PLANS/demos/github.md`](PLANS/demos/github.md) liste les points
+d'accès utiles, avec rak à côté de `curl`, `jq` et Raku pur.
 
 Bon bidouillage !
 

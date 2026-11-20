@@ -4279,6 +4279,9 @@ None of this makes jq or curl obsolete: they are still there, and irak runs them
 program ([16](#16-where-to-go-next)). irak simply makes the common cases one line long,
 in one language.
 
+For more GitHub tasks side by side with `curl`, `jq` and plain Raku (reading a repository,
+listing commits, opening an issue, commenting), see [`PLANS/demos/github.md`](PLANS/demos/github.md) in the repository.
+
 ### Recap
 
 - A URL names something on the web. A server answers HTTP requests about it.
@@ -4808,6 +4811,10 @@ look like rak's dotty paths, and you can call it from irak as any program:
 repository under `PLANS/`. When something surprises you, check [Appendix B](#appendix-b-gotchas),
 then the issue tracker, and report what you found: a surprise for you is a surprise for
 the next beginner too.
+
+**Try a real API.** GitHub's is a good playground: its answers are JSON, and its public
+data needs no token. [`PLANS/demos/github.md`](PLANS/demos/github.md) lists the useful endpoints, with rak next to `curl`, `jq` and
+plain Raku.
 
 Happy hacking.
 
