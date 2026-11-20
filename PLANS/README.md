@@ -26,6 +26,7 @@ are recorded in [docs/adr/](../docs/adr/), and usage is in
 - [irak](features/irak.md): the interactive session, and TAB / SHIFT-TAB navigation.
 - [irak history](features/irak-history.md): `!n` / `!!n` recall of submissions.
 - [Commands](features/commands.md): running routines and external commands, `$?`, `cd`, `type`.
+- [Pipelines](features/pipelines.md): Unix and jq-style pipes, mixed; `$?` and `@?`.
 
 ## Demos
 

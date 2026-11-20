@@ -8,9 +8,6 @@ this list.
 
 ## Language shape
 
-- **When a statement is a command line.** Which rule puts a statement or group in the
-  shell strategy, especially a pipeline that does not start with a command
-  (`<data.json | .users`). [strategies](features/strategies.md#open-questions)
 - **Name resolution.** One lookup order for aliases, routines, builtins and `$PATH`
   commands, and whether a routine needs `(…)` in the shell strategy.
   [strategies](features/strategies.md#open-questions)

@@ -1466,7 +1466,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         <!!{ nqp::rebless($/, self.slang_grammar('MAIN')); 1 }>
 
         [
-        || <?{ $*RAK-SEMANTICS }> :my $*RAK-CAPTURE := nqp::ifnull(nqp::getlexdyn('$*RAK-IN-PAREN'), 0); :my $*RAK-IN-PAREN := 0; <rak-command>
+        || <?{ $*RAK-SEMANTICS }> :my $*RAK-CAPTURE := nqp::ifnull(nqp::getlexdyn('$*RAK-IN-PAREN'), 0); :my $*RAK-IN-PAREN := 0; [ <rak-pipeline> || <rak-command> ] [ <?before \h* \v> <.end-statement> ]?
         || [
           | <label> <statement>
           | <statement-control>
@@ -1599,6 +1599,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     # Parsing the statements between { }
     token blockoid {
         :my $borg := $*BORG;                        # keep current context
+        :my $*RAK-PIPE := 0;
         :my $has-mystery := 0;  # never set, see missing-block
         :my $*MULTINESS := '';
         :my @*PARENT-NESTINGS := self.PARENT-NESTINGS();
@@ -2022,8 +2023,29 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           <?{ self.rak-is-command(~$<identifier>) }>
         ]
         <!before <[\w\-']>>
-        [ \h+ [ <rak-redir> || <rak-arg> ] ]* \h*
+        [ \h+ <!before '|' \h> [ <rak-redir> || <rak-arg> ] ]* \h*
+        <?before ';' | '}' | ')' | \v | $ | '#' | <?{ nqp::ifnull(nqp::getlexdyn('$*RAK-PIPE'), 0) }> '|' \h>
+    }
+
+    # Pipelines (.rak syntax), see PLANS/features/pipelines.md. A statement is
+    # a pipeline when it starts with a command, a load or a leading dotty
+    # subscript and has a spaced `|` on its line; `|` is then the pipe.
+    token rak-pipeline {
+        :my $*RAK-PIPE := 1;
+        <?before \N*? \h '|' \h>
+        [
+        || '<' <?{ !self.after-ws($/) }> <load=.redir-filename>
+        || <rak-command>
+        || <?before '.' <-[.\s]> | '->' \w> <first=.EXPR>
+        ]
+        [ \h* '|' \h+ <rak-stage> ]+ \h*
         <?before ';' | '}' | ')' | \v | $ | '#'>
+    }
+
+    token rak-stage {
+        || $<decode>=['from-jsonl' | 'from-json'] <!before <[\w\-']>>
+        || <rak-command>
+        || <EXPR>
     }
 
     method rak-is-command($name) {
@@ -3251,7 +3273,11 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     token infix:sym«⊍»   { <sym> }
 
     # Iffy junctive or infixes
-    token infix:sym<|> { <sym> }
+    token infix:sym<|> {
+        <sym>
+        # In a rak pipeline, a spaced | is the pipe.
+        <!{ nqp::ifnull(nqp::getlexdyn('$*RAK-PIPE'), 0) && self.after-ws($/) }>
+    }
     token infix:sym<^> { <sym> }
 
     # Other junctive or infixes
@@ -3417,6 +3443,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         :my $*ADVERB-AS-INFIX := 0;
         :my $*RAK-CAPTURE := 1;
         :my $*RAK-IN-PAREN := 1;
+        :my $*RAK-PIPE := 0;
         :dba('parenthesized expression')
         '(' ~ ')' [ <?{ $*RAK-SEMANTICS }> \s* <rak-command> \s* <?before ')'> || <semilist> ]
     }
@@ -3643,6 +3670,11 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     # In rak mode, `$?` is the last exit status of an external command.
     token term:sym<rak-status> {
         <?{ $*RAK-SEMANTICS }> '$?' <!before \w>
+    }
+
+    # In rak mode, `@?` is the status of every command of the last pipeline.
+    token term:sym<rak-statuses> {
+        <?{ $*RAK-SEMANTICS }> '@?' <!before \w>
     }
 
     token term:sym<variable> {

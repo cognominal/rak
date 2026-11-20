@@ -1113,6 +1113,10 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             $statement := Nodify('Statement::Expression').new(
               :expression($<rak-command>.ast));
         }
+        elsif $<rak-pipeline> {
+            $statement := Nodify('Statement::Expression').new(
+              :expression($<rak-pipeline>.ast));
+        }
 
         # Handle expression with optional condition/loop modifiers
         elsif $<EXPR> {
@@ -1892,8 +1896,13 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
     }
 
     method rak-command($/) {
+        self.attach: $/, self.rak-command-ast($/,
+          Nodify('IntLiteral').new($*RAK-CAPTURE)).to-begin-time($*R, $*CU.context);
+    }
+
+    # The call for a command; @extra are named arguments a pipeline adds.
+    method rak-command-ast($/, $capture, *@extra) {
         my $name    := ~$<identifier>;
-        my $capture := Nodify('IntLiteral').new($*RAK-CAPTURE);
         my @args;
         my @redirs;
         for $<rak-arg> -> $a { nqp::push(@args, $a.ast) }
@@ -1924,9 +1933,68 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         }
         else {
             $ast := rak-call('RAK-RUN-COMMAND',
-              Nodify('StrLiteral').new($name), $capture, |@args, |@redirs);
+              Nodify('StrLiteral').new($name), $capture, |@args, |@redirs, |@extra);
         }
-        self.attach: $/, $ast.to-begin-time($*R, $*CU.context);
+        $ast
+    }
+
+    # Pipelines (.rak syntax), see PLANS/features/pipelines.md. Each stage
+    # becomes an expression around the previous one; RAK-PIPE-END waits for
+    # the commands and sets $?.
+    method rak-pipeline($/) {
+        my @stages := $<rak-stage>;
+        my $last   := nqp::elems(@stages) - 1;
+        my $prev;
+        if $<load> {
+            $prev := rak-call('RAK-LOAD', $<load>.ast,
+              Nodify('StrLiteral').new('$'), Nodify('StrLiteral').new('$_'));
+        }
+        elsif $<rak-command> {
+            $prev := self.rak-command-ast($<rak-command>,
+              Nodify('IntLiteral').new($last < 0 ?? $*RAK-CAPTURE !! 1),
+              Nodify('ColonPair::True').new('piped'));
+        }
+        else {
+            $prev := $<first>.ast;
+        }
+        my int $i := 0;
+        for @stages -> $stage {
+            my $final := $i == $last;
+            if $stage<rak-command> {
+                my @extra := [Nodify('ColonPair::Value').new(:key('stdin'), :value($prev))];
+                nqp::push(@extra, Nodify('ColonPair::True').new('piped')) unless $final;
+                $prev := self.rak-command-ast($stage<rak-command>,
+                  Nodify('IntLiteral').new($final ?? $*RAK-CAPTURE !! 1), |@extra);
+            }
+            else {
+                my $input := rak-call('RAK-PIPE-VALUE', $prev);
+                if $stage<decode> {
+                    $prev := rak-call(~$stage<decode> eq 'from-json'
+                      ?? 'RAK-FROM-JSON' !! 'RAK-FROM-JSONL', $input);
+                }
+                else {
+                    my $ast := $stage<EXPR>.ast;
+                    if nqp::istype($ast, Nodify('Call::Name')) {
+                        $ast.args.push($input);       # input last, as with ==>
+                        $prev := $ast;
+                    }
+                    elsif nqp::istype($ast, Nodify('Block')) {
+                        $prev := rak-call('RAK-PIPE-CALL', $ast, $input);
+                    }
+                    else {                           # stage given input
+                        $prev := Nodify('Circumfix::Parentheses').new(
+                          Nodify('SemiList').new(
+                            Nodify('Statement::Expression').new(
+                              :expression($ast),
+                              :loop-modifier(
+                                Nodify('StatementModifier::Given').new($input)))));
+                    }
+                }
+            }
+            ++$i;
+        }
+        self.attach: $/, rak-call('RAK-PIPE-END', $prev)
+          .to-begin-time($*R, $*CU.context);
     }
 
     method rak-redir($/) {
@@ -1960,6 +2028,10 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
 
     method term:sym<rak-status>($/) {
         self.attach: $/, rak-call('RAK-STATUS');
+    }
+
+    method term:sym<rak-statuses>($/) {
+        self.attach: $/, rak-call('RAK-STATUSES');
     }
 
     method redir-filename($/) {

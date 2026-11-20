@@ -1,0 +1,22 @@
+use Test;
+
+plan 9;
+
+# command | command: a Unix pipe, every command running at once.
+
+is (^printf 'b\na\nb\n' | ^sort | ^uniq -c), "      1 a\n      2 b\n",
+  'three commands, last one captured';
+is (^yes | ^head -2), "y\ny\n", 'a writer whose reader exits gets SIGPIPE';
+is (^yes | ^cat | ^head -1), "y\n", 'SIGPIPE travels back up the pipeline';
+is +$?, 0, 'SIGPIPE in a non-final command is not a failure';
+
+# $? is the first command that failed, else the last; @? holds them all.
+^true | ^false | ^cat;
+is $?->exitcode, 1, '$? is the first failure (pipefail)';
+is-deeply @?.map({ $_->exitcode })->List, (0, 1, 0), '@? holds every command';
+isa-ok @?[0], Proc, '@? elements are Procs';
+
+^true | ^cat;
+is +$?, 0, 'no failure: $? is the last command';
+^false;
+is +@?, 1, 'a lone command: @? has one element';

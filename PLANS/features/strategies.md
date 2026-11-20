@@ -13,8 +13,8 @@ both. Naked strings, globbing and redirection work in both. The shell strategy t
 slot that Raku reports as the error "two terms in a row", so no valid Raku program changes
 meaning.
 
-Status: the standard strategy is implemented. The shell strategy (running commands,
-pipes, `alias`, `type`) is planned.
+Status: the standard strategy is implemented, and so are [commands](commands.md) and
+[pipelines](pipelines.md). `alias` is planned.
 
 ## Running commands
 
@@ -61,10 +61,9 @@ it keeps its Raku meanings, the `any` junction (`1 | 2`) and the slip (`|@a`). U
 and `<`, spacing can't separate the two uses, so the strategy decides.
 
 ```rak
-# tentative syntax
-git log --format=%an | sort | uniq -c    # all commands: a plain Unix pipe
+git log --format=%an | ^sort | ^uniq -c  # all commands: a plain Unix pipe
 git log --format=%an | ->unique | ->sort  # a command, then rak methods on lines
-<data.json | .users | map .name          # jq-like: no process at all
+<data.json | .users | map *.name;        # jq-like: no process at all
 ```
 
 So `curl … | jq '.users[].name'` doesn't need jq any more: the language does what the
@@ -105,10 +104,6 @@ rak's `type` also reports rak routines, builtins and methods.
   Nushell all ran into these two problems. rak chooses between the strategies per
   statement or parenthesized group, with explicit escapes (`\(`). This is the area to
   test most thoroughly.
-- **Entering the shell strategy without a command.** Since `|` is a pipe only in the shell
-  strategy, a pipeline whose first stage is not a command, such as
-  `<data.json | .users | map .name`, needs a rule that puts it in the shell strategy.
-  Otherwise it parses as a junction.
 - **Calling a routine with no arguments.** A bare word that names a known routine calls
   it; a word that names nothing known is a naked string. Whether a routine *must* be
   called with parentheses in the shell strategy, to tell it from a command, is undecided.

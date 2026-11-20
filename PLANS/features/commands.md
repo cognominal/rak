@@ -1,8 +1,8 @@
 # Commands
 
 Running [commands](../../GLOSSARY.md#command) in rak and irak, through the
-[shell strategy](../../GLOSSARY.md#shell-strategy). Pipelines come later; see
-[strategies](strategies.md).
+[shell strategy](../../GLOSSARY.md#shell-strategy). Commands joined by pipes are
+[pipelines](pipelines.md).
 
 ## What runs
 
@@ -72,7 +72,7 @@ A spaced `>` after a command is a compile error that suggests `>target`.
 
 ## Out of scope for now
 
-Pipelines, aliases, globbing, environment assignments (`FOO=1 cmd`), `pushd` and `popd`.
+Aliases, globbing, environment assignments (`FOO=1 cmd`), `pushd` and `popd`.
 
 ## Implementation notes
 

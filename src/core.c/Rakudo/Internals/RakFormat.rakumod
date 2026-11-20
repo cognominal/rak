@@ -523,28 +523,57 @@ my class Rakudo::Internals::RakProc is Proc {
 }
 
 my $RAK-STATUS;                   # last exit status, process-global
+my $RAK-STATUSES = ();            # every command of the last pipeline
+my @RAK-PIPE-PROCS;               # the commands of the running pipeline
+my %RAK-PIPE-READ;                # those whose output a rak stage reads
+my class Rakudo::Internals::RakNoStdin is implementation-detail { }
 my $RAK-OLDPWD;                   # for `cd -`
-
 sub RAK-STATUS() is implementation-detail { $RAK-STATUS }
+sub RAK-STATUSES() is implementation-detail { $RAK-STATUSES<> }
 
 # Runs an external command. The redirection targets come as named
 # arguments. With $capture, standard output is captured and returned as a Str.
 sub RAK-RUN-COMMAND(Str:D $name, $capture, *@args,
-  :$out is copy, :$append, :$in is copy, :$err is copy, :$merge
+  :$out is copy, :$append, :$in is copy, :$err is copy, :$merge,
+  Mu :$stdin is raw = Rakudo::Internals::RakNoStdin, :$piped
 ) is implementation-detail {
+    # In a pipeline (see PLANS/features/pipelines.md), :stdin is the previous
+    # stage's value, and a :piped command is not waited for: its Proc is the
+    # value, and RAK-PIPE-END waits for it.
     my @open;
+    my $feed := nqp::not_i(nqp::eqaddr($stdin, Rakudo::Internals::RakNoStdin));
     $out = $out.defined    ?? open(~$out, :w)    !! Nil;
     $out = open(~$append, :a) if $append.defined;
-    $in  = $in.defined     ?? open(~$in, :r)     !! '-';
+    $in  = $in.defined     ?? open(~$in, :r)
+        !! $feed && nqp::istype($stdin, Rakudo::Internals::RakProc)
+                           ?? $stdin.out
+        !! $feed           ?? True
+        !! '-';
     $err = $err.defined    ?? open(~$err, :w)    !! '-';
-    @open.push($_) for ($out, $in, $err).grep(IO::Handle);
-    $out = $capture ?? True !! '-' without $out;
+    @open.push($_) for ($out, $in, $err).grep({ nqp::istype($_, IO::Handle) && nqp::not_i(nqp::istype($_, IO::Pipe)) });
+    $out = $capture || $piped ?? True !! '-' without $out;
     my $proc := Rakudo::Internals::RakProc.new(:$in, :$out, :$err, :merge(?$merge));
     $proc.spawn($name, |@args.map(*.Str), :cwd($*CWD));
+    # Fed by a command: when this one exits, the writer gets the SIGPIPE a
+    # kernel pipe would give it (rakudo keeps the pipe's read end open).
+    nqp::getattr($proc, Proc, '$!finished').then({ RAK-SIGPIPE($stdin) })
+      if $feed && nqp::istype($stdin, Rakudo::Internals::RakProc)
+         && nqp::isconcrete(nqp::getattr($proc, Proc, '$!finished'));
+    @RAK-PIPE-PROCS.push($proc) if $feed || $piped;
+    if $feed && $in ~~ Bool {
+        my \v := $stdin;
+        start {
+            CATCH { default { } }      # the reader went away: stop writing
+            $proc.in.print($_) for RAK-PIPE-TEXT(v);
+            $proc.in.close;
+        }
+    }
+    return $proc if $piped;
     my $result := $capture && $out ~~ Bool ?? $proc.out.slurp(:close) !! $proc;
     $proc.exitcode;               # waits for the child
     .close for @open;
     $RAK-STATUS = $proc;
+    $RAK-STATUSES = ($proc,);
     $result
 }
 
@@ -573,6 +602,79 @@ sub RAK-TYPE(@names, @known, $capture) is implementation-detail {
     }
     unless $capture { .say for @lines }
     @lines
+}
+
+# A rak stage's input: a piped command's output becomes its lines.
+sub RAK-PIPE-VALUE(Mu \v) is raw is implementation-detail {
+    if nqp::istype(v, Rakudo::Internals::RakProc) {
+        %RAK-PIPE-READ{v.WHICH} = True;
+        v.out.lines
+    }
+    else { v<> }
+}
+
+sub RAK-PIPE-CALL(&stage, Mu \v) is raw is implementation-detail { stage(v) }
+
+# A value written to a command: a Str or a number is a line, a list one line
+# per element, and a hash (or a list inside a list) a JSON Lines record.
+sub RAK-PIPE-TEXT(Mu \v) is implementation-detail {
+    my sub line(Mu \e) {
+        nqp::istype(e, Associative) || nqp::istype(e, Positional)
+          ?? Rakudo::Internals::RakFormat.encode('jsonl', (e,), 'pipe')
+          !! e.Str ~ "\n"
+    }
+    nqp::istype(v, Associative) || nqp::not_i(nqp::isconcrete(v))
+      ?? (line(v),)
+      !! nqp::istype(v, Iterable)
+        ?? v.map(&line)
+        !! (line(v),)
+}
+
+sub RAK-FROM-JSON(Mu \v) is implementation-detail {
+    my $text = nqp::istype(v, Iterable) ?? v.join("\n") !! v.Str;
+    Rakudo::Internals::RakFormat.decode('json', $text, 'pipe')
+}
+
+sub RAK-FROM-JSONL(Mu \v) is implementation-detail {
+    (nqp::istype(v, Iterable) ?? v !! v.Str.lines)
+      .grep(*.trim)
+      .map({ Rakudo::Internals::RakFormat.decode('json', $_, 'pipe') })
+}
+
+# Sends SIGPIPE to a pipeline command still running: its reader went away.
+sub RAK-SIGPIPE(Mu \p --> Nil) is implementation-detail {
+    my $finished := nqp::getattr(nqp::decont(p), Proc, '$!finished');
+    try nqp::getattr(nqp::decont(p), Proc, '$!proc').kill(13)
+      if nqp::isconcrete($finished) && $finished.status ~~ Planned;
+}
+
+# The end of a pipeline: its value is made whole, the commands are waited
+# for, and $? is the first that failed, else the last. A command whose output
+# a rak stage stopped reading gets SIGPIPE, which is not a failure.
+sub RAK-PIPE-END(Mu \v) is raw is implementation-detail {
+    my \value := nqp::istype(v, Seq) ?? v.cache.eager !! v<>;
+    my @procs = @RAK-PIPE-PROCS;
+    my %read  = %RAK-PIPE-READ;
+    @RAK-PIPE-PROCS = ();
+    %RAK-PIPE-READ  = ();
+    # Proc drains stdout through a channel, so a writer never sees the
+    # reader go away; it gets SIGPIPE instead.
+    for @procs -> $p {
+        next unless %read{$p.WHICH};
+        RAK-SIGPIPE($p);
+        $p.out.close;
+    }
+    my $status;
+    for @procs.kv -> $i, $p {
+        $p.exitcode;
+        next if $p.signal == 13 && $i < @procs.end;
+        $status //= $p if $p.exitcode || $p.signal;
+    }
+    if @procs {
+        $RAK-STATUS = $status // @procs.tail;
+        $RAK-STATUSES = @procs.List;
+    }
+    value
 }
 
 # vim: expandtab shiftwidth=4

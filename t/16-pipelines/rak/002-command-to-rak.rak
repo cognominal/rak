@@ -1,0 +1,14 @@
+use Test;
+
+plan 6;
+
+# command | rak stage: the command's output becomes a lazy Seq of lines.
+
+is (^printf 'b\na\nb\n' | ->unique), <b a>, '->meth: lines, newlines removed';
+is (^printf 'b\na\n' | sort), <a b>, 'name args: the input goes last, as with ==>';
+is (^printf 'x\ny\n' | { $_->elems }), 2, '{ block }: the input is $_';
+is (^yes | ->head(2)), <y y>, 'a command whose output stops being read gets SIGPIPE';
+is +$?, 0, '... which is not a failure';
+
+# Decoding: from-json and from-jsonl are stages.
+is (^printf '{"a":1}\n{"a":2}\n' | from-jsonl | map *.a), (1, 2), 'from-jsonl';

@@ -1,0 +1,25 @@
+use Test;
+
+plan 8;
+
+# Pipelines of rak stages only, as in jq: no process at all.
+
+my $f = $*TMPDIR->add("rak-pipe-$*PID.json");
+$f->spurt('{"users":[{"name":"ann"},{"name":"bob"}]}');
+
+is (<$f | .users | map *.name), <ann bob>, 'a load starts a pipeline';
+is (<$f | .users | map { .name }), <ann bob>, 'a block argument';
+my @u = (<$f | .users);
+is +@u, 2, 'the value is not itemized';
+is (^printf '[1,2]' | from-json), [1, 2], 'from-json';
+
+$_ = <x y z>;
+is (.[1] | { $_->uc }), 'Y', 'a leading dotty starts a pipeline';
+is (.[] | ->elems), 3, '->meth on the whole stream, not per value';
+
+# Outside those starts, | keeps its Raku meanings.
+isa-ok (1 | 2), Junction, '1 | 2 is still a junction';
+my @a = 1, 2;
+is-deeply [|@a, 3], [1, 2, 3], '|@a is still a slip';
+
+$f->unlink;

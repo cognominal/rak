@@ -41,7 +41,8 @@ _Avoid_: binary, executable.
 <a id="exit-status"></a>**exit status**:
 How an external command ended: its exit code, or the signal that killed it. `$?` holds
 the last one in the current routine; a rak routine run as a command leaves it
-unchanged. A non-zero exit status fails a `.rak` file; irak only shows it.
+unchanged. For a pipeline, `$?` is the first command that failed, else the last, and
+`@?` holds every command's. A non-zero exit status fails a `.rak` file; irak only shows it.
 _Avoid_: return code, error code.
 
 <a id="irak"></a>**irak**:
@@ -127,7 +128,7 @@ format: the statement's value is encoded and written.
 
 <a id="pipeline"></a>**pipeline**:
 A sequence of pipeline stages joined by pipes, in which the output of each stage is the
-input of the next. Planned, not implemented.
+input of the next.
 
 <a id="pipeline-stage"></a>**pipeline stage**:
 One element of a pipeline: either an external command, which reads and writes bytes, or

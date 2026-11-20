@@ -312,6 +312,31 @@ Builtins:
 
 A non-zero exit status fails a `.rak` file; irak shows it.
 
+## Pipelines
+
+A statement that starts with a command, a load (`<file`) or a leading dotty
+subscript is a pipeline when a spaced `|` follows. Commands and rak stages mix.
+
+```rak
+^printf 'b\na\nb\n' | ^sort | ^uniq -c   # commands: a Unix pipe
+git log --format=%an | ->unique         # a command's output is a Seq of lines
+<data.json | .users | map *.name;       # rak stages only, as in jq
+curl -s $url | from-json | .items;      # decode: from-json, from-jsonl
+.users | ^wc -l                         # values to a command: one line each,
+                                        #   hashes as JSON Lines
+say +$?, +@?                            # first failure (else last); every command
+```
+
+| Stage | Gets the input as |
+|---|---|
+| command | standard input |
+| `->meth args` | `input.meth(args)` |
+| `.path` | `input.path` |
+| `{ block }` | `$_` |
+| `name args` | the last argument, as with `==>` |
+
+Each stage gets the whole input, not one value at a time: use `map` for that.
+
 ## Gotchas
 
 - `.5` is `$_[5]`, not a number. Write `0.5`.
@@ -324,10 +349,19 @@ A non-zero exit status fails a `.rak` file; irak shows it.
   `->meth`.
 - `.$meth` and `.&f` are errors. When porting Raku, change them to `->$meth` and
   `->&f`.
+- `@names | ^sort` is a junction, not a pipeline: only a command, a load or a
+  leading dotty starts one. Write `$_ = @names; .[] | ^sort`.
+- In a pipeline a spaced `|` is the pipe. For a junction there, write it
+  unspaced (`1|2`) or in parentheses (`(1 | 2)`). `any(1, 2)` as a stage gets the
+  input as its last argument.
+- `map .name` calls `.name` on `$_` right away. Write `map *.name` or
+  `map { .name }`.
+- A pipeline ending in a rak stage needs its `;` at the end of the line, like any
+  rak statement; only a command ends at the newline.
 
 ## Planned, not implemented
 
-Planned in `PLANS/`, not available yet: pipelines, `alias`,
+Planned in `PLANS/`, not available yet: `alias`,
 globbing, indentation in place of braces, sigilless
 one-letter variables (`i`, `s`, …), a `^` sigil for native `num` (unsettled), URL redirection targets, YAML and myaml data
 pattern matching, `has ~.x` / `has #.x` attributes, and `#n.WHAT` autoboxing.

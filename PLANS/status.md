@@ -17,6 +17,7 @@ here, because they go stale.
 | Dotty subscripts, quoted keys, `->name`, `->$var` | [dotty subscripts](features/dotty-subscripts.md) | `t/02-rakudo/rak/001-*`, `004-*`–`006-*`, `008-*`, `013-*`–`016-*` |
 | Redirection `>`, `>>`, `<`, loads, `.json` / `.jsonl` formats | [redirection](features/redirection.md), ADRs 0002 and 0004 | `t/14-redirection/rak/` |
 | irak: the topic, the banner | [irak](features/irak.md) | `t/02-rakudo/rak/010-*`, `012-*` |
+| Pipelines: commands and rak stages, `$?` pipefail, `@?` | [pipelines](features/pipelines.md) | `t/16-pipelines/rak/` |
 | One-pass CORE setting, `#COMPILER::` directives | [one-pass compilation](build/onepass-compile.md) | the build itself |
 
 Known gaps, marked `todo` in the sigil tests: `has ~.x` / `has #.x` attributes, and
@@ -25,7 +26,7 @@ variables.
 
 ## Planned
 
-- The shell strategy: running commands, pipes, `alias`, `type`
+- The shell strategy: `alias`
   ([strategies](features/strategies.md)).
 - Naked-string escapes, interpolation and globbing.
 - [Indentation](features/indentation.md) in place of braces, and
