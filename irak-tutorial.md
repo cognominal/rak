@@ -101,7 +101,9 @@ hello
 ```
 
 - `[0] >` is irak's **prompt**: irak is waiting for you. The number counts what you have
-  typed so far. You type what follows the prompt, then press ENTER.
+  typed so far. You type what follows the prompt, then press ENTER twice: the first
+  ENTER shows how irak reads the line, the second runs it
+  ([section 1.3](#13-your-first-submission)).
 - The lines without a prompt are irak's answer. You do not type them.
 - Text after `#` and a space is a **comment**: a note for the human reader, ignored by
   irak. You don't need to type comments.
@@ -192,6 +194,26 @@ hello
 
 `say` is a **routine**: a named piece of behaviour that is built into rak. `say` prints
 what follows it, then goes to the next line. `hello` is what it prints.
+
+You pressed ENTER twice. The first ENTER does not run the line: irak shows how it
+reads it, coloring each word by what it is. Here `say` is colored as a routine and
+`hello` as a naked string, a word that stands for itself. The second ENTER, within a
+second and on the same line, runs it. If you wait longer, or change the line, the
+next ENTER shows the reading again. The examples in this tutorial show the line as you
+type it and not the second ENTER.
+
+| Color      | The word is           | Example         |
+|------------|-----------------------|-----------------|
+| magenta    | a keyword             | `if`, `my`      |
+| cyan       | a routine             | `say`           |
+| green      | a command             | `ls`            |
+| yellow     | a naked string        | `hello`         |
+| red        | an undeclared name    | `$ctiy`         |
+
+An empty line, a line that is not finished
+([section 1.4](#14-leaving-interrupting-and-getting-unstuck)) and `!n`
+([section 6.3](#63-recalling-earlier-submissions)) run on the first ENTER. If the
+colors bother you, set the `NO_COLOR` environment variable before starting irak.
 
 Try a few more:
 
@@ -1749,6 +1771,20 @@ you never declared is an error, which protects you from typos:
 ===SORRY!=== Error while compiling
 Variable '$ctiy' is not declared.  Did you mean '$city'?
 ```
+
+If you forget `my`, irak adds it on your first ENTER, where the variable gets its
+first value. You type the first line, irak shows the second one, and your second ENTER
+runs it:
+
+```
+> $town = 'Lyon'
+> my $town = 'Lyon'
+Lyon
+```
+
+irak adds `my` only before an assignment (`=` or `:=`) and never to a name that looks
+like a typo of a declared variable. In `say $ctiy`, `$ctiy` stays as it is, colored
+red, and the second ENTER gives the error above.
 
 A variable name starts with a symbol, here `$`, followed by letters, digits, `_` or
 `-`: `$city`, `$file-count`, `$max_size`, `$x2`.

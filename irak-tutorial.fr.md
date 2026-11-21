@@ -108,7 +108,9 @@ hello
 ```
 
 - `[0] >` est l'**invite** (*prompt*) d'irak : irak vous attend. Le nombre compte ce que
-  vous avez tapé jusque-là. Vous tapez ce qui suit l'invite, puis ENTRÉE.
+  vous avez tapé jusque-là. Vous tapez ce qui suit l'invite, puis deux fois ENTRÉE : la
+  première montre comment irak lit la ligne, la seconde l'exécute
+  ([section 1.3](#13-votre-première-soumission)).
 - Les lignes sans invite sont la réponse d'irak. Vous ne les tapez pas.
 - Le texte qui suit `#` et une espace est un **commentaire** : une note pour le lecteur
   humain, ignorée par irak. Inutile de taper les commentaires.
@@ -204,6 +206,28 @@ hello
 
 `say` est une **routine** : un comportement nommé, intégré à rak. `say` affiche ce qui
 le suit, puis passe à la ligne. `hello` est ce qu'il affiche.
+
+Vous avez appuyé deux fois sur ENTRÉE. La première n'exécute pas la ligne : irak
+montre comment il la lit, en colorant chaque mot selon ce qu'il est. Ici `say` est
+coloré comme une routine et `hello` comme une chaîne nue, un mot qui vaut pour
+lui-même. La seconde ENTRÉE, dans la seconde et sur la même ligne, l'exécute. Si vous
+attendez plus longtemps, ou si vous modifiez la ligne, l'ENTRÉE suivante montre de
+nouveau la lecture. Les exemples de ce tutoriel montrent la ligne telle que vous la
+tapez, sans la seconde ENTRÉE.
+
+| Couleur    | Le mot est            | Exemple         |
+|------------|-----------------------|-----------------|
+| magenta    | un mot-clé            | `if`, `my`      |
+| cyan       | une routine           | `say`           |
+| vert       | une commande          | `ls`            |
+| jaune      | une chaîne nue        | `hello`         |
+| rouge      | un nom non déclaré    | `$ctiy`         |
+
+Une ligne vide, une ligne inachevée
+([section 1.4](#14-sortir-interrompre-se-débloquer)) et `!n`
+([section 6.3](#63-rappeler-des-soumissions-précédentes)) s'exécutent dès la première
+ENTRÉE. Si les couleurs vous gênent, définissez la variable d'environnement `NO_COLOR`
+avant de lancer irak.
 
 Essayez-en quelques autres :
 
@@ -1838,6 +1862,20 @@ fautes de frappe :
 ===SORRY!=== Error while compiling
 Variable '$ctiy' is not declared.  Did you mean '$city'?
 ```
+
+Si vous oubliez `my`, irak l'ajoute à votre première ENTRÉE, là où la variable reçoit
+sa première valeur. Vous tapez la première ligne, irak affiche la deuxième, et votre
+seconde ENTRÉE l'exécute :
+
+```
+> $town = 'Lyon'
+> my $town = 'Lyon'
+Lyon
+```
+
+irak n'ajoute `my` que devant une affectation (`=` ou `:=`), et jamais à un nom qui
+ressemble à une faute de frappe sur une variable déclarée. Dans `say $ctiy`, `$ctiy`
+reste tel quel, coloré en rouge, et la seconde ENTRÉE donne l'erreur ci-dessus.
 
 Un nom de variable commence par un symbole, ici `$`, suivi de lettres, de chiffres, de
 `_` ou de `-` : `$city`, `$file-count`, `$max_size`, `$x2`. Évitez les lettres

@@ -2,7 +2,8 @@
 # Fetch and unpack the distributions listed in rak-line-editor-dists, for
 # install-rak-line-editor.raku. A tarball already in DIR is used as is, which
 # is how an offline build (the AUR package) supplies them. Each tarball is
-# checked against its sha256 and unpacked into DIR/<name>/.
+# checked against its sha256 and unpacked into DIR/<name>/, then patched with
+# rak-line-editor-patches/<name>.patch (next to this script) if there is one.
 #
 # A download failure is only a warning: rak still builds, and irak says how
 # to install the line editor by hand.
@@ -11,6 +12,8 @@
 use strict;
 use warnings;
 use Digest::SHA;
+use File::Spec;
+use File::Basename qw(dirname);
 use File::Path qw(make_path remove_tree);
 
 my ($manifest, $dir) = @ARGV;
@@ -43,4 +46,11 @@ for my $d (@dists) {
     make_path("$dir/$name");
     system('tar', '-xzf', $tarball, '-C', "$dir/$name", '--strip-components=1') == 0
         or die "could not unpack $tarball\n";
+
+    my $patch = dirname(__FILE__) . "/rak-line-editor-patches/$name.patch";
+    if (-e $patch) {
+        print "    Patching $name\n";
+        system('patch', '-s', '-p1', '-d', "$dir/$name", '-i', File::Spec->rel2abs($patch)) == 0
+            or die "could not apply $patch\n";
+    }
 }

@@ -302,6 +302,16 @@ Welcome to irak, the rak shell.
 [4] > <data.json       # loads into $_ for the next line
 ```
 
+ENTER twice runs a line. The first ENTER shows how irak reads it:
+
+- it inserts `my` before an undeclared variable that gets its first value
+  (`$x = 1` becomes `my $x = 1`);
+- it colors each word: keyword, routine, command, naked string, or undeclared.
+
+A second ENTER on the same line within a second runs it. An empty or unfinished line,
+`!n`, and input that is not a terminal run on the first ENTER. `NO_COLOR` turns the
+colors off.
+
 `$_` holds the value of the previous submission. A submission that fails, returns
 `Nil` or prints output leaves `$_` unchanged.
 

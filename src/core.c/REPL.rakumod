@@ -111,13 +111,71 @@ do {
 
         method history-file(--> Str:D) { ... }
 
+        # irak: the input field colors each word of its buffer as the last
+        # Enter read it (irak-colors), while the buffer holds that text.
+        my %irak-sgr =
+          keyword        => "\e[1;35m",
+          routine        => "\e[36m",
+          command        => "\e[1;32m",
+          naked-string   => "\e[33m",
+          undeclared     => "\e[4;31m",
+        ;
+
+        # A subclass of ScrollingSingleLineInput::ANSI whose
+        # visible-input-field-string wraps each span in SGR codes. Widths and
+        # cursor moves are computed from the plain buffer, so the zero-width
+        # codes do not disturb them. The scroll logic is the parent's.
+        my sub irak-input-class($repl) {
+            my $parent := $WHO<ScrollingSingleLineInput>.WHO<ANSI>;
+            my &plain  := $parent.^find_method('visible-input-field-string');
+            my $class  := Metamodel::ClassHOW.new_type(:name<IrakInputField>);
+            $class.^add_parent($parent);
+            $class.^add_method('visible-input-field-string', my method () {
+                my $contents := self.buffer.contents;
+                my $colors   := $repl.irak-colors;
+                return plain(self)
+                  if %*ENV<NO_COLOR> || self.mask.defined
+                  || !$colors || $colors<text> ne $contents;
+
+                # The visible part of the buffer, from $scroll-pos to $last
+                my $scroll-pos = self.scroll-cursor.pos;
+                my $avail      = self.available-width;
+                my $last       = self.insert-cursor.pos;
+                my $end        = self.insert-cursor.end;
+                ++$last while $last < $end
+                  && self.substring-width($scroll-pos, $last) < $avail;
+                --$last if self.substring-width($scroll-pos, $last) > $avail;
+
+                my $string = $scroll-pos ?? self.left-scroll-mark
+                                         !! self.left-no-scroll-mark;
+                my $pos = $scroll-pos;
+                for $colors<spans>.list {
+                    my $from = max(.<from>, $pos);
+                    my $to   = min(.<to>, $last);
+                    next unless $from < $to && (%irak-sgr{.<class>}:exists);
+                    $string ~= $contents.substr($pos, $from - $pos)
+                      ~ %irak-sgr{.<class>} ~ $contents.substr($from, $to - $from)
+                      ~ "\e[0m";
+                    $pos = $to;
+                }
+                $string ~= $contents.substr($pos, $last - $pos);
+                $string ~= ' ' x ($avail - self.substring-width($scroll-pos, $last));
+                $string ~ ($last < $end ?? self.right-scroll-mark
+                                        !! self.right-no-scroll-mark)
+            });
+            $class.^compose;
+            $class
+        }
+
         method init-line-editor {
             my sub get-completions($contents, $pos) {
                 # irak: `!n` TAB puts submission n's source in the buffer.
                 with self.irak-recall($contents) { return ($_,) }
                 eager self.completions-for-line($contents, $pos)
             }
-            $cli = $cli-input.new(:&get-completions);
+            $cli = self.irak-on-finish
+              ?? $cli-input.new(:&get-completions, :input-class(irak-input-class(self)))
+              !! $cli-input.new(:&get-completions);
             $cli.load-history($.history-file);
         }
 
@@ -127,7 +185,7 @@ do {
 
         method repl-read(Mu \prompt) {
             self.update-completions;
-            my $line = $cli.prompt(prompt.chop);
+            my $line = $cli.prompt(prompt.chop, :on-finish(self.irak-on-finish));
 
             if $line.defined && $line.match(/\S/) {
                 $cli.add-history($line);
@@ -239,6 +297,252 @@ do {
             irak() && $line ~~ /^ \s* '!' (\d+) \s* $/
               ?? %!irak-sources{+$0} // Nil
               !! Nil
+        }
+
+        # irak feedback (cognominal/rak#1): before running a submission,
+        # irak shows how it reads it. irak-feedback compiles the submission
+        # up to its parse, never running it, and returns:
+        #   text        the submission with `my` inserted before each
+        #               undeclared variable that can be declared
+        #   spans       what each word denotes: Maps of from, to (offsets in
+        #               text) and class: keyword, routine, command,
+        #               naked-string or undeclared
+        #   incomplete  True when the submission needs more lines
+        # Only offsets from :$from on (the line being edited) get a `my`.
+        # Compiling runs BEGIN-time code (BEGIN, use, constant): its output
+        # is swallowed, so it does not garble the line being edited.
+
+        # Spans whose first word is a keyword
+        my constant IRAK-KEYWORD-NODES = <
+          statement-control statement-prefix scope-declarator
+          routine-declarator package-declarator multi-declarator
+          statement-mod-cond statement-mod-loop sym
+        >.Set;
+
+        my class IrakSink is IO::Handle {
+            submethod TWEAK { self.encoding: 'utf8' }
+            method WRITE(|) { True }
+            method opened(--> True) { }
+            method t(--> False) { }
+        }
+
+        # Parse $code as the next submission would be: the Match, or the
+        # exception that stopped the parse.
+        method !irak-parse(Str:D $code) is raw {
+            CATCH { default { return $_ } }
+            CONTROL { when CX::Warn { .resume } }
+            my $*OUT = IrakSink.new;
+            my $*ERR = IrakSink.new;
+            my $*GRAMMAR;
+            my %adverbs = :target<parse>, :compunit_ok, :no-worries;
+            if nqp::isconcrete($!save_ctx) {
+                %adverbs<outer_ctx> := $!save_ctx;
+                %adverbs<language_version> :=
+                  Rakudo::Internals.LANGUAGE-VERSION-OF-CONTEXT($!save_ctx);
+            }
+            %adverbs<grammar> := $!grammar unless nqp::isnull($!grammar);
+            %adverbs<actions> := $!actions unless nqp::isnull($!actions);
+            $!compiler.compile($code, |%adverbs)
+        }
+
+        method !irak-keywords() {
+            my $grammar := nqp::isnull($!grammar)
+              ?? $!compiler.parsegrammar
+              !! $!grammar;
+            nqp::can($grammar, 'rak-keywords') ?? $grammar.rak-keywords !! {}
+        }
+
+        # Where the variable $name the parse stopped at ($pos) starts.
+        sub irak-variable-start(Str:D $text, Str:D $name, $pos --> Int) {
+            my int $at = ($pos // $text.chars) min $text.chars;
+            $at = $at - $name.chars;
+            while $at >= 0 {
+                my $start := $text.rindex($name, $at);
+                return Int unless $start.defined;
+                return $start
+                  unless $text.substr($start + $name.chars, 2)
+                    ~~ /^ [ \w | <[-']> <.alpha> ] /;
+                $at = $start - 1;
+            }
+            Int
+        }
+
+        sub irak-occurrences(Str:D $text, Str:D $name) {
+            gather {
+                my int $at;
+                loop {
+                    my $start := $text.index($name, $at);
+                    last unless $start.defined;
+                    take $start
+                      unless $text.substr($start + $name.chars, 2)
+                        ~~ /^ [ \w | <[-']> <.alpha> ] /;
+                    $at = $start + $name.chars;
+                }
+            }
+        }
+
+        sub irak-match-children(Mu $match) {
+            my @children;
+            for $match.hash.kv -> $key, Mu $value {
+                for nqp::istype($value, Positional) ?? $value.list !! ($value,) -> Mu $child {
+                    @children.push: $key => $child
+                      if nqp::can($child, 'from') && $child.to > $child.from;
+                }
+            }
+            @children
+        }
+
+        # The spans of the words of a parsed submission, from its Match.
+        sub irak-match-spans(Mu $root, Str:D $text, $keywords) {
+            my @spans;
+            my sub keywords-between(int $from, int $to, @skip) {
+                for $text.substr($from, $to - $from).match(
+                  / <.alpha> [ \w | <[-']> <.alpha> ]* /, :g) -> $word {
+                    my int $start = $from + $word.from;
+                    next if $start && $text.substr($start - 1, 1) ~~ / <[\w$@%&.^*!?:'-]> /;
+                    next if @skip.first({ .value.from <= $start < .value.to });
+                    @spans.push: ($start, $start + $word.chars, 'keyword')
+                      if $keywords{~$word}:exists;
+                }
+            }
+            my sub walk(Mu $node, Str:D $key, Str:D $parent) {
+                my @children = irak-match-children($node);
+                my Mu $made := $node.made;
+                my $name := nqp::isconcrete($made) ?? $made.^name !! '';
+                if $key eq 'rak-command' {
+                    with @children.first(*.key eq 'identifier') {
+                        @spans.push: ($node.from, .value.to, 'command');
+                    }
+                }
+                elsif $key eq 'identifier' && $parent eq 'RakuAST::QuotedString' {
+                    @spans.push: ($node.from, $node.to, 'naked-string');
+                }
+                elsif $key eq 'longname' && $parent.starts-with('RakuAST::Call::Name') {
+                    @spans.push: ($node.from, $node.to, 'routine');
+                }
+                keywords-between($node.from, $node.to, @children)
+                  if IRAK-KEYWORD-NODES{$key};
+                walk(.value, .key, $name) for @children;
+            }
+            walk($root, '', '');
+            @spans
+        }
+
+        # When the parse fails, words can only be told apart from keywords.
+        sub irak-keyword-spans(Str:D $text, $keywords) {
+            gather for $text.match(/ <.alpha> [ \w | <[-']> <.alpha> ]* /, :g) -> $word {
+                next if $word.from && $text.substr($word.from - 1, 1) ~~ / <[\w$@%&.^*!?:'-]> /;
+                take ($word.from, $word.to, 'keyword') if $keywords{~$word}:exists;
+            }
+        }
+
+        method irak-feedback(Str() $submission, Int() :$from = 0 --> Map:D) {
+            my str $text = $submission;
+            my @hidden;          # undeclared, declared only for the analysis
+            my Mu $match := Nil;
+            my Bool $incomplete = False;
+            my int $prefix;
+
+            # Each round declares one variable, so the rounds are bounded.
+            for ^($text.comb(/<[$@%]>/).elems + 2) {
+                my $declarations = @hidden.map({ "my $_;" }).join;
+                $prefix = $declarations.chars;
+                my $code = $declarations ~ $text ~ "\n";
+                my Mu $result := self!irak-parse($code);
+                unless nqp::istype($result, Exception) {
+                    $match := $result;
+                    last;
+                }
+                if $result ~~ X::Undeclared
+                  && $result.symbol ~~ /^ <[$@%]> <.alpha> /
+                  && !@hidden.grep(* eq $result.symbol) {
+                    my $name  = $result.symbol;
+                    my $start = irak-variable-start($text, $name,
+                      $result.pos.defined ?? $result.pos - $prefix !! Nil);
+                    if $start.defined && $start >= $from
+                      && !$result.suggestions
+                      && $text.substr($start + $name.chars)
+                           ~~ /^ \h* [ ':=' | '=' <!before <[=>]> | ':='> ] / {
+                        $text = $text.substr(0, $start) ~ 'my ' ~ $text.substr($start);
+                    }
+                    else {
+                        @hidden.push: $name;
+                    }
+                    next;
+                }
+                $incomplete = $!multi-line-enabled && wants-more-input($result, $code);
+                last;
+            }
+
+            my $keywords := self!irak-keywords;
+            my @spans = nqp::isconcrete($match)
+              ?? irak-match-spans($match, $prefix ?? ' ' x $prefix ~ $text !! $text, $keywords)
+                   .map({ (.[0] - $prefix, .[1] - $prefix, .[2]) }).grep(*.[0] >= 0)
+              !! irak-keyword-spans($text, $keywords);
+            for @hidden -> $name {
+                @spans.push: ($_, $_ + $name.chars, 'undeclared')
+                  for irak-occurrences($text, $name);
+            }
+
+            Map.new: (
+              :$text,
+              :spans(@spans.unique(:as(*.join(','))).sort(*.[0]).map({
+                  Map.new: (:from(.[0]), :to(.[1]), :class(.[2]))
+              }).List),
+              :$incomplete,
+            )
+        }
+
+        # irak: what Enter does on the buffer $line, $before being the lines
+        # of the submission already read (by default, those repl-loop has
+        # read). True: finish the line as usual. Otherwise the feedback (see
+        # irak-feedback) for the line alone: its text replaces the buffer,
+        # which stays in the editor, colored by irak-colors. A second Enter
+        # on that same text less than a second later finishes.
+        has $!irak-enter-text;
+        has $!irak-enter-time;
+        has $!irak-colors;
+        has Str $!irak-before = '';
+
+        method irak-enter(Str() $line, Str() :$before = $!irak-before, :$now = now) {
+            $!irak-colors = Nil;
+            if $!irak-enter-time.defined && $line eq $!irak-enter-text
+              && $now - $!irak-enter-time < 1 {
+                $!irak-enter-time = Nil;
+                return True;
+            }
+            $!irak-enter-time = Nil;
+            return True if ($before ~ $line) ~~ /^ \s* $/
+              || $before eq '' && $line ~~ /^ \s* '!'? '!' \d+ \s* $/;
+
+            my $from = $before.chars;
+            my %feedback = self.irak-feedback($before ~ $line, :$from);
+            return True if %feedback<incomplete>;
+
+            $!irak-enter-text = %feedback<text>.substr($from);
+            $!irak-enter-time = $now;
+            $!irak-colors = Map.new: (
+              :text($!irak-enter-text),
+              :spans(%feedback<spans>.grep(*<from> >= $from).map({
+                  Map.new: (:from(.<from> - $from), :to(.<to> - $from), :class(.<class>))
+              }).List),
+            )
+        }
+
+        # irak: the feedback of the last Enter that did not finish (text and
+        # spans), for the line editor to color its buffer while it holds
+        # that text; Nil once a line is finished.
+        method irak-colors() { $!irak-colors }
+
+        # irak: the &on-finish callback of Terminal::LineEditor's prompt
+        # (Enter), or Callable outside irak. An error in the analysis must
+        # not lose the line: Enter then finishes as usual.
+        method irak-on-finish() {
+            return Callable unless irak();
+            -> $buffer {
+                my $enter = try self.irak-enter($buffer);
+                $enter ~~ Map ?? $enter<text> !! True
+            }
         }
 
         # irak topic: after a submission whose value is shown, $_ holds that
@@ -440,30 +744,28 @@ do {
             self.compiler.eval($code, |%adverbs)
         }
 
+        # Whether compiling $code died only because $code stops too early,
+        # so that the REPL should read another line.
+        sub wants-more-input(Exception:D $e, Str:D $code --> Bool:D) {
+            if $e ~~ X::Syntax::Missing | X::Comp::FailGoal {
+                return $e.pos == $code.chars;
+            }
+            if $e ~~ X::AdHoc {
+                my str $message = $e.message;
+                return $message eq 'Premature heredoc consumption'
+                  || $message.starts-with('Ending delimiter ')
+                  || $message.starts-with("Couldn't find terminator")
+                  || $message.contains("is immediately followed by a combining codepoint");
+            }
+            False
+        }
+
         method new-repl-eval($code, \exception, @*_, *%adverbs) {
             CATCH {
-                when X::Syntax::Missing {
+                when X::Syntax::Missing | X::Comp::FailGoal | X::AdHoc {
                     return $!need-more-input
-                      if $!multi-line-enabled && .pos == $code.chars;
+                      if $!multi-line-enabled && wants-more-input($_, $code);
                     .throw;
-                }
-
-                when X::Comp::FailGoal {
-                    return $!need-more-input
-                      if $!multi-line-enabled && .pos == $code.chars;
-                    .throw;
-                }
-
-                when X::AdHoc {
-                    my str $message = .message;
-                    if $message eq 'Premature heredoc consumption'
-                      || $message.starts-with('Ending delimiter ')
-                      || $message.starts-with("Couldn't find terminator")
-                      || $message.contains("is immediately followed by a combining codepoint") {
-                        return $!need-more-input
-                          if $!multi-line-enabled;
-                    }
-                    .throw
                 }
 
                 when X::ControlFlow::Return {
@@ -544,6 +846,7 @@ do {
                 CATCH {
                     default { say $_; reset }
                 }
+                $!irak-before = $code;
                 my $newcode = self.repl-read(~$prompt);
                 last if $no-exit and $newcode and $newcode eq 'exit';
 
