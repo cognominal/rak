@@ -27,7 +27,12 @@ lists: DONE and TBD.
     [commands](GLOSSARY.md#command) and [pipelines](GLOSSARY.md#pipeline) (Unix and
     jq style, mixed; `$?` and `@?`), recalling submissions (`!n`, `!!n`, up and down
     arrows).
-  - TBD: aliases, [globbing](https://en.wikipedia.org/wiki/Glob_(programming)), the rest
+  - TBD:
+      - irak usability, discoverability, onboarding feedback thru highlighting. first run of irak or `irak --fresh` should start with a tutorial history (work in branch irak-feeback)
+      - long output should be displayed in a pager. When out the pager a 2 line summary should be displayed (one line : format possibly using the file command, second line: the first 80 char of the output)
+      - aliases
+      - [globbing](https://en.wikipedia.org/wiki/Glob_(programming)),
+      - the rest
     of HTTP (`http` for PATCH, PUT and DELETE; following pages), a parenthesized command
     as an argument, `cd (zoxide query orbit)`
     ([issue 03](.scratch/commands/issues/03-parenthesized-command-as-argument.md)), and
