@@ -1863,8 +1863,8 @@ fautes de frappe :
 Variable '$ctiy' is not declared.  Did you mean '$city'?
 ```
 
-Si vous oubliez `my`, irak l'ajoute à votre première ENTRÉE, là où la variable reçoit
-sa première valeur. Vous tapez la première ligne, irak affiche la deuxième, et votre
+Si vous oubliez `my`, irak l'ajoute à votre première ENTRÉE, devant la première
+utilisation de la variable. Vous tapez la première ligne, irak affiche la deuxième, et votre
 seconde ENTRÉE l'exécute :
 
 ```
@@ -1873,7 +1873,7 @@ seconde ENTRÉE l'exécute :
 Lyon
 ```
 
-irak n'ajoute `my` que devant une affectation (`=` ou `:=`), et jamais à un nom qui
+irak n'ajoute `my` que là où il a un sens : pas dans une chaîne, et jamais à un nom qui
 ressemble à une faute de frappe sur une variable déclarée. Dans `say $ctiy`, `$ctiy`
 reste tel quel, coloré en rouge, et la seconde ENTRÉE donne l'erreur ci-dessus.
 
@@ -4539,7 +4539,7 @@ comme n'importe quel programme ([16](#16-et-ensuite-)). irak rend simplement les
 courants longs d'une ligne, dans un seul langage.
 
 Pour d'autres tâches GitHub côte à côte avec `curl`, `jq` et Raku pur (lire un dépôt,
-lister des commits, ouvrir un ticket, commenter), voir [`PLANS/demos/github.md`](PLANS/demos/github.md) dans le dépôt.
+lister des commits, ouvrir un ticket, commenter), voir [`PLANS/demos/github.md`](../demos/github.md) dans le dépôt.
 
 ### Résumé
 
@@ -5058,7 +5058,7 @@ irak pour quelque chose dont vous avez déjà besoin : l'export JSON d'une appli
 votre historique de shell, un fichier de journal au travail. Chargez-le, parcourez-le,
 posez des questions.
 
-**Gardez l'aide-mémoire à portée de main.** `CHEATSHEET.md`, à la racine du dépôt rak,
+**Gardez l'aide-mémoire à portée de main.** `PLANS/docs/CHEATSHEET.md`, dans le dépôt rak,
 liste toute la syntaxe propre à rak en quelques pages.
 
 **Lisez le glossaire.** `GLOSSARY.md` définit les termes qu'emploie rak, avec le sens
@@ -5088,7 +5088,7 @@ l'[annexe B](#annexe-b--les-pièges), puis le gestionnaire de tickets, et signal
 vous avez trouvé : une surprise pour vous en est une aussi pour le prochain débutant.
 
 **Essayez une vraie API.** Celle de GitHub est un bon terrain de jeu : ses réponses sont
-en JSON, et ses données publiques ne demandent pas de jeton. [`PLANS/demos/github.md`](PLANS/demos/github.md) liste les points
+en JSON, et ses données publiques ne demandent pas de jeton. [`PLANS/demos/github.md`](../demos/github.md) liste les points
 d'accès utiles, avec rak à côté de `curl`, `jq` et Raku pur.
 
 ### Pour aller plus loin : des outils à connaître
@@ -5152,7 +5152,7 @@ fichier à télécharger. Homebrew fonctionne aussi sous Linux, et les a presque
 | **Éditer et scripter** | | |
 | `micro` | Un éditeur de texte aux touches que vous connaissez : Ctrl-S enregistre, Ctrl-Q quitte. | |
 | `nvim` | Neovim, un éditeur puissant pour plus tard. Le livre gratuit (en anglais) [LazyVim for Ambitious Developers](https://lazyvim-ambitious-devs.phillips.codes/course/chapter-1/) l'enseigne depuis le début. | `neovim` |
-| `gum` | De jolies invites, menus et indicateurs d'attente pour vos scripts, parmi les outils charmbracelet ([terminaux](PLANS/background/terminals.md)). | depuis [charm.sh](https://charm.sh) si votre distribution ne l'a pas |
+| `gum` | De jolies invites, menus et indicateurs d'attente pour vos scripts, parmi les outils charmbracelet ([terminaux](../background/terminals.md)). | depuis [charm.sh](https://charm.sh) si votre distribution ne l'a pas |
 
 Bon bidouillage !
 

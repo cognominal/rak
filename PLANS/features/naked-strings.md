@@ -2,7 +2,7 @@
 
 A [naked string](../../GLOSSARY.md#naked-string) is an unquoted word that denotes a string
 literal. The glossary gives the exact rule and the
-[cheat sheet](../../CHEATSHEET.md#words-routine-calls-and-naked-strings) shows it in use.
+[cheat sheet](../docs/CHEATSHEET.md#words-routine-calls-and-naked-strings) shows it in use.
 Naked strings work in both the standard and the shell strategy.
 
 Status: implemented for words. Escapes, interpolation and globbing are planned.

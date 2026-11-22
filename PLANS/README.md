@@ -2,7 +2,7 @@
 
 Design documents for rak. Terms are defined in [GLOSSARY.md](../GLOSSARY.md), decisions
 are recorded in [docs/adr/](../docs/adr/), and usage is in
-[CHEATSHEET.md](../CHEATSHEET.md). Build and test instructions are in `CLAUDE.md`.
+[CHEATSHEET.md](docs/CHEATSHEET.md). Build and test instructions are in `CLAUDE.md`.
 
 ## Overview
 
@@ -25,6 +25,8 @@ are recorded in [docs/adr/](../docs/adr/), and usage is in
 - [myaml](features/myaml.md): YAML literals and pattern matching on data.
 - [irak](features/irak.md): the interactive session, and TAB / SHIFT-TAB navigation.
 - [irak history](features/irak-history.md): `!n` / `!!n` recall of submissions.
+- [Highlighting](highlight.md): coloring rak code by what each word denotes, in irak
+  and in the terminal cheat sheet.
 - [Commands](features/commands.md): running routines and external commands, `$?`, `cd`, `type`.
 - [Pipelines](features/pipelines.md): Unix and jq-style pipes, mixed; `$?` and `@?`.
 

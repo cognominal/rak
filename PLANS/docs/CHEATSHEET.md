@@ -6,7 +6,7 @@ It includes features inspired by nushell and jq.
 
 Everything you know from Raku still
 holds unless a line below changes it. Words in **bold** are defined in
-[GLOSSARY.md](GLOSSARY.md).
+[GLOSSARY.md](../../GLOSSARY.md).
 
 ## Turning it on
 
@@ -304,8 +304,8 @@ Welcome to irak, the rak shell.
 
 ENTER twice runs a line. The first ENTER shows how irak reads it:
 
-- it inserts `my` before an undeclared variable that gets its first value
-  (`$x = 1` becomes `my $x = 1`);
+- it inserts `my` before the first use of an undeclared variable (`$x = 1`
+  becomes `my $x = 1`), except in a string or for a likely typo;
 - it colors each word: keyword, routine, command, naked string, or undeclared.
 
 A second ENTER on the same line within a second runs it. An empty or unfinished line,
@@ -333,7 +333,8 @@ lone word naming a program on `$PATH`.
 ```rak
 ls -l @files "my file" {1+1}   # external command; @files gives one argument each
 ^sort data.txt                 # ^ forces the external command over rak's sort
-my $out = (ls)                 # value used: standard output captured as a Str
+my $out = ls                   # $out and $_ set to 'ls'
+my $out = (ls)                 # value used: standard output of ls command captured as a Str
 ~(pwd)                         # same, in a contextualizer
 say $? == 0, $?->exitcode      # $? is the last exit status, a Proc
 make 2>err >out >>log <in 2>&1 # redirections, touching their target

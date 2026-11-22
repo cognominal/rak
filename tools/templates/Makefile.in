@@ -27,6 +27,12 @@ stresstest: @for_backends(@backend_prefix@-stresstest$(HARNESS_TYPE) )@
 quicktest:  @for_backends(@backend_prefix@-quicktest$(HARNESS_TYPE) )@
 rak-test:   @for_backends(@backend_prefix@-rak-test )@
 
+# The terminal cheat sheet (PLANS/highlight.md), regenerated from
+# PLANS/docs/CHEATSHEET.md with its rak code highlighted. Read it with
+# `less -R PLANS/docs/CHEATSHEET.ans`.
+rak-cheatsheet: all
+	RAKUDO_LINE_EDITOR=none ./rak tools/rak-cheatsheet.raku PLANS/docs/CHEATSHEET.md > PLANS/docs/CHEATSHEET.ans
+
 @if(platform==windows
 win-runner.exe-tmpl: src/runner/runner.c src/runner/whereami.c src/runner/whereami.h
 	$(NOECHO)$(MKPATH) @nfpq(gen/win-runner)@

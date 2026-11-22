@@ -2080,13 +2080,13 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
 
     method redir-naked-filename($/) {
         self.attach: $/, Nodify('QuotedString').new(
-            segments => [Nodify('StrLiteral').new(~$/)]
+            segments => [Nodify('StrLiteral').new($*LITERALS.intern-Str(~$/))]
         )
     }
 
     method redir-quoted-filename($/) {
         self.attach: $/, Nodify('QuotedString').new(
-            segments => [Nodify('StrLiteral').new(~$/[0])]
+            segments => [Nodify('StrLiteral').new($*LITERALS.intern-Str(~$/[0]))]
         )
     }
 

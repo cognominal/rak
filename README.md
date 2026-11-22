@@ -1,13 +1,14 @@
 # Rak
 
 This an ongoing work on rak, a dialect of rakudo that
-supports shell mode with [naked strings](./CHEATSHEET.md#naked-string) and `irak` a mode for interactive sessions.
-See [CHEATSHEET](./CHEATSHEET.md) for a quick presentation intended for raku conoisseurs.
-See [Glossary](./GLOSSARY.md) for new concepts. 
+supports shell mode with [naked strings](./PLANS/docs/CHEATSHEET.md#naked-string) and `irak` a mode for interactive sessions.
+See [CHEATSHEET](./PLANS/docs/CHEATSHEET.md) for a quick presentation intended for raku conoisseurs.
+See [Glossary](./GLOSSARY.md) for new concepts.
 See [ROADMAP](./ROADMAP.md) for the planned versions.
 [adrs](./docs/adr) are Architectural decision records.
-From now on, I will try to stick to Matt Pokock [skills](https://github.com/mattpocock/skills) 
-conventions that are brand new to me.
+From now on, I will try to stick to Matt Pokock [skills](https://github.com/mattpocock/skills).
+Everything related to `rak`  but the code is under [PLANS/](./PLANS).
+User facing docs is under [PLANS/docs](./PLANS/docs).
 Below is the original README.md. It should be mostly relevant for rak.
 
 # Rakudo

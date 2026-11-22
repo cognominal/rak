@@ -2,7 +2,7 @@
 
 [irak](../../GLOSSARY.md#irak) is rak with no source file: the REPL, `-e` and standard input.
 The `./rak` wrapper with no arguments starts it. Usage is in the
-[cheat sheet](../../CHEATSHEET.md#irak-the-repl); this document covers the design, and the
+[cheat sheet](../docs/CHEATSHEET.md#irak-the-repl); this document covers the design, and the
 planned TAB / SHIFT-TAB navigation of data structures.
 
 ## irak: the REPL as a pipe through time

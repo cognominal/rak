@@ -103,6 +103,18 @@ do {
         }
     }
 
+    # irak: the one table of highlighting codes (PLANS/highlight.md), used by
+    # the input field and, through REPL.irak-sgr, by the cheat sheet.
+    my %irak-sgr =
+      keyword        => "\e[1;35m",
+      routine        => "\e[36m",
+      command        => "\e[1;32m",
+      naked-string   => "\e[33m",
+      undeclared     => "\e[4;31m",
+      variable       => "\e[3m",
+      path           => "\e[34m",
+    ;
+
     my role TerminalLineEditorBehavior[$WHO] {
         my $cli-input = $WHO<CLIInput>;
         my $cli;
@@ -113,13 +125,6 @@ do {
 
         # irak: the input field colors each word of its buffer as the last
         # Enter read it (irak-colors), while the buffer holds that text.
-        my %irak-sgr =
-          keyword        => "\e[1;35m",
-          routine        => "\e[36m",
-          command        => "\e[1;32m",
-          naked-string   => "\e[33m",
-          undeclared     => "\e[4;31m",
-        ;
 
         # A subclass of ScrollingSingleLineInput::ANSI whose
         # visible-input-field-string wraps each span in SGR codes. Widths and
@@ -381,8 +386,14 @@ do {
             }
         }
 
+        # The named children of a Match, and its positional ones: the
+        # operands of a list infix (`,`, rak juxtaposition), keyed ''.
         sub irak-match-children(Mu $match) {
             my @children;
+            for $match.list -> Mu $child {
+                @children.push: '' => $child
+                  if nqp::can($child, 'from') && $child.to > $child.from;
+            }
             for $match.hash.kv -> $key, Mu $value {
                 for nqp::istype($value, Positional) ?? $value.list !! ($value,) -> Mu $child {
                     @children.push: $key => $child
@@ -390,6 +401,18 @@ do {
                 }
             }
             @children
+        }
+
+        # A redirection target is always a path.
+        my constant IRAK-PATH-NODES = Map.new: (
+          'redir-naked-filename', 1, 'redir-quoted-filename', 1,
+          'redir-dquoted-filename', 1, 'redir-url', 1,
+        );
+
+        # A command argument is a path when it reads as one: absolute, from
+        # home, `.`, `..`, or with a `/` in it. `data.txt` could be anything.
+        sub irak-path-like(Str:D $word --> Bool:D) {
+            so $word eq '.' | '..' | '~' || $word.starts-with('~/') || $word.contains('/')
         }
 
         # The spans of the words of a parsed submission, from its Match.
@@ -405,7 +428,11 @@ do {
                       if $keywords{~$word}:exists;
                 }
             }
+            # The Match tree has cycles: a signature's param-sep holds
+            # itself. Each node is walked once.
+            my %seen;
             my sub walk(Mu $node, Str:D $key, Str:D $parent) {
+                return if %seen{nqp::objectid($node)}++;
                 my @children = irak-match-children($node);
                 my Mu $made := $node.made;
                 my $name := nqp::isconcrete($made) ?? $made.^name !! '';
@@ -419,6 +446,20 @@ do {
                 }
                 elsif $key eq 'longname' && $parent.starts-with('RakuAST::Call::Name') {
                     @spans.push: ($node.from, $node.to, 'routine');
+                }
+                elsif $key eq 'variable' | 'redir-var-filename'
+                  # not a contextualizer, `$(…)` or `~(…)`
+                  && $text.substr($node.from, $node.to - $node.from) !~~ /^ <[$@%&~#]> '(' / {
+                    @spans.push: ($node.from, $node.to, 'variable');
+                    return;
+                }
+                elsif IRAK-PATH-NODES{$key} {
+                    @spans.push: ($node.from, $node.to, 'path');
+                    return;
+                }
+                elsif $key eq 'literal'
+                  && irak-path-like($text.substr($node.from, $node.to - $node.from)) {
+                    @spans.push: ($node.from, $node.to, 'path');
                 }
                 keywords-between($node.from, $node.to, @children)
                   if IRAK-KEYWORD-NODES{$key};
@@ -436,15 +477,27 @@ do {
             }
         }
 
-        method irak-feedback(Str() $submission, Int() :$from = 0 --> Map:D) {
+        method irak-sgr(--> Map:D) { %irak-sgr.Map }
+
+        # With :!declare, the text is only colored, never rewritten (the
+        # highlighted cheat sheet shows its examples as written).
+        method irak-feedback(Str() $submission, Int() :$from = 0, Bool:D :$declare = True --> Map:D) {
             my str $text = $submission;
             my @hidden;          # undeclared, declared only for the analysis
             my Mu $match := Nil;
             my Bool $incomplete = False;
             my int $prefix;
 
-            # Each round declares one variable, so the rounds are bounded.
-            for ^($text.comb(/<[$@%]>/).elems + 2) {
+            # `my` goes before the first occurrence of an undeclared variable,
+            # wherever it can stand. Whether it can is found by trying: the
+            # insertion is undone (and the variable only hidden) when the
+            # next round fails on something else than another undeclared
+            # variable, or when the variable is still undeclared, as in a
+            # string ("my $x" is then just text).
+            my $tried;           # the last insertion: name, text before it
+            # Each round declares, inserts or undoes for one variable, so the
+            # rounds are bounded.
+            for ^(2 * $text.comb(/<[$@%~#]>/).elems + 2) {
                 my $declarations = @hidden.map({ "my $_;" }).join;
                 $prefix = $declarations.chars;
                 my $code = $declarations ~ $text ~ "\n";
@@ -453,16 +506,21 @@ do {
                     $match := $result;
                     last;
                 }
-                if $result ~~ X::Undeclared
-                  && $result.symbol ~~ /^ <[$@%]> <.alpha> /
-                  && !@hidden.grep(* eq $result.symbol) {
+                my $undeclared = $result ~~ X::Undeclared
+                  && $result.symbol ~~ /^ <[$@%~#]> <.alpha> /;
+                if $tried && (!$undeclared || $result.symbol eq $tried<name>) {
+                    $text = $tried<text>;
+                    @hidden.push: $tried<name>;
+                    $tried = Nil;
+                    next;
+                }
+                $tried = Nil;
+                if $undeclared && !@hidden.grep(* eq $result.symbol) {
                     my $name  = $result.symbol;
                     my $start = irak-variable-start($text, $name,
                       $result.pos.defined ?? $result.pos - $prefix !! Nil);
-                    if $start.defined && $start >= $from
-                      && !$result.suggestions
-                      && $text.substr($start + $name.chars)
-                           ~~ /^ \h* [ ':=' | '=' <!before <[=>]> | ':='> ] / {
+                    if $declare && $start.defined && $start >= $from && !$result.suggestions {
+                        $tried = { :$name, :$text };
                         $text = $text.substr(0, $start) ~ 'my ' ~ $text.substr($start);
                     }
                     else {
@@ -480,8 +538,11 @@ do {
                    .map({ (.[0] - $prefix, .[1] - $prefix, .[2]) }).grep(*.[0] >= 0)
               !! irak-keyword-spans($text, $keywords);
             for @hidden -> $name {
-                @spans.push: ($_, $_ + $name.chars, 'undeclared')
-                  for irak-occurrences($text, $name);
+                for irak-occurrences($text, $name) -> $at {
+                    # undeclared, rather than variable
+                    @spans = @spans.grep({ !(.[0] == $at && .[2] eq 'variable') });
+                    @spans.push: ($at, $at + $name.chars, 'undeclared');
+                }
             }
 
             Map.new: (
@@ -490,6 +551,7 @@ do {
                   Map.new: (:from(.[0]), :to(.[1]), :class(.[2]))
               }).List),
               :$incomplete,
+              :parsed(so nqp::isconcrete($match)),
             )
         }
 
