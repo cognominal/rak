@@ -23,7 +23,7 @@ lists: DONE and TBD.
   - DONE: [naked strings](GLOSSARY.md#naked-string), [jq](https://jqlang.org/manual/)-like subscripting
     ([dotty subscripts](GLOSSARY.md#dotty-subscript)),
     [redirections](GLOSSARY.md#redirection), [URL targets](GLOSSARY.md#url-target)
-    (GET and POST, see the [GitHub examples](PLANS/demos/github.md)),
+    (GET and POST, see the [GitHub examples](rak-plans/demos/github.md)),
     [bare hosts](GLOSSARY.md#bare-host) (`<api.github.com/…`),
     [commands](GLOSSARY.md#command) and [pipelines](GLOSSARY.md#pipeline) (Unix and
     jq style, mixed; `$?` and `@?`), recalling submissions (`!n`, `!!n`, up and down
@@ -45,7 +45,7 @@ lists: DONE and TBD.
 - **0.4**: indentation as syntax.
 - **0.5**: tooling: [LSP](https://microsoft.github.io/language-server-protocol/)
   support, syntax highlighting. irak will also need new interactions to fully fit it as a
-  [spoken language](PLANS/background/larry-wall.md#the-command-line-is-a-conversation);
+  [spoken language](rak-docs/background/larry-wall.md#the-command-line-is-a-conversation);
   what they would be is still unknown.
 - **0.6** for performance support utf-8 regexen by adapting the eponymous rust package. Default in irak. Raku syntax unchanged.
 - **0.7**: a github.io site, and a programming course built with the `/teachme`

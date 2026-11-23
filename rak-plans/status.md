@@ -1,8 +1,8 @@
 # Status
 
-What exists on the `rak` branch and what is planned. This is the only place in `PLANS/`
-that tracks implementation status; the feature documents link here rather than repeat
-it. For test results, run `make rak-test` (see `CLAUDE.md`): counts are not recorded
+What exists on the `rak` branch and what is planned. This is the only place in
+`rak-plans/` that tracks implementation status; the feature documents link here rather
+than repeat it. For test results, run `make rak-test` (see `CLAUDE.md`): counts are not recorded
 here, because they go stale.
 
 ## Implemented

@@ -161,7 +161,7 @@ do {
         }
     }
 
-    # irak: the one table of highlighting codes (PLANS/highlight.md), used by
+    # irak: the one table of highlighting codes (rak-plans/highlight.md), used by
     # the input field and, through REPL.irak-sgr, by the cheat sheet.
     my %irak-sgr =
       keyword        => "\e[1;35m",
@@ -321,7 +321,7 @@ do {
         }
     }
 
-    # irak paging (PLANS/features/paging.md): $*OUT during a submission. It
+    # irak paging (rak-plans/features/paging.md): $*OUT during a submission. It
     # holds what the submission prints, so irak can measure it and page it,
     # until 1 s after the first output or a flush; from then on it lets the
     # output through. A submission that prints nothing while it waits (a
@@ -933,7 +933,7 @@ do {
             }
 
             # irak needs a line editor: Terminal::LineEditor first, since the
-            # TAB / SHIFT-TAB navigation (PLANS/features/irak.md) builds on it.
+            # TAB / SHIFT-TAB navigation (rak-plans/features/irak.md) builds on it.
             if irak() {
                 my ( $new-self, $problem ) = mixin-terminal-lineeditor($self, :fallback<Readline>);
                 return $new-self if $new-self;

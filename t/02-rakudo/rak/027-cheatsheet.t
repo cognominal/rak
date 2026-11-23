@@ -1,13 +1,13 @@
 use Test;
 
-# The terminal cheat sheet (PLANS/highlight.md): PLANS/docs/CHEATSHEET.ans is
-# generated from PLANS/docs/CHEATSHEET.md by tools/rak-cheatsheet.raku, with
+# The terminal cheat sheet (rak-plans/highlight.md): rak-docs/CHEATSHEET.ans is
+# generated from rak-docs/CHEATSHEET.md by tools/rak-cheatsheet.raku, with
 # its rak code highlighted as irak highlights it.
 
 plan 5;
 
-my $md  = 'PLANS/docs/CHEATSHEET.md';
-my $ans = 'PLANS/docs/CHEATSHEET.ans';
+my $md  = 'rak-docs/CHEATSHEET.md';
+my $ans = 'rak-docs/CHEATSHEET.ans';
 
 my $proc = run $*EXECUTABLE, 'tools/rak-cheatsheet.raku', $md, :out, :err,
   :env(%*ENV, RAKUDO_LINE_EDITOR => 'none');

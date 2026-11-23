@@ -1111,7 +1111,7 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         my $statement-id := $*STATEMENT-ID;
         my $statement;
 
-        # Command (.rak syntax), see PLANS/features/commands.md.
+        # Command (.rak syntax), see rak-plans/features/commands.md.
         if $<rak-command> {
             $statement := Nodify('Statement::Expression').new(
               :expression($<rak-command>.ast));
@@ -1891,7 +1891,7 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         self.attach: $/, $ast;
     }
 
-    # Commands (.rak syntax), see PLANS/features/commands.md.
+    # Commands (.rak syntax), see rak-plans/features/commands.md.
     sub rak-call($name, *@args) {
         Nodify('Call::Name').new(
           name => Nodify('Name').from-identifier($name),
@@ -1941,7 +1941,7 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         $ast
     }
 
-    # Pipelines (.rak syntax), see PLANS/features/pipelines.md. Each stage
+    # Pipelines (.rak syntax), see rak-plans/features/pipelines.md. Each stage
     # becomes an expression around the previous one; RAK-PIPE-END waits for
     # the commands and sets $?.
     method rak-pipeline($/) {

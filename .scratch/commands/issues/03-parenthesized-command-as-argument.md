@@ -2,7 +2,7 @@
 
 Status: needs-triage
 
-**Spec:** `PLANS/features/commands.md`: when a command's value is used, as in
+**Spec:** `rak-plans/features/commands.md`: when a command's value is used, as in
 `my $out = (ls)`, its output is captured as a `Str`. Nothing says whether a
 parenthesized command can be an argument of another command, the way `$(…)` is in a
 POSIX shell.

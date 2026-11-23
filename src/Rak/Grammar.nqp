@@ -2011,7 +2011,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         || <redir-var-filename>
     }
 
-    # A URL target (PLANS/features/url-targets.md): `http://` or `https://`,
+    # A URL target (rak-plans/features/url-targets.md): `http://` or `https://`,
     # then URL characters and `$name` interpolations. `{`, `}`, `(`, `)`,
     # `;`, `#` and whitespace end it; a URL needing more is double-quoted.
     # A load (`$*RAK-LOAD`) also takes a bare host, `<api.github.com/x`,
@@ -2250,7 +2250,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         <?before ';' | '}' | ')' | \v | $ | '#' | <?{ nqp::ifnull(nqp::getlexdyn('$*RAK-PIPE'), 0) }> '|' \h>
     }
 
-    # Pipelines (.rak syntax), see PLANS/features/pipelines.md. A statement is
+    # Pipelines (.rak syntax), see rak-plans/features/pipelines.md. A statement is
     # a pipeline when it starts with a command, a load or a leading dotty
     # subscript and has a spaced `|` on its line; `|` is then the pipe.
     token rak-pipeline {
@@ -4152,7 +4152,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     }
 
     # In rak mode, a lone `.` is the formatter: it shows the topic as JSON
-    # (PLANS/features/formatter.md). The `.` comes first so that, being the
+    # (rak-plans/features/formatter.md). The `.` comes first so that, being the
     # longer prefix, this is tried before term:sym<dotty>, which panics on it.
     token term:sym<rak-format> {
         '.' <?{ $*RAK-SEMANTICS }> <?before <.rak-format-end>>

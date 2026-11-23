@@ -7,14 +7,14 @@ variables. Where Perl excelled at matching patterns in strings, rak also aims to
 patterns in data structures.
 
 rak is enabled by the `.rak` file extension, or by running the `./rak` wrapper with no
-file (see the [cheat sheet](docs/CHEATSHEET.md#turning-it-on), which also lists the
-[environment variables](docs/CHEATSHEET.md#environment-variables)). A `.raku` file keeps
-standard Raku semantics. Using rak interactively, in [irak](features/irak.md), is a good
+file (see the [cheat sheet](CHEATSHEET.md#turning-it-on), which also lists the
+[environment variables](CHEATSHEET.md#environment-variables)). A `.raku` file keeps
+standard Raku semantics. Using rak interactively, in [irak](../rak-plans/features/irak.md), is a good
 way to learn it.
 
 rak is developed on the `rak` branch of `https://github.com/cognominal/rakudo`, and on
 branches derived from it. This page uses the present tense, but much of what it
-describes is planned; [status.md](status.md) says what exists.
+describes is planned; [status.md](../rak-plans/status.md) says what exists.
 
 ## A taste
 
@@ -37,15 +37,15 @@ saw stdin. rak takes the opposite position: the language *is* the outer layer. I
 the shell's composition (words, pipes, redirections) and the language's power (types,
 signatures, data structures), and it uses syntax to settle the conflicts between them:
 
-- [naked strings](features/naked-strings.md) let words be strings without Perl's
+- [naked strings](../rak-plans/features/naked-strings.md) let words be strings without Perl's
   `strict 'subs'` trap;
-- [spacing](features/spacing.md) tells redirection from comparison;
-- the [standard and shell strategies](features/strategies.md) let a statement be Raku or a
+- [spacing](../rak-plans/features/spacing.md) tells redirection from comparison;
+- the [standard and shell strategies](../rak-plans/features/strategies.md) let a statement be Raku or a
   command line, and pipes mix commands with rak stages;
-- [redirection](features/redirection.md) moves typed values, not only bytes, and
-  [URL targets](features/url-targets.md) extend it to the web;
-- [dotty subscripts](features/dotty-subscripts.md) walk data like jq, and
-  [myaml](features/myaml.md) will pattern-match it.
+- [redirection](../rak-plans/features/redirection.md) moves typed values, not only bytes, and
+  [URL targets](../rak-plans/features/url-targets.md) extend it to the web;
+- [dotty subscripts](../rak-plans/features/dotty-subscripts.md) walk data like jq, and
+  [myaml](../rak-plans/features/myaml.md) will pattern-match it.
 
 ## Fixing Raku's costs
 
@@ -53,15 +53,15 @@ Raku enables by default several features that are rarely needed yet cost perform
 arbitrary-precision integers, and containers that let any variable be aliased. Every
 untyped variable is boxed. Walking data structures takes many brackets. This drove away
 people writing small tools, for whom Perl and Raku were too slow to start and too slow at
-simple work. rak's [new sigils](features/sigils.md) `~` and `#` hold native `str` and `int`
+simple work. rak's [new sigils](../rak-plans/features/sigils.md) `~` and `#` hold native `str` and `int`
 values with no boxing, and make bracketless subscripts possible. A third sigil, `^` for
-native `num`, is [unsettled](unsettled.md).
+native `num`, is [unsettled](../rak-plans/unsettled.md).
 
 ## Less visual noise
 
 Brackets and other paired characters are heavy on the eye. rak removes them where layout
-can say the same thing: [indentation](features/indentation.md) delimits multi-line blocks,
-[tree expressions](features/tree-exprs.md) replace parentheses in multi-line expressions,
+can say the same thing: [indentation](../rak-plans/features/indentation.md) delimits multi-line blocks,
+[tree expressions](../rak-plans/features/tree-exprs.md) replace parentheses in multi-line expressions,
 and dotty subscripts replace `[…]`, `{…}` and `<…>`.
 
 ## Building on Larry Wall's ideas

@@ -3,7 +3,7 @@ use Test;
 plan 14;
 
 # ---------------------------------------------------------------------------
-# Bare hosts (PLANS/features/url-targets.md): a naked load target whose last
+# Bare hosts (rak-plans/features/url-targets.md): a naked load target whose last
 # label is a TLD, with three labels or a `/` after the host, loads https://….
 # Everything else stays a file. An unreachable proxy makes curl fail at once,
 # so the error shows the URL that was tried without touching the network.

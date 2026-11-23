@@ -1,6 +1,6 @@
 use Test;
 
-# irak paging (PLANS/features/paging.md): output longer than 5 lines goes to
+# irak paging (rak-plans/features/paging.md): output longer than 5 lines goes to
 # the pager, then a two-line summary stays at the prompt. `!p` pages the
 # last output again.
 #

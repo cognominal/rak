@@ -7,7 +7,7 @@
 > **Status on the `rak` branch:** the core of this document (redirection
 > `say foo >file`, naked strings, the `.rak` gate, the `rak` wrapper) is
 > **implemented and tested** in `t/14-redirection/`. Two corrections were
-> required to make it work — both documented in `PLANS/README.md`:
+> required to make it work — both documented in `rak-plans/README.md`:
 > the naked-string guard now uses `is-identifier-known` *without* `:exact`
 > (so setting routines like `say` still parse as calls), and the
 > whitespace-after-`>` checks use the current match position `$/.pos()`

@@ -72,8 +72,8 @@ them).
 
 ### The terminal cheat sheet
 
-`PLANS/docs/CHEATSHEET.ans` is [CHEATSHEET.md](docs/CHEATSHEET.md) for the terminal,
-with its rak code highlighted. Read it with `less -R PLANS/docs/CHEATSHEET.ans`.
+`rak-docs/CHEATSHEET.ans` is [CHEATSHEET.md](../rak-docs/CHEATSHEET.md) for the terminal,
+with its rak code highlighted. Read it with `less -R rak-docs/CHEATSHEET.ans`.
 
 - **Source:** `CHEATSHEET.md` stays the only source. `make rak-cheatsheet` runs
   `tools/rak-cheatsheet.raku` through the `./rak` wrapper to regenerate the `.ans`, and

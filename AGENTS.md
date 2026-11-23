@@ -6,8 +6,9 @@ side by side: `src/Raku/{Grammar,Actions}.nqp` (`Raku::*`) for plain Raku, and
 `src/Rak/{Grammar,Actions}.nqp` (`Rak::*`) for rak — a regenerated twin of the Raku pair
 that carries the same `$*RAK-SEMANTICS` gates. The rak frontend is selected by
 `RAKUDO_RAK_FRONTEND=1 RAKU_RAK_MODE=1`, or by the `./rak` wrapper at the repo root,
-which sets those and execs `rakudo-m`. Branch design docs live in `PLANS/`;
-`PLANS/README.md` is the index.
+which sets those and execs `rakudo-m`. Branch design docs live in `rak-plans/`
+(index: `rak-plans/README.md`); reader documentation, the cheat sheet, the tutorials
+and the background essays, lives in `rak-docs/` (index: `rak-docs/README.md`).
 
 ## Build and test
 

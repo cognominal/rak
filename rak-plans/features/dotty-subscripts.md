@@ -2,7 +2,7 @@
 
 A [dotty subscript](../../GLOSSARY.md#dotty-subscript) spells a subscript without brackets:
 `@a.1.toto.~str.#int` is `@a[1]<toto>{~str}[#int]`. The full list of forms is in the
-[cheat sheet](../docs/CHEATSHEET.md#dotty-subscripts); this document explains the design.
+[cheat sheet](../../rak-docs/CHEATSHEET.md#dotty-subscripts); this document explains the design.
 
 Status: implemented, including quoted keys (`.'k'`, `."k"`) and the indirect method call
 `->$var` / `->&f`.

@@ -10,7 +10,7 @@ last word and is not followed by a filename, stays a word list: `[<a b>]`,
 Status: implemented for `STMT >file`, `STMT >>file`, `<file STMT`, the
 [load](../../GLOSSARY.md#load) `LVALUE <file`, and the `.json` and `.jsonl`
 [formats](../../GLOSSARY.md#format). Usage is in the
-[cheat sheet](../docs/CHEATSHEET.md#redirection). The design decisions are recorded in:
+[cheat sheet](../../rak-docs/CHEATSHEET.md#redirection). The design decisions are recorded in:
 
 - [ADR 0002](../../docs/adr/0002-redirection-binds-the-statement-stream.md): a
   redirection binds `$*OUT` or `$*IN` for one statement; it does not rewrite the call.

@@ -2,7 +2,7 @@
 
 Status: ready-for-agent
 
-**Spec:** `PLANS/features/commands.md`, Exit status: a non-zero exit status fails a
+**Spec:** `rak-plans/features/commands.md`, Exit status: a non-zero exit status fails a
 `.rak` file, like `run` in sink context. irak only shows a dimmed `exit N` (done).
 
 **Today:** `RAK-RUN-COMMAND` returns a `Proc` (or the captured `Str`) and nothing throws,

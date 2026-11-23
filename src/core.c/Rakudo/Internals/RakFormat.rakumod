@@ -39,7 +39,7 @@ my class X::Rak::Format::Shape is X::Rak::Format {
 }
 
 # A JSON object, or a rak hash read from text, whose keys keep the order they
-# were written in (PLANS/features/formatter.md). Only the formatter makes one.
+# were written in (rak-plans/features/formatter.md). Only the formatter makes one.
 my class Rakudo::Internals::RakJSONObject is implementation-detail {
     has @.pairs;
 }
@@ -397,7 +397,7 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
           !! n.Str
     }
 
-    # The formatter's JSON (PLANS/features/formatter.md): pretty, and with
+    # The formatter's JSON (rak-plans/features/formatter.md): pretty, and with
     # :color, in jq's default colors.
     method format(\v, :$color --> Str:D) {
         self!json(v, 'formatter', 0, :color(?$color))
@@ -476,7 +476,7 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
 }
 
 # Rak data literals read from text, for the formatter
-# (PLANS/features/formatter.md): numbers, quoted strings, True, False, Nil,
+# (rak-plans/features/formatter.md): numbers, quoted strings, True, False, Nil,
 # naked strings, pairs, word lists, and ( ), [ ], { }. The text is parsed,
 # never run: anything else is not data, and `read` returns the
 # RakDataReader type object.
@@ -603,7 +603,7 @@ my class Rakudo::Internals::RakDataReader is implementation-detail {
     }
 }
 
-# The formatter's value (PLANS/features/formatter.md): the JSON text of its
+# The formatter's value (rak-plans/features/formatter.md): the JSON text of its
 # documents. Sunk at statement level, it prints them instead, in color on a
 # terminal; irak shows it the same way and leaves $_ alone.
 my class Rakudo::Internals::RakFormatted is Str is implementation-detail {
@@ -630,7 +630,7 @@ my class Rakudo::Internals::RakFormatted is Str is implementation-detail {
     method plain() { nqp::box_s(nqp::unbox_s(self), Str) }
 }
 
-# URL targets (PLANS/features/url-targets.md): a load from an http(s) URL is a
+# URL targets (rak-plans/features/url-targets.md): a load from an http(s) URL is a
 # GET, output redirection to one is a POST of JSON. Every request goes through
 # RakHTTP.request, which runs curl, or HTTP::UserAgent when curl is missing.
 my class X::Rak::HTTP is Exception {
@@ -883,7 +883,7 @@ sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code) is implementation-detail
 }
 
 # The last value a load decoded from JSON. irak shows a submission whose value
-# it is the way the formatter does (PLANS/features/formatter.md).
+# it is the way the formatter does (rak-plans/features/formatter.md).
 my $RAK-LOADED;
 sub RAK-LOADED() is raw is implementation-detail { $RAK-LOADED }
 
@@ -935,7 +935,7 @@ sub RAK-LOAD(Str() $target, Str:D $sigil, Str:D $name) is raw is implementation-
     $sigil eq '@' || $sigil eq '%' ?? value<> !! value
 }
 
-# Commands (see PLANS/features/commands.md). The value of a command run at
+# Commands (see rak-plans/features/commands.md). The value of a command run at
 # statement level is its Proc, which is not an error when sunk.
 my class Rakudo::Internals::RakProc is Proc {
     method sink(--> Nil) { }
@@ -956,7 +956,7 @@ sub RAK-RUN-COMMAND(Str:D $name, $capture is copy, *@args,
   :$out is copy, :$append, :$in is copy, :$err is copy, :$merge,
   Mu :$stdin is raw = Rakudo::Internals::RakNoStdin, :$piped
 ) is implementation-detail {
-    # In a pipeline (see PLANS/features/pipelines.md), :stdin is the previous
+    # In a pipeline (see rak-plans/features/pipelines.md), :stdin is the previous
     # stage's value, and a :piped command is not waited for: its Proc is the
     # value, and RAK-PIPE-END waits for it.
     my @open;
@@ -1052,7 +1052,7 @@ sub RAK-PIPE-VALUE(Mu \v) is raw is implementation-detail {
     else { v<> }
 }
 
-# The formatter, `.` (PLANS/features/formatter.md): its input as JSON
+# The formatter, `.` (rak-plans/features/formatter.md): its input as JSON
 # documents. A command's output and a Str are text: a stream of JSON values,
 # else a rak data literal, else one string. A Seq gives one document per
 # value; anything else is one document.

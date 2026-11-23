@@ -2,7 +2,7 @@ use Test;
 
 # `.~expr` / `.#expr` (a bare `~`/`#`-sigiled variable reference directly
 # after `.`, no space) are sugar for `{~expr}` / `[#expr]`. Phase 2 of
-# PLANS/archive/subscript-operator.md.
+# rak-plans/archive/subscript-operator.md.
 #
 # Scope: a bare `~`/`#`-sigiled variable reference only (like `.1` being a
 # bare literal), not a general expression starting with `~`/`#`.

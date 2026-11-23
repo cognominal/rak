@@ -1,8 +1,8 @@
-# Render PLANS/docs/CHEATSHEET.md for the terminal, with its rak code
-# highlighted as irak highlights it (PLANS/highlight.md).
+# Render rak-docs/CHEATSHEET.md for the terminal, with its rak code
+# highlighted as irak highlights it (rak-plans/highlight.md).
 #
-#   ./rak tools/rak-cheatsheet.raku PLANS/docs/CHEATSHEET.md > PLANS/docs/CHEATSHEET.ans
-#   less -R PLANS/docs/CHEATSHEET.ans
+#   ./rak tools/rak-cheatsheet.raku rak-docs/CHEATSHEET.md > rak-docs/CHEATSHEET.ans
+#   less -R rak-docs/CHEATSHEET.ans
 #
 # It must run through the ./rak wrapper: the analysis uses the compiler that
 # nqp::getcomp('Raku') returns, which is rak's only under the wrapper.
@@ -181,7 +181,7 @@ sub table-row(Str:D $line, Bool :$pad --> Str) {
 # A session block: what follows a prompt is code, the rest is irak's answer.
 my token prompt { ^ [ '[' \d+ '] ' ]? '> ' }
 
-sub MAIN(Str:D $file = 'PLANS/docs/CHEATSHEET.md') {
+sub MAIN(Str:D $file = 'rak-docs/CHEATSHEET.md') {
     my @block;
     my $fence;        # the language of the open fence, or Nil outside one
     my $aligned;      # whether the table being read is aligned

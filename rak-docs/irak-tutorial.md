@@ -4330,7 +4330,7 @@ program ([16](#16-where-to-go-next)). irak simply makes the common cases one lin
 in one language.
 
 For more GitHub tasks side by side with `curl`, `jq` and plain Raku (reading a repository,
-listing commits, opening an issue, commenting), see [`PLANS/demos/github.md`](../demos/github.md) in the repository.
+listing commits, opening an issue, commenting), see [`rak-plans/demos/github.md`](../rak-plans/demos/github.md) in the repository.
 
 ### Recap
 
@@ -4835,7 +4835,7 @@ data and references, to pipelines, the web, and scripts. A few directions from h
 already need: the JSON export of an app, your shell history, a log file at work. Load it,
 walk it, ask questions.
 
-**Keep the cheat sheet close.** `PLANS/docs/CHEATSHEET.md`, in the rak repository, lists
+**Keep the cheat sheet close.** `rak-docs/CHEATSHEET.md`, in the rak repository, lists
 every rak-specific syntax on a few pages.
 
 **Read the glossary.** `GLOSSARY.md` defines the terms rak uses, with the exact meaning
@@ -4858,12 +4858,12 @@ look like rak's dotty paths, and you can call it from irak as any program:
 `<data.json | ^jq '.items[] | .name'`.
 
 **Know the limits.** rak is young. Some decisions are still open, and listed in the
-repository under `PLANS/`. When something surprises you, check [Appendix B](#appendix-b-gotchas),
+repository under `rak-plans/`. When something surprises you, check [Appendix B](#appendix-b-gotchas),
 then the issue tracker, and report what you found: a surprise for you is a surprise for
 the next beginner too.
 
 **Try a real API.** GitHub's is a good playground: its answers are JSON, and its public
-data needs no token. [`PLANS/demos/github.md`](../demos/github.md) lists the useful endpoints, with rak next to `curl`, `jq` and
+data needs no token. [`rak-plans/demos/github.md`](../rak-plans/demos/github.md) lists the useful endpoints, with rak next to `curl`, `jq` and
 plain Raku.
 
 ### Going forward: tools worth knowing
@@ -4926,7 +4926,7 @@ Linux, and has nearly all of them.
 | **Editing and scripting** | | |
 | `micro` | A text editor with the keys you know: Ctrl-S saves, Ctrl-Q quits. | |
 | `nvim` | Neovim, a powerful editor for later. The free book [LazyVim for Ambitious Developers](https://lazyvim-ambitious-devs.phillips.codes/course/chapter-1/) teaches it from the start. | `neovim` |
-| `gum` | Pretty prompts, menus and spinners for your scripts, from the charmbracelet tools ([terminals](../background/terminals.md)). | from [charm.sh](https://charm.sh) where your distribution lacks it |
+| `gum` | Pretty prompts, menus and spinners for your scripts, from the charmbracelet tools ([terminals](background/terminals.md)). | from [charm.sh](https://charm.sh) where your distribution lacks it |
 
 Happy hacking.
 

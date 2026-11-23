@@ -4,8 +4,8 @@
 > history. The current design is in [dotty subscripts](../features/dotty-subscripts.md). Names, paths, test counts and status
 > below are out of date.
 
-> **Status on the `rak` branch:** this document now lives in `PLANS/new-sigils/`
-> (see `PLANS/README.md`). All phases (1-4) remain merged and green on the
+> **Status on the `rak` branch:** this document now lives in `rak-plans/new-sigils/`
+> (see `rak-plans/README.md`). All phases (1-4) remain merged and green on the
 > combined branch; the gate flag was unified to `$*RAK-SEMANTICS`, and the
 > `.rak` mode now also has redirection/naked-string syntax from the
 > `redirection` branch (which interacts with the dotty sugar: method calls

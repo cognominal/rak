@@ -106,8 +106,8 @@ fails as an ordinary Raku error naming the file.
 
 ## Further Notes
 
-- Source material: `PLANS/archive/RAKFILE.md` (the original design sketch, including the
-  statement-position table and the equivalent-forms list) and `PLANS/status.md` for the
+- Source material: `rak-plans/archive/RAKFILE.md` (the original design sketch, including the
+  statement-position table and the equivalent-forms list) and `rak-plans/status.md` for the
   branch-wide picture.
 - Tickets 02 and 03 are done. Both spellings go through one wrapper that keeps the
   statement's own AST and binds the stream variable around it; the tests that prove it are

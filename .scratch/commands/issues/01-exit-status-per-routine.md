@@ -2,7 +2,7 @@
 
 Status: ready-for-agent
 
-**Spec:** `PLANS/features/commands.md`, Exit status: `$?` holds the last exit status
+**Spec:** `rak-plans/features/commands.md`, Exit status: `$?` holds the last exit status
 per routine, like `$!`.
 
 **Today:** `$?` reads `RAK-STATUS()`, a single process-global variable in

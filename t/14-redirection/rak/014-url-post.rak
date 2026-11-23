@@ -5,7 +5,7 @@ use RakHTTPFixture;
 plan 21;
 
 # ---------------------------------------------------------------------------
-# Output redirection to a URL target (PLANS/features/url-targets.md, ADR 0005):
+# Output redirection to a URL target (rak-plans/features/url-targets.md, ADR 0005):
 # `STMT >http://…` is a POST of JSON. The value is sent when nothing is printed,
 # the printed text otherwise (ADR 0004). The statement's value is the decoded
 # response.

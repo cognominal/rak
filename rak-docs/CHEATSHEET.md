@@ -6,7 +6,7 @@ It includes features inspired by nushell and jq.
 
 Everything you know from Raku still
 holds unless a line below changes it. Words in **bold** are defined in
-[GLOSSARY.md](../../GLOSSARY.md).
+[GLOSSARY.md](../GLOSSARY.md).
 
 ## Turning it on
 
@@ -274,7 +274,7 @@ echo '{"body": "hi"}' >https://…/comments           # a command's output, POST
   JSON; anything else is text. An empty response (`204`) gives `Nil`.
 - The statement's value is the decoded response, not the value sent (ADR 0005).
 - `>>url`, `<url STMT`, `2>url` are compile-time errors.
-- A load may drop `https://` (a [bare host](GLOSSARY.md#bare-host)) when the host
+- A load may drop `https://` (a [bare host](../GLOSSARY.md#bare-host)) when the host
   ends in a TLD and has three labels or a `/` after it: `<api.github.com/zen`,
   `my %r <github.com/rakudo`. `<README.md`, `<example.com`, `<'a.b.com'` and
   `<./api.github.com` are files; so is any `>` target.
@@ -430,7 +430,7 @@ Each stage gets the whole input, not one value at a time: use `map` for that.
 
 ## Planned, not implemented
 
-Planned in `PLANS/`, not available yet: `alias`,
+Planned in `rak-plans/`, not available yet: `alias`,
 globbing, indentation in place of braces, sigilless
 one-letter variables (`i`, `s`, …), a `^` sigil for native `num` (unsettled), YAML and myaml data
 pattern matching, `has ~.x` / `has #.x` attributes, and `#n.WHAT` autoboxing.

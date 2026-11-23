@@ -5,7 +5,7 @@ use RakHTTPFixture;
 plan 23;
 
 # ---------------------------------------------------------------------------
-# Loading a URL target (PLANS/features/url-targets.md): `LVALUE <http://…` is
+# Loading a URL target (rak-plans/features/url-targets.md): `LVALUE <http://…` is
 # a GET. A JSON media type decodes as JSON, anything else is text. Errors throw
 # X::Rak::HTTP. A local fixture stands in for the network.
 # ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 # Refresh the TLD list that decides which naked load targets are bare hosts
-# (PLANS/features/url-targets.md). It rewrites the block between the
+# (rak-plans/features/url-targets.md). It rewrites the block between the
 # `BEGIN TLDS` and `END TLDS` lines of src/Rak/Grammar.nqp from IANA's list
 # of root-zone TLDs, downloaded with curl unless a saved copy is given.
 #

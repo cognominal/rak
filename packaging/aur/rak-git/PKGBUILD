@@ -1,7 +1,7 @@
 # Maintainer: Stéphane Payrard <cognominal at gmail dot com>
 #
 # rak: a Rakudo fork with a .rak frontend (naked strings, dotty subscripts,
-# shellish redirection) and irak, its REPL. See PLANS/build/AUR.md in the
+# shellish redirection) and irak, its REPL. See rak-plans/build/AUR.md in the
 # source tree for why the package looks like this.
 #
 # rak pins newer nqp and MoarVM than the AUR's nqp/moarvm packages, so it

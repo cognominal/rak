@@ -2,7 +2,7 @@
 
 Status: needs-triage
 
-**Spec:** `PLANS/features/commands.md`: when a command's value is used, its standard
+**Spec:** `rak-plans/features/commands.md`: when a command's value is used, its standard
 output is captured as a `Str`. The spec does not say what happens to the final newline.
 
 **Today:** the newline is kept, so a captured value cannot be passed on as is:

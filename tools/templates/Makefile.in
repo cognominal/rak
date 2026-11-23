@@ -27,11 +27,11 @@ stresstest: @for_backends(@backend_prefix@-stresstest$(HARNESS_TYPE) )@
 quicktest:  @for_backends(@backend_prefix@-quicktest$(HARNESS_TYPE) )@
 rak-test:   @for_backends(@backend_prefix@-rak-test )@
 
-# The terminal cheat sheet (PLANS/highlight.md), regenerated from
-# PLANS/docs/CHEATSHEET.md with its rak code highlighted. Read it with
-# `less -R PLANS/docs/CHEATSHEET.ans`.
+# The terminal cheat sheet (rak-plans/highlight.md), regenerated from
+# rak-docs/CHEATSHEET.md with its rak code highlighted. Read it with
+# `less -R rak-docs/CHEATSHEET.ans`.
 rak-cheatsheet: all
-	RAKUDO_LINE_EDITOR=none ./rak tools/rak-cheatsheet.raku PLANS/docs/CHEATSHEET.md > PLANS/docs/CHEATSHEET.ans
+	RAKUDO_LINE_EDITOR=none ./rak tools/rak-cheatsheet.raku rak-docs/CHEATSHEET.md > rak-docs/CHEATSHEET.ans
 
 @if(platform==windows
 win-runner.exe-tmpl: src/runner/runner.c src/runner/whereami.c src/runner/whereami.h

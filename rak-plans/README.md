@@ -1,12 +1,13 @@
-# PLANS
+# rak-plans
 
-Design documents for rak. Terms are defined in [GLOSSARY.md](../GLOSSARY.md), decisions
-are recorded in [docs/adr/](../docs/adr/), and usage is in
-[CHEATSHEET.md](docs/CHEATSHEET.md). Build and test instructions are in `CLAUDE.md`.
+Design documents for rak: how each feature is meant to work, what is implemented, and
+what is still open. The documentation for readers, the cheat sheet, the tutorials and
+the background essays, is in [rak-docs](../rak-docs/README.md). Terms are defined in
+[GLOSSARY.md](../GLOSSARY.md), decisions are recorded in [docs/adr/](../docs/adr/).
+Build and test instructions are in `CLAUDE.md`.
 
 ## Overview
 
-- [rak](rak.md): what rak is and why.
 - [Status](status.md): what is implemented, what is planned, cleanup still to do.
 - [Unsettled](unsettled.md): the open design questions, at a glance.
 
@@ -41,17 +42,6 @@ are recorded in [docs/adr/](../docs/adr/), and usage is in
 - [One-pass compilation](build/onepass-compile.md): the CORE setting in one pass,
   `#COMPILER::` directives.
 - [AUR](build/AUR.md): the `rak-git` package, its bundled line editor, building offline.
-
-## Background
-
-Essays on where rak comes from. Written with the help of DeepSeek.
-
-- [A short history of shells](background/shells.md), from RUNCOM to Nushell.
-- [Terminals](background/terminals.md), from Teletypes to Herdr, and charmbracelet.
-- [Perl](background/perl.md): from duct tape to solipsism.
-- [rak and the Perl Power Tools](background/perl-power-tools.md).
-- [Larry Wall, natural language and pragmatics](background/larry-wall.md).
-- [Huffing](background/huffing.md): rak and the Huffman principle.
 
 ## Archive
 

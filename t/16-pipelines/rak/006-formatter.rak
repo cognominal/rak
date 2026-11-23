@@ -2,7 +2,7 @@ use Test;
 
 plan 22;
 
-# The formatter, a lone `.` (PLANS/features/formatter.md): its input, or
+# The formatter, a lone `.` (rak-plans/features/formatter.md): its input, or
 # the topic, as indented JSON.
 
 # What a block prints, with $*OUT bound to a capture that is not a terminal.

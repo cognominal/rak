@@ -1,0 +1,91 @@
+Using /home/cog/.local/share/tuios/worktrees/cognominal---rak/rak/install/bin/nqp-m (version 2026.08-25-gf681164c5 / MoarVM 2026.08-10-g66bd4afce).
+Cleaning up ...
+
+You can now use 'make' to build Rakudo.
+After that, 'make test' will run some tests and
+'make install' will install Rakudo.
++++ Checking for moar NQP version
++++ Generating	gen/moar/Grammar.nqp
++++ Generating	gen/moar/ModuleLoader.nqp
++++ Generating	gen/moar/World.nqp
++++ Compiling	dynext/libperl6_ops_moar.so
++++ Generating	gen/moar/Ops.nqp
++++ Generating	gen/moar/Pod.nqp
++++ Generating	gen/moar/Actions.nqp
++++ Generating	gen/moar/RakuGrammar.nqp
++++ Generating	gen/moar/RakuActions.nqp
++++ Generating	gen/moar/RakGrammar.nqp
++++ Generating	gen/moar/RakActions.nqp
++++ Generating	gen/moar/Compiler.nqp
++++ Generating	gen/moar/Optimizer.nqp
++++ Generating	gen/moar/Metamodel.nqp
++++ Generating	gen/moar/SysConfig.nqp
++++ Generating	gen/moar/ast.nqp
++++ Generating	gen/moar/BOOTSTRAP/v6d.nqp
++++ Generating	gen/moar/BOOTSTRAP/v6e.nqp
++++ Compiling	inst-rakudo
++++ Compiling	inst-rakudo-debug
++++ Compiling	inst-rakudo-m
++++ Compiling	inst-rakudo-debug-m
++++ Compiling	inst-perl6
++++ Compiling	inst-perl6-debug
++++ Compiling	inst-perl6-m
++++ Compiling	inst-perl6-debug-m
++++ Expanding	gen/moar/main-version.nqp
++++ Compiling	blib/Perl6/ModuleLoader.moarvm
++++ Compiling	blib/Perl6/Ops.moarvm
++++ Compiling	blib/Perl6/Pod.moarvm
++++ Compiling	blib/Perl6/SysConfig.moarvm
++++ Generating	gen/moar/rakudo-debug.nqp
++++ Generating	gen/moar/rakudo.nqp
++++ Compiling	blib/Perl6/Metamodel.moarvm
++++ Compiling	blib/Perl6/World.moarvm
++++ Compiling	blib/Perl6/Actions.moarvm
++++ Compiling	blib/Raku/Actions.moarvm
++++ Compiling	blib/Rak/Actions.moarvm
++++ Compiling	blib/Perl6/Optimizer.moarvm
++++ Compiling	blib/Perl6/BOOTSTRAP/v6e.moarvm
++++ Compiling	blib/Perl6/BOOTSTRAP/v6d.moarvm
++++ Compiling	blib/Raku/Grammar.moarvm
++++ Compiling	blib/Rak/Grammar.moarvm
++++ Compiling	blib/Perl6/Compiler.moarvm
++++ Compiling	blib/Perl6/Grammar.moarvm
++++ Generating	gen/moar/BOOTSTRAP/v6c.nqp
++++ Compiling	blib/Perl6/BOOTSTRAP/v6c.moarvm
++++ Compiling	rakudo.moarvm
++++ Generating	rakudo-gdb-m
++++ Compiling	rakudo-debug.moarvm
++++ Generating	rakudo-lldb-m
++++ Generating	perl6-gdb-m
++++ Generating	rakudo-valgrind-m
++++ Generating	perl6-lldb-m
++++ Generating	perl6-valgrind-m
++++ Compiling	blib/CORE.c.setting.moarvm
+The following step can take a long time, please be patient.
+Stage start      :   0.000
+Stage parse      :  35.304
+Stage syntaxcheck:   0.000
+Stage ast        :   0.000
+Stage optimize   :   4.179
+Stage mast       :   5.516
+Stage mbc        :   0.889
++++ Compiling	blib/CORE.d.setting.moarvm
+The following step can take a long time, please be patient.
+Stage start      :   0.000
+Stage parse      :   0.179
+Stage syntaxcheck:   0.000
+Stage ast        :   0.000
+Stage optimize   :   0.012
+Stage mast       :   0.018
+Stage mbc        :   0.003
++++ Compiling	blib/CORE.e.setting.moarvm
+The following step can take a long time, please be patient.
+Stage start      :   0.000
+Stage parse      :   1.344
+Stage syntaxcheck:   0.000
+Stage ast        :   0.000
+Stage optimize   :   0.166
+Stage mast       :   0.233
+Stage mbc        :   0.017
++++ Generating	rakudo-m
+    Installed the irak line editor (6 distributions) in 0.036936478 seconds

@@ -4,8 +4,8 @@
 > history. The current design is in [sigils](../features/sigils.md) and [dotty subscripts](../features/dotty-subscripts.md). Names, paths, test counts and status
 > below are out of date.
 
-> **Status on the `rak` branch:** this document now lives in `PLANS/new-sigils/`
-> (see `PLANS/README.md`). Its features are merged and tested as described;
+> **Status on the `rak` branch:** this document now lives in `rak-plans/new-sigils/`
+> (see `rak-plans/README.md`). Its features are merged and tested as described;
 > one naming detail changed: `$*NEW-DOTTY-SEMANTICS` was unified into
 > `$*RAK-SEMANTICS`, which now gates all rak syntax (sigils, dotty sugar,
 > redirection, naked strings) from a single flag.

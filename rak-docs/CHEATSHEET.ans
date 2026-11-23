@@ -396,7 +396,7 @@ Each stage gets the whole input, not one value at a time: use [1mmap[0m for th
 
 [1;4mPlanned, not implemented[0m
 
-Planned in [1mPLANS/[0m, not available yet: [1malias[0m,
+Planned in [1mrak-plans/[0m, not available yet: [1malias[0m,
 globbing, indentation in place of braces, sigilless
 one-letter variables ([1mi[0m, [1ms[0m, …), a [1m^[0m sigil for native [1mnum[0m (unsettled), YAML and myaml data
 pattern matching, [1mhas ~.x[0m / [1mhas #.x[0m attributes, and [1m#n.WHAT[0m autoboxing.

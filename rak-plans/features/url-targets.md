@@ -7,7 +7,7 @@ change them, and write them back. rak handles this with the same
 output redirection to a URL is a POST. No library, no `curl`, no `jq`.
 
 Status: GET (load) and POST (output redirection) are implemented; see
-[status](../status.md). Usage is in the [cheat sheet](../docs/CHEATSHEET.md#url-targets-http-https).
+[status](../status.md). Usage is in the [cheat sheet](../../rak-docs/CHEATSHEET.md#url-targets-http-https).
 [GitHub](../demos/github.md) is the planned demonstration.
 
 ```rak

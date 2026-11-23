@@ -2,7 +2,7 @@
 
 The [new sigils](../../GLOSSARY.md#new-sigils) `~` and `#` declare a native `str` and a
 native `int`. How to use them is in the
-[cheat sheet](../docs/CHEATSHEET.md#new-sigils--native-str-and--native-int); this document
+[cheat sheet](../../rak-docs/CHEATSHEET.md#new-sigils--native-str-and--native-int); this document
 explains why they exist, what they cost, and what comes next. Their main purpose is to
 drive [dotty subscripts](dotty-subscripts.md).
 
