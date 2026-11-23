@@ -3,6 +3,9 @@
 A [redirection](../../GLOSSARY.md#redirection) attaches one statement's output or input to
 a file. The operator touches its [target](../../GLOSSARY.md#redirection-target); with a
 space after it, it is an ordinary Raku operator (see [spacing](spacing.md)).
+A `<…>` at the start of a statement, closed on the same line by a `>` that touches its
+last word and is not followed by a filename, stays a word list: `[<a b>]`,
+`<x y>->map(…)`.
 
 Status: implemented for `STMT >file`, `STMT >>file`, `<file STMT`, the
 [load](../../GLOSSARY.md#load) `LVALUE <file`, and the `.json` and `.jsonl`

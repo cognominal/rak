@@ -1,6 +1,6 @@
 use Test;
 
-plan 7;
+plan 12;
 
 # ---------------------------------------------------------------------------
 # Input redirection: `<file STMT` binds $*IN to the file for the duration of
@@ -60,6 +60,26 @@ is 'input_captured.txt'->IO->slurp->trim, 'hello',
     my $b = 2;
     ok $a < $b, '6: < between values stays a comparison';
 }
+
+# 8-12. A word list at the start of a statement, or of one in brackets, is
+# not an input redirection: its `>` touches its last word and no filename
+# follows it.
+is-deeply [<a b c>], ['a', 'b', 'c'], '8: [<a b c>] is a word list';
+is-deeply (<a b>), ('a', 'b'), '9: (<a b>) is a word list';
+is-deeply [<z>], ['z'], '10: [<z>] is a word list';
+{
+    my @w;
+    <x y>->map({ @w->push($_) });
+    is-deeply @w, ['x', 'y'], '11: <x y>->map at statement start is a word list';
+}
+{
+    my $*OUT = open('input_captured.txt', :w);
+    <input_source.txt say $*IN->get >input_out.txt;
+}
+is 'input_out.txt'->IO->slurp->trim, 'hello',
+    '12: <file STMT >out is still input then output redirection';
+'input_out.txt'->IO->unlink;
+'input_captured.txt'->IO->unlink;
 
 'input_source.txt'->IO->unlink;
 

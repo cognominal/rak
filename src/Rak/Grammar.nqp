@@ -1470,7 +1470,12 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         || [
           | <label> <statement>
           | <statement-control>
-          | <?{ $*RAK-SEMANTICS }> :my $*RAK-LOAD := 1; '<' <?{ !self.after-ws($/) }> <redir-filename> <.ws>
+          # A `<…>` closed on the same line by a `>` that touches its last
+          # word, and is not itself an output redirection (`>file`), is a
+          # word list: `<a b>->map(…)`, `[<a b>]`, `(<z>)`.
+          | <?{ $*RAK-SEMANTICS }>
+            <!before '<' <-[<>\n]>*? <-[<>\s]> '>' <![a..zA..Z_/'$]> >
+            :my $*RAK-LOAD := 1; '<' <?{ !self.after-ws($/) }> <redir-filename> <.ws>
             # A bare `<target` (nothing after it) loads into the topic; with a
             # statement after it, it is input redirection.
             [
