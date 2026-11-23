@@ -10,7 +10,7 @@ use Test;
 my $script = run(<sh -c>, 'command -v script', :out, :err).out.slurp(:close).trim;
 plan :skip-all('script(1) is needed to give the REPL a tty') unless $script;
 
-plan 13;
+plan 14;
 
 my $paged = $*TMPDIR.add("irak-paged-$*PID.txt");
 
@@ -52,6 +52,15 @@ like $out, /"\e[2mJSON · " \d+ ' lines'/, "the formatter's format is JSON";
 like $out, /'die "boom"' \n '1' \n '2' \n 'boom'/, 'an error comes after the output, unpaged';
 like $out, /'sleep 0.3 }' \n '0' \n '1' \n '2' \n '3' \n '4' \n '5' \n/,
   'output still coming after 1 s is let through, unpaged';
+
+# The 1 s hold counts from the first output: a submission silent for longer
+# than that, such as a load from a slow URL, is still paged.
+$out = session :pager("cat >> '$paged'; echo PAGED >> '$paged'"),
+  'sleep 1.5; for ^8 { say $_ }';
+$pager = $paged.e ?? $paged.slurp !! '';
+$paged.unlink;
+ok $pager.starts-with("0\n1\n2\n3\n4\n5\n6\n7\nPAGED\n"),
+  'long output after a silent second is still paged';
 nok  $out.contains('SORRY'), 'no compile errors';
 
 $out = session :pager(''), 'for ^8 { say $_ }', '!p';

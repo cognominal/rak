@@ -26,9 +26,11 @@ JSON · 112 lines · 5.3 kB
   paging off. irak pages only when its output is a terminal; a `.rak` file never pages.
 - **Holding output.** irak holds what a submission prints until it ends, so it can
   measure it. It stops holding, prints what it held and lets the rest through, unpaged,
-  as soon as the submission has run for 1 s, flushes `$*OUT` (as `prompt` does), or
+  1 s after its first output, or as soon as it flushes `$*OUT` (as `prompt` does) or
   starts an external command that writes to the terminal. Slow output is then seen as
-  it comes, and a question printed before reading standard input shows within 1 s.
+  it comes, and a question printed before reading standard input shows within 1 s. The
+  second counts from the first output, not from the start: a submission that prints
+  nothing while it waits, such as a load from a slow URL, is still paged when long.
 - **The summary.** Line 1, dimmed: `<format> · <N> lines · <size>`. The format is `JSON`
   for the formatter's output, the value's type when irak shows a value, else what
   `file -b` says about the text. Line 2: the text from its first non-blank line,

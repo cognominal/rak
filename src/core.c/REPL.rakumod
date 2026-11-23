@@ -260,8 +260,9 @@ do {
 
     # irak paging (PLANS/features/paging.md): $*OUT during a submission. It
     # holds what the submission prints, so irak can measure it and page it,
-    # until the submission has run 1 s or flushes; from then on it lets the
-    # output through. It keeps a copy of everything for `!p`.
+    # until 1 s after the first output or a flush; from then on it lets the
+    # output through. A submission that prints nothing while it waits (a
+    # load, a slow computation) is still paged when its output is long. It keeps a copy of everything for `!p`.
     my class IrakPage is IO::Handle {
         has $.out;                       # the terminal
         has $!lock;
@@ -280,7 +281,6 @@ do {
             $!lock := Lock.new;
             $!held := buf8.new;
             $!all  := buf8.new;
-            $!timer := $*SCHEDULER.cue({ self.release }, :in(1));
         }
 
         # A page for this submission, or Nil when irak does not page.
@@ -299,6 +299,8 @@ do {
 
         method WRITE(Blob:D $buf --> True) {
             $!lock.protect: {
+                $!timer := $*SCHEDULER.cue({ self.release }, :in(1))
+                  unless $!wrote;
                 $!wrote = True;
                 $!all.append: $buf;
                 $!released ?? $!out.write($buf) !! $!held.append($buf);
@@ -329,7 +331,7 @@ do {
         # The submission is over: page what is held if it is long, else
         # show it.
         method end(:$format --> Nil) {
-            $!timer.cancel;
+            .cancel with $!timer;
             my $held;
             $!lock.protect: {
                 unless $!released {
