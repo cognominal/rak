@@ -307,7 +307,15 @@ Welcome to irak, the rak shell.
 ```
 
 `$_` holds the value of the previous submission. A submission that fails, returns
-`Nil` or prints output leaves `$_` unchanged.
+`Nil` or prints output leaves `$_` unchanged. So does one starting with `- `: the
+prefix is dropped, the value shown, and `$_` kept, to look around in it.
+
+```rak
+[0] > { a => { b => 42 }, c => 7 }
+[1] > - .a          # {b => 42}; $_ is still the hash
+[2] > - .a.b        # 42
+[3] > .c            # 7, and now $_ is 7
+```
 
 Recalling submissions (only when the directive is the whole line; n is the
 prompt number, the last 1000 are kept):

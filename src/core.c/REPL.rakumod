@@ -711,8 +711,11 @@ do {
 
             my $prompt;
             my $code;
+            # irak: a submission starting with `- ` leaves $_ alone.
+            my Bool $keep-topic;
             sub reset(--> Nil) {
                 $code = '';
+                $keep-topic = False;
                 $prompt = self.interactive_prompt($previous-evals.elems);
             }
             reset;
@@ -734,6 +737,13 @@ do {
                     last;
                 }
 
+                # irak: `- ` before a fresh submission is stripped; the
+                # submission then runs without making its value the topic.
+                if irak() && $code eq '' && $newcode.starts-with('- ') {
+                    $newcode .= substr(2);
+                    $keep-topic = True;
+                }
+
                 # irak directives, only when they are the whole line of a
                 # fresh submission: `!n` re-runs submission n's source,
                 # `!!n` sets $_ to submission n's value.
@@ -750,6 +760,7 @@ do {
                     else {
                         say "irak: no output to page";
                     }
+                    $keep-topic = False;
                     next;
                 }
 
@@ -763,16 +774,22 @@ do {
                         else {
                             say "irak: no value for submission $n";
                         }
+                        $keep-topic = False;
                         next;
                     }
                     with %!irak-sources{$n} {
                         say $_;
                         $newcode = $_;
+                        if $newcode.starts-with('- ') {
+                            $newcode .= substr(2);
+                            $keep-topic = True;
+                        }
                         # The echo is not output of the re-run code.
                         $initial_out_position = $*OUT.tell;
                     }
                     else {
                         say "irak: no submission $n";
+                        $keep-topic = False;
                         next;
                     }
                 }
@@ -825,7 +842,7 @@ do {
 
                 if irak() {
                     my $n = $previous-evals.elems;
-                    %!irak-sources{$n} = $code.chomp;
+                    %!irak-sources{$n} = ($keep-topic ?? '- ' !! '') ~ $code.chomp;
                     %!irak-sources{$n - IRAK-KEEP}:delete;
                 }
 
@@ -862,7 +879,7 @@ do {
                     }
                     $previous-evals.push: $output<>;
                     self!set-irak-topic($output<>)
-                      if irak()
+                      if irak() && !$keep-topic
                       && nqp::not_i(nqp::eqaddr($output<>, Nil));
                 }
                 with $page {

@@ -12,6 +12,18 @@ submission](../../GLOSSARY.md#irak-submission), so each submission works on the 
 This is the interactive habit of growing a pipeline one stage at a time,
 but the values passed between stages stay structured.
 
+A [topic-keeping submission](../../GLOSSARY.md#topic-keeping-submission) starts with
+`- `: the prefix is stripped, the rest runs as usual and its value is shown, but `$_`
+is not updated, so one value can be explored without being replaced.
+
+- Only `- ` (a dash and a space) at the start of a fresh submission counts; a
+  continuation line is not checked. The prefix is kept in the submission's source, so
+  `!n` replays it with the topic kept, and `!n` TAB shows it.
+- The value is still recorded, so `!!n` can make it the topic later.
+- Only the automatic update is skipped: `- $_ = 3` still assigns.
+- Raku's prefix minus followed by a space (`- 5`) loses its meaning at the start of an
+  irak submission; write `-5`.
+
 
 ## Navigating data with TAB and SHIFT-TAB
 

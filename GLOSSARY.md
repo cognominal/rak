@@ -60,7 +60,13 @@ _Avoid_: line, statement, command, cell.
 <a id="irak-topic"></a>**irak topic**:
 At the start of an irak submission, `$_` holds the value of the previous submission, so a
 leading dotty subscript reaches into it. A submission that fails, returns `Nil`, or
-prints output instead of a value leaves `$_` unchanged.
+prints output instead of a value leaves `$_` unchanged, and so does a
+[topic-keeping submission](#topic-keeping-submission).
+
+<a id="topic-keeping-submission"></a>**topic-keeping submission**:
+An irak submission written with a leading `- `: the prefix is dropped, the rest runs and
+its value is shown, but `$_` stays the same, so `- .a`, `- .b` explore one value in turn.
+_Avoid_: peek, dry run.
 
 <a id="paging"></a>**paging**:
 irak showing an irak submission's output in a pager when it is longer than 5 lines or the

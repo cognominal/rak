@@ -27,7 +27,7 @@ lists: DONE and TBD.
     [bare hosts](GLOSSARY.md#bare-host) (`<api.github.com/…`),
     [commands](GLOSSARY.md#command) and [pipelines](GLOSSARY.md#pipeline) (Unix and
     jq style, mixed; `$?` and `@?`), recalling submissions (`!n`, `!!n`, up and down
-    arrows), [paging](GLOSSARY.md#paging) long irak output, the
+    arrows), [topic-keeping submissions](GLOSSARY.md#topic-keeping-submission) (`- `), [paging](GLOSSARY.md#paging) long irak output, the
     [formatter](GLOSSARY.md#formatter) (a lone `.`).
   - TBD:
       - irak usability, discoverability, onboarding feedback thru highlighting. first run of irak or `irak --fresh` should start with a tutorial history (work in branch irak-feedback)
