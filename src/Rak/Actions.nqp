@@ -1968,7 +1968,11 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             }
             else {
                 my $input := rak-call('RAK-PIPE-VALUE', $prev);
-                if $stage<decode> {
+                if $stage<format> {
+                    # The formatter reads a command's output itself.
+                    $prev := rak-call('RAK-FORMAT', $prev);
+                }
+                elsif $stage<decode> {
                     $prev := rak-call(~$stage<decode> eq 'from-json'
                       ?? 'RAK-FROM-JSON' !! 'RAK-FROM-JSONL', $input);
                 }
@@ -2024,6 +2028,11 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
           !! $<variable> ?? $<variable>.ast
           !! $<block>    ?? $<block>.ast
           !! Nodify('StrLiteral').new($*LITERALS.intern-Str(~$<literal>));
+    }
+
+    method term:sym<rak-format>($/) {
+        self.attach: $/, rak-call('RAK-FORMAT',
+          Nodify('Var::Lexical').new('$_'));
     }
 
     method term:sym<rak-status>($/) {

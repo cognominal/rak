@@ -1,0 +1,84 @@
+use Test;
+
+plan 22;
+
+# The formatter, a lone `.` (PLANS/features/formatter.md): its input, or
+# the topic, as indented JSON.
+
+# What a block prints, with $*OUT bound to a capture that is not a terminal.
+sub printed(&code) {
+    my $out = class {
+        has $.text = '';
+        method print(*@a) { $!text ~= @a->join; True }
+        method t() { False }
+    }->new;
+    {
+        my $*OUT = $out;
+        code();
+    }
+    $out->text
+}
+
+# Values
+{
+    $_ = { z => 1, a => [1, True, Nil, "s"] };
+    my $s = .;
+    is $s, qq[\{\n  "a": [\n    1,\n    true,\n    null,\n    "s"\n  ],\n  "z": 1\n}],
+        "a hash's keys are sorted";
+    isa-ok $s, Str, 'used, its value is the JSON text';
+    is printed({ $_ = [1, 2]; .; }), "[\n  1,\n  2\n]\n", 'at statement level it prints';
+    is printed({ $_ = [1, 2]; my $x = .; }), '', 'used, it prints nothing';
+    $_ = :a;
+    throws-like { my $x = . }, X::Rak::Format::Encode, 'a lone Pair is an error';
+    $_ = (1, { a => 2 })->Seq;
+    is ., qq[1\n\{\n  "a": 2\n}], 'a Seq gives one document per value';
+}
+
+# Strings: JSON, else rak data, else a string
+{
+    $_ = q[{"z":1,"a":{"y":2,"b":null}}];
+    is ., qq[\{\n  "z": 1,\n  "a": \{\n    "y": 2,\n    "b": null\n  }\n}],
+        'JSON text keeps its key order';
+    $_ = q[{"a":1}{"b":2}];
+    is ., qq[\{\n  "a": 1\n}\n\{\n  "b": 2\n}], 'concatenated values are several documents';
+    $_ = qq[\{"a":1}\n\{"b":2}\n];
+    is ., qq[\{\n  "a": 1\n}\n\{\n  "b": 2\n}], 'JSON Lines too';
+    $_ = q[{ :a, :!b, c => [1, 2.5], d => <x y>, :e<w>, :f(Nil) }];
+    is ., qq[\{\n  "a": true,\n  "b": false,\n  "c": [\n    1,\n    2.5\n  ],\n]
+        ~ qq[  "d": [\n    "x",\n    "y"\n  ],\n  "e": "w",\n  "f": null\n}],
+        'a rak hash literal';
+    $_ = q[1, foo, (2, 3)];
+    is ., "[\n  1,\n  \"foo\",\n  [\n    2,\n    3\n  ]\n]", 'a rak list, with a naked string';
+    $_ = q[{ a => $x }];
+    is ., q["{ a => $x }"], 'a variable is not data: a string';
+    $_ = q[{ a => "x {run 'y'}" }];
+    is ., q["{ a => \"x {run 'y'}\" }"], 'an interpolating string is not data';
+    $_ = 'hello world';
+    is ., '"hello world"', 'other text is a string';
+    $_ = q[:a];
+    throws-like { my $x = . }, X::Rak::Format::Encode, 'a rak Pair is an error too';
+}
+
+# Pipelines
+{
+    is (^printf '{"b":1,"a":2}' | .), qq[\{\n  "b": 1,\n  "a": 2\n}],
+        "a command's output is JSON text";
+    is (^printf '{"b":1}\n{"a":2}\n' | .), qq[\{\n  "b": 1\n}\n\{\n  "a": 2\n}],
+        "a command's JSON Lines";
+    is (^printf 'not\njson\n' | .), q["not\njson"], 'text that is neither is one string';
+    is (^printf '[1,2]' | from-json | .), "[\n  1,\n  2\n]", 'after a rak stage';
+    is (^printf '{"a":1}' | . | ^tr a b), qq[\{\n  "b": 1\n}\n], 'before a command';
+}
+
+# Redirection
+{
+    my $f = $*TMPDIR->add("rak-format-$*PID.txt");
+    $_ = { a => 1 };
+    . >$f;
+    is $f->slurp, qq[\{\n  "a": 1\n}\n], '. >file writes the text, uncolored';
+    $f->unlink;
+    my $j = $*TMPDIR->add("rak-format-$*PID.json");
+    . >$j;
+    is $j->slurp, qq[\{\n  "a": 1\n}\n], '. >file.json writes JSON';
+    $j->unlink;
+}

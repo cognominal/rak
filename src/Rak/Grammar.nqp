@@ -2070,6 +2070,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
 
     token rak-stage {
         || $<decode>=['from-jsonl' | 'from-json'] <!before <[\w\-']>>
+        || '.' <?before <.rak-format-end>> $<format>=<?>
         || <rak-command>
         || <EXPR>
     }
@@ -3950,6 +3951,21 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
              | <?[~#]> <rak-topic-index=.dotty-sigil-index>
            ]
         || <dotty>
+    }
+
+    # In rak mode, a lone `.` is the formatter: it shows the topic as JSON
+    # (PLANS/features/formatter.md). The `.` comes first so that, being the
+    # longer prefix, this is tried before term:sym<dotty>, which panics on it.
+    token term:sym<rak-format> {
+        '.' <?{ $*RAK-SEMANTICS }> <?before <.rak-format-end>>
+    }
+
+    # What may follow the formatter's `.`: the end of the statement, group or
+    # argument, a pipe, an output redirection, or a comment (after a space,
+    # since `.#i` is a subscript).
+    token rak-format-end {
+        | \h* [ ';' | ',' | '}' | ')' | ']' | \v | $ | '|' \h | '>' ]
+        | \h+ '#'
     }
 
     # In rak mode, a leading `->name` (no space after the arrow) calls the

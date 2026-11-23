@@ -38,6 +38,12 @@ my class X::Rak::Format::Shape is X::Rak::Format {
     method !a(Str:D $word) { nqp::index('aeiou', nqp::substr($word, 0, 1)) >= 0 ?? 'an' !! 'a' }
 }
 
+# A JSON object, or a rak hash read from text, whose keys keep the order they
+# were written in (PLANS/features/formatter.md). Only the formatter makes one.
+my class Rakudo::Internals::RakJSONObject is implementation-detail {
+    has @.pairs;
+}
+
 # A relaxed JSON decoder: on top of standard JSON it accepts unquoted
 # (identifier) keys, single-quoted strings, trailing commas, a leading `+` on
 # numbers, and `//` and `/* */` comments. Objects decode to Hash, arrays to
@@ -48,16 +54,35 @@ my class Rakudo::Internals::RakJSONDecoder is implementation-detail {
     has int $!pos;
     has int $!end;
     has Str $!target;
+    has Bool $!ordered;
 
-    submethod BUILD(Str:D :$text, Str:D :$target) {
-        $!text   = $text;
-        $!end    = nqp::chars($text);
-        $!target = $target;
+    submethod BUILD(Str:D :$text, Str:D :$target, :$ordered) {
+        $!text    = $text;
+        $!end     = nqp::chars($text);
+        $!target  = $target;
+        $!ordered = ?$ordered;
     }
 
     method decode(Str:D $text, Str:D $target) {
         my $self := self.new(:$text, :$target);
         $self.document
+    }
+
+    # Concatenated JSON values, as in JSON Lines or `{"a":1}{"b":2}`. With
+    # :ordered, objects keep their key order (RakJSONObject).
+    method stream(Str:D $text, Str:D $target, :$ordered) {
+        my $self := self.new(:$text, :$target, :$ordered);
+        $self.documents
+    }
+
+    method documents() {
+        my @docs;
+        self!ws;
+        while $!pos < $!end {
+            @docs.push: self!value;
+            self!ws;
+        }
+        @docs
     }
 
     method document() {
@@ -124,6 +149,7 @@ my class Rakudo::Internals::RakJSONDecoder is implementation-detail {
     method !object() {
         ++$!pos;    # {
         my %h;
+        my @pairs;
         self!ws;
         until $!pos < $!end && self!char eq '}' {
             my str $key = self!key;
@@ -132,7 +158,9 @@ my class Rakudo::Internals::RakJSONDecoder is implementation-detail {
               unless $!pos < $!end && self!char eq ':';
             ++$!pos;
             self!ws;
-            %h{$key} = self!value;
+            $!ordered
+              ?? @pairs.push(Pair.new($key, self!value))
+              !! (%h{$key} = self!value);
             self!ws;
             self!fail('unexpected end of input, expected \'}\'') if $!pos >= $!end;
             if self!char eq ',' {
@@ -144,7 +172,7 @@ my class Rakudo::Internals::RakJSONDecoder is implementation-detail {
             }
         }
         ++$!pos;    # }
-        %h
+        $!ordered ?? Rakudo::Internals::RakJSONObject.new(:@pairs) !! %h
     }
 
     method !key() {
@@ -369,23 +397,45 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
           !! n.Str
     }
 
-    method !json(\v, Str:D $target, int $level, Bool :$compact --> Str:D) {
+    # The formatter's JSON (PLANS/features/formatter.md): pretty, and with
+    # :color, in jq's default colors.
+    method format(\v, :$color --> Str:D) {
+        self!json(v, 'formatter', 0, :color(?$color))
+    }
+
+    method !json(\v, Str:D $target, int $level, Bool :$compact, Bool :$color --> Str:D) {
         my str $in  = $compact ?? '' !! nqp::x('  ', $level + 1);
         my str $out = $compact ?? '' !! nqp::x('  ', $level);
         my str $nl  = $compact ?? '' !! "\n";
         my str $sep = $compact ?? ',' !! ",\n";
         my str $col = $compact ?? ':' !! ': ';
+        # jq's default colors: null gray, strings green, keys bold blue,
+        # brackets bold.
+        my sub c(str $code, str $text) {
+            $color ?? "\e[{$code}m$text\e[0m" !! $text
+        }
+        my sub object(@pairs) {
+            @pairs
+              ?? c('1;39', '{') ~ $nl ~ @pairs.map({
+                     $in ~ c('34;1', Rakudo::Internals::JSON.to-json(.key.Str)) ~ $col
+                       ~ self!json(.value, $target, $level + 1, :$compact, :$color)
+                 }).join($sep) ~ $nl ~ $out ~ c('1;39', '}')
+              !! c('1;39', '{}')
+        }
         if nqp::istype(v, Failure) {
             v.throw
         }
         elsif nqp::not_i(nqp::isconcrete(v)) {
-            'null'
+            c('90', 'null')
         }
         elsif nqp::istype(v, Bool) {
             v ?? 'true' !! 'false'
         }
         elsif nqp::istype(v, Str) {
-            Rakudo::Internals::JSON.to-json(v)
+            c('0;32', Rakudo::Internals::JSON.to-json(v))
+        }
+        elsif nqp::istype(v, Rakudo::Internals::RakJSONObject) {
+            object(v.pairs)
         }
         elsif nqp::istype(v, Int) {
             v.Str
@@ -397,21 +447,15 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
             self!num(v, $target)
         }
         elsif nqp::istype(v, Map) {
-            my @keys = v.keys.sort;
-            @keys
-              ?? "\{$nl" ~ @keys.map({
-                     $in ~ Rakudo::Internals::JSON.to-json(.Str) ~ $col
-                       ~ self!json(v.AT-KEY($_), $target, $level + 1, :$compact)
-                 }).join($sep) ~ "$nl$out}"
-              !! '{}'
+            object(v.keys.sort.map({ $_ => v.AT-KEY($_) }))
         }
         elsif nqp::istype(v, List) || nqp::istype(v, Seq) || nqp::istype(v, Range) {
             my @items = v.list;
             @items
-              ?? "[$nl" ~ @items.map({
-                     $in ~ self!json($_, $target, $level + 1, :$compact)
-                 }).join($sep) ~ "$nl$out]"
-              !! '[]'
+              ?? c('1;39', '[') ~ $nl ~ @items.map({
+                     $in ~ self!json($_, $target, $level + 1, :$compact, :$color)
+                 }).join($sep) ~ $nl ~ $out ~ c('1;39', ']')
+              !! c('1;39', '[]')
         }
         else {
             self!fail($target, "a value of type {v.^name} has no JSON form")
@@ -429,6 +473,161 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
             $moved.throw;
         }
     }
+}
+
+# Rak data literals read from text, for the formatter
+# (PLANS/features/formatter.md): numbers, quoted strings, True, False, Nil,
+# naked strings, pairs, word lists, and ( ), [ ], { }. The text is parsed,
+# never run: anything else is not data, and `read` returns the
+# RakDataReader type object.
+my class Rakudo::Internals::RakDataReader is implementation-detail {
+    has str $!text;
+    has int $!pos;
+    has int $!end;
+
+    my class NotData is Exception { }
+
+    method read(Str:D $text) {
+        my $self := self.bless;
+        nqp::bindattr_s($self, Rakudo::Internals::RakDataReader, '$!text', $text);
+        nqp::bindattr_i($self, Rakudo::Internals::RakDataReader, '$!end', nqp::chars($text));
+        my $result := try $self!document;
+        $! ?? self !! $result
+    }
+
+    method !no() is hidden-from-backtrace { NotData.new.throw }
+
+    method !ws() {
+        ++$!pos while $!pos < $!end
+          && nqp::iscclass(nqp::const::CCLASS_WHITESPACE, $!text, $!pos);
+    }
+
+    method !at(Str:D $s) { nqp::eqat($!text, $s, $!pos) }
+
+    method !match(Regex:D $re) {
+        my $m := $!text.match($re, :p($!pos));
+        return Nil unless $m;
+        $!pos = $m.to;
+        ~$m
+    }
+
+    method !document() {
+        my @items = self!items('');
+        self!no if $!pos < $!end;
+        @items == 1 ?? @items[0] !! @items.List
+    }
+
+    # Comma-separated items up to $close (or the end, for '').
+    method !items(Str:D $close) {
+        my @items;
+        self!ws;
+        until $close ?? self!at($close) !! $!pos >= $!end {
+            @items.push: self!item;
+            self!ws;
+            if self!at(',') {
+                ++$!pos;
+                self!ws;
+            }
+            elsif !($close ?? self!at($close) !! $!pos >= $!end) {
+                self!no;
+            }
+        }
+        $!pos = $!pos + nqp::chars($close);
+        @items
+    }
+
+    method !item() {
+        self!no if $!pos >= $!end;
+        my $v := self!value;
+        self!ws;
+        if self!at('=>') {
+            $!pos = $!pos + 2;
+            self!ws;
+            self!no if nqp::istype($v, Pair) || nqp::istype($v, Positional)
+              || nqp::istype($v, Rakudo::Internals::RakJSONObject);
+            return Pair.new($v, self!value);
+        }
+        $v
+    }
+
+    method !value() {
+        self!no if $!pos >= $!end;
+        if self!at(':') {
+            ++$!pos;
+            my $neg := self!at('!') ?? (++$!pos; True) !! False;
+            my $name := self!match(/ <.ident> [ <[\-']> <.ident> ]* /) // self!no;
+            return Pair.new($name, False) if $neg;
+            if self!at('(') {             # :name(value), :name(a, b)
+                ++$!pos;
+                my @i = self!items(')');
+                return Pair.new($name, @i == 1 ?? @i[0] !! @i.List);
+            }
+            return Pair.new($name, self!value)
+              if self!at('[') || self!at('{') || self!at('<');
+            return Pair.new($name, True);
+        }
+        if self!at('(') { ++$!pos; my @i = self!items(')'); return @i.List }
+        if self!at('[') { ++$!pos; my @i = self!items(']'); return @i }
+        if self!at('{') {
+            ++$!pos;
+            my @i = self!items('}');
+            self!no if @i.grep({ nqp::not_i(nqp::istype($_, Pair)) });
+            return Rakudo::Internals::RakJSONObject.new(:pairs(@i));
+        }
+        if self!at('<') {
+            my $words := self!match(/ '<' <-[>]>* '>' /) // self!no;
+            my @w = $words.substr(1, *-1).words;
+            return @w == 1 ?? @w[0] !! @w.List;
+        }
+        if self!at("'") {
+            my $s := self!match(/ "'" [ <-['\\]> | '\\' . ]* "'" /) // self!no;
+            return $s.substr(1, *-1).subst(/ '\\' (<['\\]>) /, { ~$0 }, :g);
+        }
+        if self!at('"') {
+            my $s := self!match(/ '"' [ <-["\\$@{]> | '\\' <[nt"\\]> ]* '"' /) // self!no;
+            return $s.substr(1, *-1).subst(/ '\\' (.) /,
+              { (n => "\n", t => "\t").Hash{~$0} // ~$0 }, :g);
+        }
+        with self!match(/ '-'? \d+ [ '_' \d+ ]* [ '.' \d+ ]? [ <[eE]> <[+-]>? \d+ ]? <!before <[\w]>> /) -> $n {
+            my $clean := $n.subst('_', '', :g);
+            return $clean ~~ /<[eE]>/ ?? $clean.Num
+              !! $clean.contains('.') ?? $clean.Rat !! $clean.Int;
+        }
+        with self!match(/ <.ident> [ <[\-']> <.ident> ]* /) -> $word {
+            return $word eq 'True' ?? True
+              !! $word eq 'False' ?? False
+              !! $word eq 'Nil' ?? Nil
+              !! $word;
+        }
+        self!no
+    }
+}
+
+# The formatter's value (PLANS/features/formatter.md): the JSON text of its
+# documents. Sunk at statement level, it prints them instead, in color on a
+# terminal; irak shows it the same way and leaves $_ alone.
+my class Rakudo::Internals::RakFormatted is Str is implementation-detail {
+    has $!docs;
+
+    method from-docs(\docs) {
+        my $text := docs.map({ Rakudo::Internals::RakFormat.format($_) }).join("\n");
+        my $self := nqp::box_s(nqp::unbox_s($text), self);
+        nqp::bindattr($self, Rakudo::Internals::RakFormatted, '$!docs', docs.List);
+        $self
+    }
+
+    method show(--> Nil) {
+        my $out := $*OUT;
+        my $color := ?(try $out.t);
+        $out.print: $!docs.map({
+            Rakudo::Internals::RakFormat.format($_, :$color) ~ "\n"
+        }).join;
+    }
+
+    method sink(--> Nil) { self.show }
+
+    # The text alone, as a plain Str.
+    method plain() { nqp::box_s(nqp::unbox_s(self), Str) }
 }
 
 # URL targets (PLANS/features/url-targets.md): a load from an http(s) URL is a
@@ -631,7 +830,7 @@ sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code) is implementation-detail
         my $capture := Rakudo::Internals::RakCapture.new;
         my \result = do {
             my $*OUT := $capture;
-            my \r = code();
+            my \r = RAK-REDIRECT-FORMATTED(code());
             nqp::istype(r, Seq) ?? r.eager !! r
         };
         return Rakudo::Internals::RakHTTP.post: $target,
@@ -650,7 +849,7 @@ sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code) is implementation-detail
         my $capture := Rakudo::Internals::RakCapture.new;
         my \result = do {
             my $*OUT := $capture;
-            my \r = code();
+            my \r = RAK-REDIRECT-FORMATTED(code());
             nqp::istype(r, Seq) ?? r.eager !! r
         };
         # Text mode: what was printed must decode in the format, and is
@@ -678,7 +877,7 @@ sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code) is implementation-detail
         $fh.throw if nqp::istype($fh, Failure);
         my $*OUT := $fh;
         LEAVE $fh.close;
-        my \result = code();
+        my \result = RAK-REDIRECT-FORMATTED(code());
         nqp::istype(result, Seq) ?? result.eager !! result
     }
 }
@@ -843,6 +1042,51 @@ sub RAK-PIPE-VALUE(Mu \v) is raw is implementation-detail {
         v.out.lines
     }
     else { v<> }
+}
+
+# The formatter, `.` (PLANS/features/formatter.md): its input as JSON
+# documents. A command's output and a Str are text: a stream of JSON values,
+# else a rak data literal, else one string. A Seq gives one document per
+# value; anything else is one document.
+sub RAK-FORMAT(Mu \v) is implementation-detail {
+    my sub text(Str:D $text) {
+        my @docs = try Rakudo::Internals::RakJSONDecoder.stream($text, 'formatter', :ordered);
+        return @docs unless $!;
+        my \data = Rakudo::Internals::RakDataReader.read($text);
+        nqp::eqaddr(data, Rakudo::Internals::RakDataReader)
+          ?? ($text,)
+          !! (data,)
+    }
+    my @docs;
+    if nqp::istype(v, Rakudo::Internals::RakProc) {
+        %RAK-PIPE-READ{v.WHICH} = True;
+        @docs.append: text(v.out.lines.join("\n"));
+    }
+    elsif nqp::istype(v, Seq) {
+        for v<> -> \e {
+            nqp::istype(e, Str) && nqp::isconcrete(e)
+              ?? @docs.append(text(e))
+              !! @docs.push(nqp::istype(e, Seq) ?? e.cache !! e);
+        }
+    }
+    elsif nqp::istype(v, Str) && nqp::isconcrete(v) {
+        @docs.append: text(v);
+    }
+    else {
+        @docs.push: v<>;
+    }
+    Rakudo::Internals::RakFormatted.from-docs(@docs)
+}
+
+# Output redirection of the formatter's value: what it would print is the
+# statement's output, and the value becomes a plain Str (so it is not shown
+# again once the statement ends).
+sub RAK-REDIRECT-FORMATTED(Mu \r) is raw is implementation-detail {
+    if nqp::istype(r, Rakudo::Internals::RakFormatted) {
+        $*OUT.print: r.plain ~ "\n" if r.chars;
+        r.plain
+    }
+    else { r }
 }
 
 sub RAK-PIPE-CALL(&stage, Mu \v) is raw is implementation-detail { stage(v) }

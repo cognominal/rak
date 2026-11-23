@@ -27,6 +27,7 @@ are recorded in [docs/adr/](../docs/adr/), and usage is in
 - [irak history](features/irak-history.md): `!n` / `!!n` recall of submissions.
 - [Commands](features/commands.md): running routines and external commands, `$?`, `cd`, `type`.
 - [Pipelines](features/pipelines.md): Unix and jq-style pipes, mixed; `$?` and `@?`.
+- [The formatter](features/formatter.md): a lone `.` shows its input as JSON.
 
 ## Demos
 

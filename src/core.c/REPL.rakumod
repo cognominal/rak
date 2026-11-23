@@ -646,6 +646,10 @@ do {
                 elsif irak() && nqp::istype($output, Rakudo::Internals::RakProc) {
                     # a command's Proc prints nothing and leaves $_ alone
                 }
+                elsif irak() && nqp::istype($output, Rakudo::Internals::RakFormatted) {
+                    # the formatter shows its JSON and leaves $_ alone
+                    $output.show;
+                }
                 elsif $initial_out_position == $*OUT.tell
                     or nqp::istype($output, Failure) and not $output.handled {
                     self.repl-print($output);

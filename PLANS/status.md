@@ -19,6 +19,7 @@ here, because they go stale.
 | URL targets: GET loads, POST output redirection, `X::Rak::HTTP` | [URL targets](features/url-targets.md), ADR 0005 | `t/14-redirection/rak/013-*`, `014-*` |
 | irak: the topic, the banner | [irak](features/irak.md) | `t/02-rakudo/rak/010-*`, `012-*` |
 | Pipelines: commands and rak stages, `$?` pipefail, `@?` | [pipelines](features/pipelines.md) | `t/16-pipelines/rak/` |
+| The formatter, a lone `.` | [formatter](features/formatter.md) | `t/16-pipelines/rak/006-*`, `007-*` |
 | One-pass CORE setting, `#COMPILER::` directives | [one-pass compilation](build/onepass-compile.md) | the build itself |
 
 Known gaps, marked `todo` in the sigil tests: `has ~.x` / `has #.x` attributes, and

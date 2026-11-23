@@ -153,6 +153,11 @@ format). Unlike redirection, a pipe connects stages rather than attaching a stat
 to a redirection target.
 _Avoid_: redirection, feed.
 
+<a id="formatter"></a>**formatter**:
+The pipeline stage spelled as a lone `.`, which shows its input as indented JSON. Used
+alone, with nothing piped into it, its input is the topic `$_`.
+_Avoid_: pretty-printer, json command, jq.
+
 <a id="huff"></a>**huff**:
 To give a construct a spelling whose length fits how often it is used, after Huffman
 coding: frequent constructs get short spellings. rak huffs Raku constructs that are

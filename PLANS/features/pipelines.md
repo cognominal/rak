@@ -36,6 +36,7 @@ Raku's `==>`, not one value at a time as in jq. Per-value work is explicit, thro
 | `name args`        | `name(args, input)`: input last, as with `==>`  |
 | `from-json`        | decodes the input as one JSON document          |
 | `from-jsonl`       | decodes the input as JSON Lines, a `Seq`        |
+| `.`                | shows the input as JSON ([formatter](formatter.md)) |
 
 ## Where commands meet rak stages
 

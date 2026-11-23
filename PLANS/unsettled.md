@@ -43,6 +43,8 @@ this list.
   target's format, and pagination. [URL targets](features/url-targets.md#open-questions)
 - **myaml matching.** What a match returns over lists, and whether `::=` and `:::=` are
   two operators. [myaml](features/myaml.md#open-questions)
+- **Key order on load.** Whether loading a `.json` target keeps the file's key order.
+  [formatter](features/formatter.md#open-questions)
 
 ## Interactive use
 

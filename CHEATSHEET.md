@@ -353,6 +353,7 @@ subscript is a pipeline when a spaced `|` follows. Commands and rak stages mix.
 git log --format=%an | ->unique         # a command's output is a Seq of lines
 <data.json | .users | map *.name;       # rak stages only, as in jq
 curl -s $url | from-json | .items;      # decode: from-json, from-jsonl
+curl -s $url | .                        # show as indented JSON, like jq .
 .users | ^wc -l                         # values to a command: one line each,
                                         #   hashes as JSON Lines
 say +$?, +@?                            # first failure (else last); every command
@@ -365,6 +366,11 @@ say +$?, +@?                            # first failure (else last); every comma
 | `.path` | `input.path` |
 | `{ block }` | `$_` |
 | `name args` | the last argument, as with `==>` |
+| `.` | shown as JSON |
+
+A lone `.` is the formatter: on its own it shows the topic `$_` as indented JSON,
+colored on a terminal. Text input is read as JSON, else as rak data literals
+(`{ :a, b => 1 }`), else as one string.
 
 Each stage gets the whole input, not one value at a time: use `map` for that.
 
