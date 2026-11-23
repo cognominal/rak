@@ -195,6 +195,179 @@ do {
         }
     }
 
+    # irak paging (PLANS/features/paging.md): $*OUT during a submission. It
+    # holds what the submission prints, so irak can measure it and page it,
+    # until the submission has run 1 s or flushes; from then on it lets the
+    # output through. It keeps a copy of everything for `!p`.
+    my class IrakPage is IO::Handle {
+        has $.out;                       # the terminal
+        has $!lock;
+        has $!held;                      # bytes not shown yet
+        has $!all;                       # every byte written
+        has Bool $.wrote    = False;
+        has Bool $!released = False;
+        has $!timer;
+        my $paging = False;              # a pager is running
+
+        my $esc = / \e [ '[' <[\x30..\x3F]>* <[\x20..\x2F]>* <[\x40..\x7E]>
+                       | ']' .*? [ \x07 | \e '\\' ] ] /;
+
+        submethod TWEAK() {
+            self.encoding: 'utf8';
+            $!lock := Lock.new;
+            $!held := buf8.new;
+            $!all  := buf8.new;
+            $!timer := $*SCHEDULER.cue({ self.release }, :in(1));
+        }
+
+        # A page for this submission, or Nil when irak does not page.
+        method for(\out) {
+            out.t && self.command ?? self.new(:out(out)) !! Nil
+        }
+
+        # The pager: RAK_PAGER, else PAGER, else less -R; '' when off.
+        method command(--> Str:D) {
+            %*ENV<RAK_PAGER>:exists
+              ?? ~%*ENV<RAK_PAGER>
+              !! (%*ENV<PAGER> || 'less -R')
+        }
+
+        method paging(--> Bool:D) { $paging }
+
+        method WRITE(Blob:D $buf --> True) {
+            $!lock.protect: {
+                $!wrote = True;
+                $!all.append: $buf;
+                $!released ?? $!out.write($buf) !! $!held.append($buf);
+            }
+        }
+
+        # Show what is held and let the rest through.
+        method release(--> Nil) {
+            $!lock.protect: {
+                unless $!released {
+                    $!released = True;
+                    $!out.write($!held) if $!held.elems;
+                    $!held := buf8.new;
+                    $!out.flush;
+                }
+            }
+        }
+
+        method flush(--> True) { self.release }
+        method t()      { $!out.t }
+        method opened() { True }
+        method close()  { True }
+        method tell()   { $!lock.protect: { $!all.elems } }
+
+        # Everything the submission printed.
+        method text(--> Str:D) { $!lock.protect: { $!all.decode('utf8-c8') } }
+
+        # The submission is over: page what is held if it is long, else
+        # show it.
+        method end(:$format --> Nil) {
+            $!timer.cancel;
+            my $held;
+            $!lock.protect: {
+                unless $!released {
+                    $!released = True;
+                    $held := $!held.decode('utf8-c8');
+                    $!held := buf8.new;
+                }
+            }
+            return unless $held && $held.chars;
+            self.long($held)
+              ?? self.page($held, $format, $!out)
+              !! $!out.print($held);
+        }
+
+        my sub plain(Str:D $text) { $text.subst($esc, '', :g) }
+
+        my sub terminal-size() {
+            my $tty = try '/dev/tty'.IO.open;
+            my @n = (try run('stty', 'size', :in($tty), :out, :err).out.slurp(:close).words) // ();
+            try $tty.close;
+            @n == 2 && @n.all > 0 ?? (+@n[0], +@n[1]) !! (24, 80)
+        }
+
+        # Longer than 5 lines or the terminal, wrapped lines counted.
+        method long(Str:D $text --> Bool:D) {
+            my @lines = plain($text).lines;
+            return True  if @lines > 5;
+            return False if @lines.map(*.chars).max <= 40;
+            my ($rows, $cols) = terminal-size;
+            ([+] @lines.map({ max 1, ceiling(.chars / $cols) })) > min(5, $rows)
+        }
+
+        # Show $text in the pager, then its summary.
+        method page(Str:D $text, $format, \out --> Nil) {
+            my $exit = 127;
+            if self.command -> $command {
+                $paging = True;
+                LEAVE $paging = False;
+                my $p = try shell $command, :in;
+                if $p.defined {
+                    try $p.in.print($text);
+                    try $p.in.close;
+                    $exit = try $p.exitcode;
+                }
+            }
+            $exit == 127
+              ?? out.print($text)        # no pager: show it as it is
+              !! out.print(self.summary($text, $format));
+        }
+
+        my sub file-format(Str:D $plain --> Str:D) {
+            my $f = try {
+                my $p = run 'file', '-b', '-', :in, :out, :err;
+                try $p.in.print($plain);
+                try $p.in.close;
+                $p.err.slurp(:close);
+                $p.out.slurp(:close).split(',')[0].trim
+            };
+            $f || 'text'
+        }
+
+        my sub size(Int:D $bytes --> Str:D) {
+            $bytes < 1000    ?? "$bytes B"
+              !! $bytes < 1e6 ?? sprintf('%.1f kB', $bytes / 1e3)
+              !! sprintf('%.1f MB', $bytes / 1e6)
+        }
+
+        # The first $width columns of $line, escapes kept, … when cut.
+        my sub cut(Str:D $line, Int:D $width --> Str:D) {
+            return $line if plain($line).chars <= $width;
+            my $out  = '';
+            my $cols = 0;
+            my $pos  = 0;
+            my $link = False;
+            while $pos < $line.chars && $cols < $width - 1 {
+                with $line.match($esc, :p($pos)) -> $m {
+                    $out ~= ~$m;
+                    $link = True if $m.starts-with("\e]8;");
+                    $pos = $m.to;
+                }
+                else {
+                    $out ~= $line.substr($pos, 1);
+                    ++$cols;
+                    ++$pos;
+                }
+            }
+            $out ~ "…\e[0m" ~ ($link ?? "\e]8;;\e\\" !! '')
+        }
+
+        # Line 1, dimmed: format, lines, size. Line 2: the start of the
+        # first line that is not blank.
+        method summary(Str:D $text, $format --> Str:D) {
+            my $plain = plain($text);
+            my $n     = $plain.lines.elems;
+            my $first = $text.lines.first({ plain($_).trim.chars }) // '';
+            "\e[2m{$format // file-format($plain)} · $n line{'s' if $n != 1}"
+              ~ " · {size($plain.encode.bytes)}\e[0m\n"
+              ~ cut($first, 80) ~ "\e[0m\n"
+        }
+    }
+
     class REPL {
         also does REPL::Completions::Advanced;
 
@@ -216,6 +389,8 @@ do {
         # made at that prompt, for the `!n` directive. Only the last
         # IRAK-KEEP prompt numbers are kept.
         has %!irak-sources;
+        # irak: the last submission's output and its format, for `!p`.
+        has $!irak-output;
         my constant IRAK-KEEP = 1000;
 
         # irak: the REPL of the rak frontend (see GLOSSARY.md).
@@ -520,9 +695,12 @@ do {
             my int $stopped;     # did we press CTRL-c just now?
             my $previous-evals := IterationBuffer.new;  # previous values
             signal(SIGINT).tap: {
-                exit if $stopped++;
-                say "Pressed CTRL-c, press CTRL-c again to exit";
-                print self.interactive_prompt($previous-evals.elems);
+                # CTRL-c in the pager is the pager's
+                unless IrakPage.paging {
+                    exit if $stopped++;
+                    say "Pressed CTRL-c, press CTRL-c again to exit";
+                    print self.interactive_prompt($previous-evals.elems);
+                }
             }
 
             say $no-exit
@@ -559,6 +737,22 @@ do {
                 # irak directives, only when they are the whole line of a
                 # fresh submission: `!n` re-runs submission n's source,
                 # `!!n` sets $_ to submission n's value.
+                # `!p` pages the last output again.
+                if irak() && $code eq '' && $newcode ~~ /^ \s* '!p' \s* $/ {
+                    if !IrakPage.command {
+                        say "irak: paging is off";
+                    }
+                    orwith $!irak-output {
+                        $*OUT.t
+                          ?? IrakPage.page(.key, .value, $*OUT)
+                          !! print .key;
+                    }
+                    else {
+                        say "irak: no output to page";
+                    }
+                    next;
+                }
+
                 if irak() && $code eq ''
                   && $newcode ~~ /^ \s* ('!'?) '!' (\d+) \s* $/ {
                     my $n = +$1;
@@ -592,23 +786,34 @@ do {
                 my $*CTXSAVE := self;
                 my $*MAIN_CTX;
 
-                my $output is default(Nil) = self.new-repl-eval(
-                    $code,
-                    my $exception,
-                    $previous-evals.List,
-                    :outer_ctx($!save_ctx),
-                    # the revision of the saved context, not the compiler's
-                    :language_version(
-                      Rakudo::Internals.LANGUAGE-VERSION-OF-CONTEXT($!save_ctx)
-                    ),
-                    |%adverbs);
+                # irak holds what the submission prints, to page it.
+                my $tty  := $*OUT;
+                my $page := irak() ?? IrakPage.for($tty) !! Nil;
+                my $exception;
+                my $output is default(Nil) = do {
+                    # an escaping exception is reported on the terminal
+                    CATCH { default { $page.end if $page; .rethrow } }
+                    my $*OUT = $page // $tty;
+                    self.new-repl-eval(
+                      $code,
+                      $exception,
+                      $previous-evals.List,
+                      :outer_ctx($!save_ctx),
+                      # the revision of the saved context, not the compiler's
+                      :language_version(
+                        Rakudo::Internals.LANGUAGE-VERSION-OF-CONTEXT($!save_ctx)
+                      ),
+                      |%adverbs)
+                }
 
                 if self.input-incomplete($output) {
+                    .end with $page;
                     $prompt = '* ';
                     next;
                 }
 
                 if self.input-toplevel-control($output) {
+                    .end with $page;
                     say "Control flow commands not allowed in toplevel";
                     reset;
                     next;
@@ -628,6 +833,43 @@ do {
                 # - there wasn't some other output
                 # - the result is an *unhandled* Failure
                 # - print an exception if one had occured
+                # irak pages long output, then shows errors in full.
+                my $format;
+                if $exception.DEFINITE {
+                    .end with $page;
+                    self.repl-print($exception);
+                }
+                elsif irak() && nqp::istype($output, Rakudo::Internals::RakProc) {
+                    # a command's Proc prints nothing and leaves $_ alone
+                }
+                elsif irak() && nqp::istype($output, Rakudo::Internals::RakFormatted) {
+                    # the formatter shows its JSON and leaves $_ alone
+                    $format = 'JSON';
+                    my $*OUT = $page // $tty;
+                    $output.show;
+                }
+                elsif nqp::istype($output, Failure) and not $output.handled {
+                    .end with $page;
+                    self.repl-print($output);
+                    $previous-evals.push: $output<>;
+                }
+                elsif $initial_out_position == $*OUT.tell
+                    && !($page && $page.wrote) {
+                    $format = $output.^name;
+                    {
+                        my $*OUT = $page // $tty;
+                        self.repl-print($output);
+                    }
+                    $previous-evals.push: $output<>;
+                    self!set-irak-topic($output<>)
+                      if irak()
+                      && nqp::not_i(nqp::eqaddr($output<>, Nil));
+                }
+                with $page {
+                    .end(:$format);
+                    $!irak-output = .text => $format if .wrote;
+                }
+
                 # irak shows a non-zero exit status of the last command, dimmed.
                 if irak() {
                     my $status := RAK-STATUS();
@@ -638,26 +880,6 @@ do {
                           ?? "\e[2mexit {$status.exitcode}\e[0m"
                           !! "exit {$status.exitcode}";
                     }
-                }
-
-                if $exception.DEFINITE {
-                    self.repl-print($exception);
-                }
-                elsif irak() && nqp::istype($output, Rakudo::Internals::RakProc) {
-                    # a command's Proc prints nothing and leaves $_ alone
-                }
-                elsif irak() && nqp::istype($output, Rakudo::Internals::RakFormatted) {
-                    # the formatter shows its JSON and leaves $_ alone
-                    $output.show;
-                }
-                elsif $initial_out_position == $*OUT.tell
-                    or nqp::istype($output, Failure) and not $output.handled {
-                    self.repl-print($output);
-                    $previous-evals.push: $output<>;
-                    self!set-irak-topic($output<>)
-                      if irak()
-                      && nqp::not_i(nqp::istype($output, Failure))
-                      && nqp::not_i(nqp::eqaddr($output<>, Nil));
                 }
                 reset;
             }

@@ -20,6 +20,7 @@ here, because they go stale.
 | irak: the topic, the banner | [irak](features/irak.md) | `t/02-rakudo/rak/010-*`, `012-*` |
 | Pipelines: commands and rak stages, `$?` pipefail, `@?` | [pipelines](features/pipelines.md) | `t/16-pipelines/rak/` |
 | The formatter, a lone `.` | [formatter](features/formatter.md) | `t/16-pipelines/rak/006-*`, `007-*` |
+| irak paging, `!p` | [paging](features/paging.md) | `t/02-rakudo/rak/022-*` |
 | One-pass CORE setting, `#COMPILER::` directives | [one-pass compilation](build/onepass-compile.md) | the build itself |
 
 Known gaps, marked `todo` in the sigil tests: `has ~.x` / `has #.x` attributes, and

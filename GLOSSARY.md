@@ -62,6 +62,13 @@ At the start of an irak submission, `$_` holds the value of the previous submiss
 leading dotty subscript reaches into it. A submission that fails, returns `Nil`, or
 prints output instead of a value leaves `$_` unchanged.
 
+<a id="paging"></a>**paging**:
+irak showing an irak submission's output in a pager when it is longer than 5 lines or the
+terminal, whichever is shorter. When the pager quits, a two-line summary stays at the
+prompt: the output's format and size, then the start of its first line. Errors and the
+output of external commands are never paged.
+_Avoid_: scrolling, more.
+
 <a id="naked-string"></a>**naked string**:
 An unquoted word that denotes a string literal: it starts with a letter or underscore and
 contains no whitespace. A word is not a naked string when it is a keyword (`if`, `given`,

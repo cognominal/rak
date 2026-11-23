@@ -314,6 +314,12 @@ prompt number, the last 1000 are kept):
 | `!n` TAB | puts submission n's source in the edit buffer |
 | `!!n` | sets `$_` to submission n's value |
 | ↑ / ↓ | history, stops at both ends |
+| `!p` | pages the last output again |
+
+Output longer than 5 lines (or the terminal) goes to a pager, `less -R` unless
+`RAK_PAGER` or `PAGER` says otherwise; an empty `RAK_PAGER` turns paging off.
+When the pager quits, a summary stays: format, lines and size, then the start of
+the first line. Errors, `$*ERR` and external commands are never paged.
 
 ## Commands
 

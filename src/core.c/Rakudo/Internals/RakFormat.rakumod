@@ -977,6 +977,8 @@ sub RAK-RUN-COMMAND(Str:D $name, $capture is copy, *@args,
     $err = $err.defined    ?? open(~$err, :w)    !! '-';
     @open.push($_) for ($out, $in, $err).grep({ nqp::istype($_, IO::Handle) && nqp::not_i(nqp::istype($_, IO::Pipe)) });
     $out = $capture || $piped ?? True !! '-' without $out;
+    # irak holds what rak code prints: show it before the command writes.
+    $*OUT.flush if nqp::istype($out, Str) && $out eq '-';
     my $proc := Rakudo::Internals::RakProc.new(:$in, :$out, :$err, :merge(?$merge));
     $proc.spawn($name, |@args.map(*.Str), :cwd($*CWD));
     # Fed by a command: when this one exits, the writer gets the SIGPIPE a

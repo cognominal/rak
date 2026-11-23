@@ -28,6 +28,7 @@ are recorded in [docs/adr/](../docs/adr/), and usage is in
 - [Commands](features/commands.md): running routines and external commands, `$?`, `cd`, `type`.
 - [Pipelines](features/pipelines.md): Unix and jq-style pipes, mixed; `$?` and `@?`.
 - [The formatter](features/formatter.md): a lone `.` shows its input as JSON.
+- [Paging](features/paging.md): irak shows long output in a pager, then a summary.
 
 ## Demos
 
