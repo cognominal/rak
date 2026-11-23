@@ -10,7 +10,7 @@ use Test;
 my $script = run(<sh -c>, 'command -v script', :out, :err).out.slurp(:close).trim;
 plan :skip-all('script(1) is needed to give the REPL a tty') unless $script;
 
-plan 11;
+plan 13;
 
 my $paged = $*TMPDIR.add("irak-paged-$*PID.txt");
 
@@ -41,6 +41,10 @@ $paged.unlink;
 ok   $pager.starts-with("0\n1\n2\n3\n4\n5\n6\n7\nPAGED\n"), 'long output goes to the pager';
 like $out, /"\e[2m" <-[·]>+ ' · 8 lines · 16 B' "\e[0m\n" '0'/,
   'then a summary: format, lines, size, and the first line';
+like $out, /"\e[0m\n0\e[2m\\n\e[22m1\e[2m\\n\e[22m2" .*? "7\e[0m\n"/,
+  'the summary folds the lines on one, each break a dimmed \\n';
+like $out, /"\e[2mJSON · " \d+ ' lines' .*? \n <-[\n]>* '{' "\e[0m\e[2m\\n\e[22m" \e '[' <[0..9;]>+ 'm"a"'/,
+  'the folded summary of JSON keeps its colors';
 like $out, /'say "short"' \n 'short' \n/, 'short output is shown as it is';
 is   $pager.comb('PAGED').elems, 3, '!p and the formatter page too';
 like $out, /'!p' \n "\e[2m" <-[·]>+ ' · 8 lines'/, '!p shows the summary again';

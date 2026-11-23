@@ -412,15 +412,22 @@ do {
             $out ~ "…\e[0m" ~ ($link ?? "\e]8;;\e\\" !! '')
         }
 
-        # Line 1, dimmed: format, lines, size. Line 2: the start of the
-        # first line that is not blank.
+        # Line 1, dimmed: format, lines, size. Line 2: the text from its
+        # first line that is not blank, folded on one line, colors kept: each
+        # line break is a dimmed \n, and the lines after the first lose their
+        # indentation. It stops at 80 columns, or the terminal's width.
         method summary(Str:D $text, $format --> Str:D) {
             my $plain = plain($text);
             my $n     = $plain.lines.elems;
-            my $first = $text.lines.first({ plain($_).trim.chars }) // '';
+            my $width = min 80, terminal-size()[1];
+            my @lines = $text.lines;
+            my $from  = @lines.first({ plain($_).trim.chars }, :k) // 0;
+            my $fold  = @lines[$from ..^ min(@lines.elems, $from + $width)]
+              .map({ $++ ?? .subst(/^ \h+/, '') !! $_ })
+              .join("\e[2m\\n\e[22m");
             "\e[2m{$format // file-format($plain)} · $n line{'s' if $n != 1}"
               ~ " · {size($plain.encode.bytes)}\e[0m\n"
-              ~ cut($first, 80) ~ "\e[0m\n"
+              ~ cut($fold, $width) ~ "\e[0m\n"
         }
     }
 
