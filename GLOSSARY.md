@@ -117,6 +117,13 @@ the resource (GET); output redirection to it sends the statement's output (POST)
 statement's value is then the server's response.
 _Avoid_: endpoint, remote file.
 
+<a id="bare-host"></a>**bare host**:
+A naked load target that starts with a host name and no scheme, read as an `https://`
+URL target: `<api.github.com/users/octocat`. The host's last label must be a
+top-level domain, and the host must have three labels or more or be followed by a path,
+so `<README.md` and `<example.com` stay files. `<./api.github.com` names the file.
+_Avoid_: schemeless URL, implicit URL.
+
 <a id="load"></a>**load**:
 The suffix form `LVALUE <target`: the target's content, decoded by its format, is assigned
 to the left-hand side, which can be anything assignable (`my %cfg <cfg.json`). A bare

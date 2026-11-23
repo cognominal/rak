@@ -2053,10 +2053,14 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
           !! $<redir-var-filename>.ast;
     }
 
-    # A naked URL: its literal pieces and its `$name` interpolations.
+    # A naked URL, or a bare host: its literal pieces and its `$name`
+    # interpolations.
     method redir-url($/) {
+        # A bare host is an https URL.
         my @segments := [Nodify('StrLiteral').new($*LITERALS.intern-Str(
-          nqp::substr(~$/, 0, nqp::index(~$/, '://') + 3)))];
+          $<redir-host>
+            ?? 'https://' ~ ~$<redir-host>
+            !! nqp::substr(~$/, 0, nqp::index(~$/, '://') + 3)))];
         # The pieces in source order: literal runs and variables interleave.
         my @pieces;
         if $<lit> {

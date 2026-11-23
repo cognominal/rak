@@ -274,6 +274,10 @@ echo '{"body": "hi"}' >https://…/comments           # a command's output, POST
   JSON; anything else is text. An empty response (`204`) gives `Nil`.
 - The statement's value is the decoded response, not the value sent (ADR 0005).
 - `>>url`, `<url STMT`, `2>url` are compile-time errors.
+- A load may drop `https://` (a [bare host](GLOSSARY.md#bare-host)) when the host
+  ends in a TLD and has three labels or a `/` after it: `<api.github.com/zen`,
+  `my %r <github.com/rakudo`. `<README.md`, `<example.com`, `<'a.b.com'` and
+  `<./api.github.com` are files; so is any `>` target.
 - A 4xx or 5xx response, or a failed connection, throws `X::Rak::HTTP`
   (`.status`, `.reason`: the JSON `message`, or the first line of the body).
 - Headers come from `~/.config/rak/http-headers.json` (relaxed JSON), keyed by host.

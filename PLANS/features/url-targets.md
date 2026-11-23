@@ -56,6 +56,22 @@ not create `~/.config/rak/`. The file will move to YAML once rak reads YAML.
   interpolates `$name` only, the name ending as a Raku identifier does (`$user-x` is the
   variable `$user-x`). `{` is excluded because API docs write `{owner}` for a
   placeholder. A double-quoted target interpolates everything.
+- **Bare hosts.** A naked load target may drop `https://`:
+  `<api.github.com/users/$user` is `<https://api.github.com/users/$user`. The part before
+  the first `/` is a host when its last label is a top-level domain (ignoring case) and
+  it has three labels or more, or is followed by `/`. So `api.github.com` and
+  `github.com/rakudo` are URLs, while `README.md` and `example.com` alone are files.
+  - Only loads take a bare host: `LVALUE <host…`, `<host…` and a pipeline's leading
+    load. `>api.github.com` writes a file; `2>`, `>>` and a command's `<` too.
+  - Only naked targets: `<'api.github.com'`, `<"…"` and `<$t` are files.
+  - The scheme is always `https://`.
+  - It is decided at compile time from the spelling. When a file of that name exists
+    then, the compiler warns: ``<api.github.com` loads https://api.github.com; write
+    `<./api.github.com` for the file``. `./` and `../` start a naked file path.
+  - The top-level domains are a snapshot of IANA's root zone
+    (`https://data.iana.org/TLD/tlds-alpha-by-domain.txt`) in `src/Rak/Grammar.nqp`;
+    `raku tools/update-tlds.raku` refreshes it. Many collide with extensions (`.md`,
+    `.pl`, `.py`, `.sh`, `.zip`), which is why two labels alone are not enough.
 - **Format.** A response whose media type is `application/json` or ends in `+json` is
   decoded as JSON; any other is text, and loads as text does from a file. A POST body is
   always JSON: the value, or the printed text, which must decode as JSON (ADR 0004).
@@ -66,7 +82,8 @@ not create `~/.config/rak/`. The file will move to YAML once rak reads YAML.
   with no status.
 - **Tests.** `t/14-redirection/rak/013-url-load.rak` and `014-url-post.rak` run against
   `t/packages/RakHTTPFixture`, a local HTTP/1.1 server that serves canned responses and
-  records the requests.
+  records the requests. Bare hosts are in `015-bare-host.rak`, which points curl at an
+  unreachable proxy and checks the URL in the error.
 
 ## Open questions
 

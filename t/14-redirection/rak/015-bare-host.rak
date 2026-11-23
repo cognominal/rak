@@ -1,0 +1,70 @@
+use Test;
+
+plan 14;
+
+# ---------------------------------------------------------------------------
+# Bare hosts (PLANS/features/url-targets.md): a naked load target whose last
+# label is a TLD, with three labels or a `/` after the host, loads https://….
+# Everything else stays a file. An unreachable proxy makes curl fail at once,
+# so the error shows the URL that was tried without touching the network.
+# ---------------------------------------------------------------------------
+
+my $dir = $*TMPDIR->add("rak-bare-host-$*PID");
+$dir->mkdir;
+chdir $dir;
+END { $dir->dir>>->unlink; $dir->rmdir }
+
+'api.github.com'->IO->spurt('{"file": 1}');
+'example.com'->IO->spurt('{"file": 2}');
+'README.md'->IO->spurt("# hi\n");
+%*ENV<https_proxy> = %*ENV<HTTPS_PROXY> = 'http://127.0.0.1:9';
+
+sub url(&load) {
+    try load;
+    $! ~~ X::Rak::HTTP ?? $!->url !! "no URL error: {$! // 'none'}"
+}
+
+my $curl = so run(<sh -c>, 'command -v curl', :out, :err)->exitcode == 0;
+SKIP: {
+    skip 'curl is needed for URL loads', 6 unless $curl;
+    is url({ my %h <api.github.com/users/octocat }),
+      'https://api.github.com/users/octocat', '1: three labels and a path';
+    is url({ my %h <github.com/rakudo }), 'https://github.com/rakudo',
+      '2: two labels and a `/`';
+    my $u = 'octocat';
+    is url({ my %h <api.github.com/users/$u }),
+      'https://api.github.com/users/octocat', '3: $name interpolates';
+    is url({ my $x <API.GitHub.COM/x }), 'https://API.GitHub.COM/x',
+      '4: the TLD is matched without case';
+    is url({ my %h <api.github.com/s?q=rak&page=2 }),
+      'https://api.github.com/s?q=rak&page=2', '5: a query string';
+    is url({ <api.github.com/zen }), 'https://api.github.com/zen',
+      '6: a load into the topic';
+}
+
+# Files.
+# A target with no format loads as one string.
+{ my $s <./api.github.com; is $s, '{"file": 1}', '7: <./host is the file' }
+{ my $s <'api.github.com'; is $s, '{"file": 1}', '8: a quoted target is a file' }
+{ my $s <example.com; is $s, '{"file": 2}', '9: two labels alone are a file' }
+{ my $s <README.md; is $s, "# hi\n", '10: README.md is a file' }
+{
+    'x.notatld'->IO->mkdir;
+    'x.notatld/y'->IO->spurt('z');
+    my $s <x.notatld/y;
+    is $s, 'z', '11: no TLD, a path';
+    'x.notatld/y'->IO->unlink;
+    'x.notatld'->IO->rmdir;
+}
+{
+    say 'out' >api.github.com.txt;
+    is 'api.github.com.txt'->IO->slurp, "out\n", '12: output redirection stays a file';
+}
+
+# The worry, when a file has the host's name.
+my $p = run $*EXECUTABLE, '-e', 'my $s <api.github.com', :out, :err;
+like $p->err->slurp(:close),
+  /'`<api.github.com` loads https://api.github.com; write `<./api.github.com` for the file'/,
+  '13: a file named like the host gets a worry';
+$p = run $*EXECUTABLE, '-e', 'my $s <api.github.com', :out, :err, :cwd($*TMPDIR);
+nok $p->err->slurp(:close)->contains('loads https'), '14: no file, no worry';
