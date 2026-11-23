@@ -25,6 +25,15 @@ is not updated, so one value can be explored without being replaced.
   irak submission; write `-5`.
 
 
+## Line editing
+
+irak edits with Terminal::LineEditor, whose input line is one scrolling row as wide as
+the terminal was when the prompt appeared. irak adds terminal resizes: on SIGWINCH the
+line is redrawn at the new width, keeping its text and cursor, and history recall uses
+that width too. A terminal that reflows the old row may leave a fragment of it above
+the redrawn prompt.
+
+
 ## Navigating data with TAB and SHIFT-TAB
 
 Status: **not implemented.** This builds on the

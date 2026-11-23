@@ -44,6 +44,64 @@ do {
         splice(@values, $insert_pos, 0, $value);
     }
 
+    # The terminal's rows and columns, 24×80 when unknown.
+    my sub terminal-size() {
+        my $tty = try '/dev/tty'.IO.open;
+        my @n = (try run('stty', 'size', :in($tty), :out, :err).out.slurp(:close).words) // ();
+        try $tty.close;
+        @n == 2 && @n.all > 0 ?? (+@n[0], +@n[1]) !! (24, 80)
+    }
+
+    # irak: Terminal::LineEditor measures the terminal once per prompt. This
+    # role, mixed into its CLIInput, turns SIGWINCH into a `Resize` key that
+    # redraws the line at the new width, and keeps that width for the fields
+    # the prompt builds afterwards (history up and down).
+    my role IrakResize {
+        has $!cols;                     # the width after the last resize
+        has Str $!prompt = '';
+
+        method special-actions() { set(|callsame.keys, 'resize') }
+
+        method decoded() {
+            Supply.merge: callsame, signal(SIGWINCH).map({ 'Resize' => $_ })
+        }
+
+        method prompt(Str:D $prompt = '', |c) {
+            $!prompt = $prompt;
+            $!cols   = Nil;
+            callsame
+        }
+
+        method replace-input-field(:$display-width, :$field-start, |c) {
+            nextwith
+              :display-width($!cols.defined
+                ?? max(1, $!cols - $field-start) !! $display-width),
+              :$field-start, |c
+        }
+
+        method do-edit($action, $insert?) {
+            $action eq 'resize' ?? self!resize !! nextsame
+        }
+
+        method !resize(--> Nil) {
+            my $field = self.input-field or return;
+            $!cols = terminal-size()[1];
+            my $content = $field.buffer.contents;
+            my $pos     = $field.insert-cursor.pos;
+            # Redraw from the start of the line: the old field's own
+            # clearing assumes the old width.
+            self.clear-input-field;
+            self.output.print("\r\e[J" ~ $!prompt);
+            self.replace-input-field(:field-start($field.field-start), :$content,
+              :display-width(0));
+            # Show the line from its start when the cursor allows it.
+            self.input-field.insert-cursor.move-to($pos);
+            self.input-field.scroll-cursor.move-to(0);
+            self.output.print(self.input-field.refresh-string(True));
+            self.output.flush;
+        }
+    }
+
     my role ReadlineBehavior[$WHO] {
         my $Readline = try { require Readline }
         my $read = $Readline.new;
@@ -117,7 +175,12 @@ do {
                 with self.irak-recall($contents) { return ($_,) }
                 eager self.completions-for-line($contents, $pos)
             }
-            $cli = $cli-input.new(:&get-completions);
+            # The role goes in before .new: the object starts its input
+            # threads as it is built.
+            my $irak := so %*ENV<RAKUDO_RAK_FRONTEND> && %*ENV<RAKU_RAK_MODE>;
+            $cli = ($irak ?? $cli-input.^mixin(IrakResize) !! $cli-input)
+              .new(:&get-completions);
+            $cli.bind-key('Resize', 'resize') if $irak;
             $cli.load-history($.history-file);
         }
 
@@ -282,13 +345,6 @@ do {
         }
 
         my sub plain(Str:D $text) { $text.subst($esc, '', :g) }
-
-        my sub terminal-size() {
-            my $tty = try '/dev/tty'.IO.open;
-            my @n = (try run('stty', 'size', :in($tty), :out, :err).out.slurp(:close).words) // ();
-            try $tty.close;
-            @n == 2 && @n.all > 0 ?? (+@n[0], +@n[1]) !! (24, 80)
-        }
 
         # Longer than 5 lines or the terminal, wrapped lines counted.
         method long(Str:D $text --> Bool:D) {
