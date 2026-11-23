@@ -1,6 +1,6 @@
 use Test;
 
-plan 6;
+plan 9;
 
 my $d = $*TMPDIR->add("rak-cmd-$*PID");
 mkdir $d;
@@ -15,6 +15,16 @@ is (tr a-z A-Z <$o), "ONE\nTWO\n", '<target';
 sh -c 'echo bad >&2' 2>$e;
 is $e->IO->slurp, "bad\n", '2>target';
 is (sh -c 'echo bad >&2' 2>&1), "bad\n", '2>&1';
+
+# Naked and single-quoted targets, relative to $*CWD.
+indir $d, {
+    echo three >naked;
+    is "$d/naked"->IO->slurp, "three\n", '>naked target';
+    echo four >>naked;
+    is "$d/naked"->IO->slurp, "three\nfour\n", '>>naked target appends';
+    sh -c 'echo bad >&2' 2>'quoted';
+    is "$d/quoted"->IO->slurp, "bad\n", "2>'quoted' target";
+}
 
 throws-like { EVAL 'echo one > out' }, X::Comp, 'spaced > is a compile error';
 

@@ -108,7 +108,9 @@ hello
 ```
 
 - `[0] >` est l'**invite** (*prompt*) d'irak : irak vous attend. Le nombre compte ce que
-  vous avez tapé jusque-là. Vous tapez ce qui suit l'invite, puis ENTRÉE.
+  vous avez tapé jusque-là. Vous tapez ce qui suit l'invite, puis deux fois ENTRÉE : la
+  première montre comment irak lit la ligne, la seconde l'exécute
+  ([section 1.3](#13-votre-première-soumission)).
 - Les lignes sans invite sont la réponse d'irak. Vous ne les tapez pas.
 - Le texte qui suit `#` et une espace est un **commentaire** : une note pour le lecteur
   humain, ignorée par irak. Inutile de taper les commentaires.
@@ -204,6 +206,28 @@ hello
 
 `say` est une **routine** : un comportement nommé, intégré à rak. `say` affiche ce qui
 le suit, puis passe à la ligne. `hello` est ce qu'il affiche.
+
+Vous avez appuyé deux fois sur ENTRÉE. La première n'exécute pas la ligne : irak
+montre comment il la lit, en colorant chaque mot selon ce qu'il est. Ici `say` est
+coloré comme une routine et `hello` comme une chaîne nue, un mot qui vaut pour
+lui-même. La seconde ENTRÉE, dans la seconde et sur la même ligne, l'exécute. Si vous
+attendez plus longtemps, ou si vous modifiez la ligne, l'ENTRÉE suivante montre de
+nouveau la lecture. Les exemples de ce tutoriel montrent la ligne telle que vous la
+tapez, sans la seconde ENTRÉE.
+
+| Couleur    | Le mot est            | Exemple         |
+|------------|-----------------------|-----------------|
+| magenta    | un mot-clé            | `if`, `my`      |
+| cyan       | une routine           | `say`           |
+| vert       | une commande          | `ls`            |
+| jaune      | une chaîne nue        | `hello`         |
+| rouge      | un nom non déclaré    | `$ctiy`         |
+
+Une ligne vide, une ligne inachevée
+([section 1.4](#14-sortir-interrompre-se-débloquer)) et `!n`
+([section 6.3](#63-rappeler-des-soumissions-précédentes)) s'exécutent dès la première
+ENTRÉE. Si les couleurs vous gênent, définissez la variable d'environnement `NO_COLOR`
+avant de lancer irak.
 
 Essayez-en quelques autres :
 
@@ -1838,6 +1862,20 @@ fautes de frappe :
 ===SORRY!=== Error while compiling
 Variable '$ctiy' is not declared.  Did you mean '$city'?
 ```
+
+Si vous oubliez `my`, irak l'ajoute à votre première ENTRÉE, devant la première
+utilisation de la variable. Vous tapez la première ligne, irak affiche la deuxième, et votre
+seconde ENTRÉE l'exécute :
+
+```
+> $town = 'Lyon'
+> my $town = 'Lyon'
+Lyon
+```
+
+irak n'ajoute `my` que là où il a un sens : pas dans une chaîne, et jamais à un nom qui
+ressemble à une faute de frappe sur une variable déclarée. Dans `say $ctiy`, `$ctiy`
+reste tel quel, coloré en rouge, et la seconde ENTRÉE donne l'erreur ci-dessus.
 
 Un nom de variable commence par un symbole, ici `$`, suivi de lettres, de chiffres, de
 `_` ou de `-` : `$city`, `$file-count`, `$max_size`, `$x2`. Évitez les lettres
@@ -4501,7 +4539,7 @@ comme n'importe quel programme ([16](#16-et-ensuite-)). irak rend simplement les
 courants longs d'une ligne, dans un seul langage.
 
 Pour d'autres tâches GitHub côte à côte avec `curl`, `jq` et Raku pur (lire un dépôt,
-lister des commits, ouvrir un ticket, commenter), voir [`PLANS/demos/github.md`](PLANS/demos/github.md) dans le dépôt.
+lister des commits, ouvrir un ticket, commenter), voir [`PLANS/demos/github.md`](../demos/github.md) dans le dépôt.
 
 ### Résumé
 
@@ -5020,7 +5058,7 @@ irak pour quelque chose dont vous avez déjà besoin : l'export JSON d'une appli
 votre historique de shell, un fichier de journal au travail. Chargez-le, parcourez-le,
 posez des questions.
 
-**Gardez l'aide-mémoire à portée de main.** `CHEATSHEET.md`, à la racine du dépôt rak,
+**Gardez l'aide-mémoire à portée de main.** `PLANS/docs/CHEATSHEET.md`, dans le dépôt rak,
 liste toute la syntaxe propre à rak en quelques pages.
 
 **Lisez le glossaire.** `GLOSSARY.md` définit les termes qu'emploie rak, avec le sens
@@ -5050,7 +5088,7 @@ l'[annexe B](#annexe-b--les-pièges), puis le gestionnaire de tickets, et signal
 vous avez trouvé : une surprise pour vous en est une aussi pour le prochain débutant.
 
 **Essayez une vraie API.** Celle de GitHub est un bon terrain de jeu : ses réponses sont
-en JSON, et ses données publiques ne demandent pas de jeton. [`PLANS/demos/github.md`](PLANS/demos/github.md) liste les points
+en JSON, et ses données publiques ne demandent pas de jeton. [`PLANS/demos/github.md`](../demos/github.md) liste les points
 d'accès utiles, avec rak à côté de `curl`, `jq` et Raku pur.
 
 ### Pour aller plus loin : des outils à connaître
@@ -5114,7 +5152,7 @@ fichier à télécharger. Homebrew fonctionne aussi sous Linux, et les a presque
 | **Éditer et scripter** | | |
 | `micro` | Un éditeur de texte aux touches que vous connaissez : Ctrl-S enregistre, Ctrl-Q quitte. | |
 | `nvim` | Neovim, un éditeur puissant pour plus tard. Le livre gratuit (en anglais) [LazyVim for Ambitious Developers](https://lazyvim-ambitious-devs.phillips.codes/course/chapter-1/) l'enseigne depuis le début. | `neovim` |
-| `gum` | De jolies invites, menus et indicateurs d'attente pour vos scripts, parmi les outils charmbracelet ([terminaux](PLANS/background/terminals.md)). | depuis [charm.sh](https://charm.sh) si votre distribution ne l'a pas |
+| `gum` | De jolies invites, menus et indicateurs d'attente pour vos scripts, parmi les outils charmbracelet ([terminaux](../background/terminals.md)). | depuis [charm.sh](https://charm.sh) si votre distribution ne l'a pas |
 
 Bon bidouillage !
 

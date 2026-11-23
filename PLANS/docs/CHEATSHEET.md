@@ -6,7 +6,7 @@ It includes features inspired by nushell and jq.
 
 Everything you know from Raku still
 holds unless a line below changes it. Words in **bold** are defined in
-[GLOSSARY.md](GLOSSARY.md).
+[GLOSSARY.md](../../GLOSSARY.md).
 
 ## Turning it on
 
@@ -306,6 +306,16 @@ Welcome to irak, the rak shell.
 [4] > <data.json       # loads into $_ for the next line
 ```
 
+ENTER twice runs a line. The first ENTER shows how irak reads it:
+
+- it inserts `my` before the first use of an undeclared variable (`$x = 1`
+  becomes `my $x = 1`), except in a string or for a likely typo;
+- it colors each word: keyword, routine, command, naked string, or undeclared.
+
+A second ENTER on the same line within a second runs it. An empty or unfinished line,
+`!n`, and input that is not a terminal run on the first ENTER. `NO_COLOR` turns the
+colors off.
+
 `$_` holds the value of the previous submission. A submission that fails, returns
 `Nil` or prints output leaves `$_` unchanged. So does one starting with `- `: the
 prefix is dropped, the value shown, and `$_` kept, to look around in it.
@@ -341,7 +351,8 @@ lone word naming a program on `$PATH`.
 ```rak
 ls -l @files "my file" {1+1}   # external command; @files gives one argument each
 ^sort data.txt                 # ^ forces the external command over rak's sort
-my $out = (ls)                 # value used: standard output captured as a Str
+my $out = ls                   # $out and $_ set to 'ls'
+my $out = (ls)                 # value used: standard output of ls command captured as a Str
 ~(pwd)                         # same, in a contextualizer
 say $? == 0, $?->exitcode      # $? is the last exit status, a Proc
 make 2>err >out >>log <in 2>&1 # redirections, touching their target

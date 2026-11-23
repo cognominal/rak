@@ -3,7 +3,7 @@
 rak removes characters that carry no meaning, especially brackets, and lets spacing carry
 it instead. Sigils are not noise: they are kept and extended (see [sigils](sigils.md)).
 Brackets around blocks are handled by [indentation](indentation.md); this document covers
-spacing inside a line. The [cheat sheet](../../CHEATSHEET.md#spacing-is-syntax) shows the
+spacing inside a line. The [cheat sheet](../docs/CHEATSHEET.md#spacing-is-syntax) shows the
 rule in use.
 
 Status: implemented for `>`, `>>` and `<`.

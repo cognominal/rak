@@ -1,0 +1,219 @@
+From 371eff6d976bc846a49140f8d1018c071007ddda Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?St=C3=A9phane=20Payrard?= <cognominal@gmail.com>
+Date: Sat, 21 Nov 2026 20:32:54 +0100
+Subject: [PATCH 1/2] Time out terminal queries in read-input
+
+read-input awaited the cursor position and terminal size queries with
+no time limit, so a terminal that does not answer \e[6n (or answers
+slowly) left the prompt without an input field forever.
+
+query-terminal, detect-cursor-pos and detect-terminal-size take an
+optional :timeout; on timeout the Promise is kept with Str (Empty for
+the detect methods). The query record stays active so that a late
+answer is consumed by its own query, not taken as the answer to a
+later one. CLIInput gets a query-timeout attribute (1 second) and
+read-input sends both queries before waiting, falling back to the
+first column of an 80-column terminal.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../LineEditor/RawTerminalInput.rakumod       | 51 +++++++++++++------
+ 1 file changed, 36 insertions(+), 15 deletions(-)
+
+diff --git a/lib/Terminal/LineEditor/RawTerminalInput.rakumod b/lib/Terminal/LineEditor/RawTerminalInput.rakumod
+index 1acdc2a..6ac4ee3 100644
+--- a/lib/Terminal/LineEditor/RawTerminalInput.rakumod
++++ b/lib/Terminal/LineEditor/RawTerminalInput.rakumod
+@@ -550,15 +550,22 @@ role Terminal::LineEditor::RawTerminalIO {
+     }
+ 
+     #| Query the terminal asynchronously and return a vowed Promise kept when
+-    #| the response arrives
+-    multi method query-terminal(Str:D $request, $matcher) {
++    #| the response arrives, or kept with Str after $timeout seconds if any
++    multi method query-terminal(Str:D $request, $matcher, Real :$timeout) {
+         # Prepare a vowed Promise
+         my $p = Promise.new;
+         my $v = $p.vow;
++        my $lock = Lock.new;
++        my sub keep($response) {
++            $lock.protect: { $v.keep($response) if $p.status ~~ Planned }
++        }
+ 
+-        # Add an active query record that will keep the vow
+-        my &callback = { $v.keep($_) };
++        # Add an active query record that will keep the vow; on timeout the
++        # record stays active, so that a late response is still consumed by
++        # this query and not mistaken for the response to a later one
++        my &callback = { keep($_) };
+         self.query-terminal($request, $matcher, &callback);
++        Promise.in($timeout).then({ keep(Str) }) with $timeout;
+ 
+         # Return Promise
+         $p
+@@ -569,18 +576,20 @@ role Terminal::LineEditor::RawTerminalIO {
+ #| Role with utility methods for raw terminal I/O
+ role Terminal::LineEditor::RawTerminalUtils {
+     #| Detect cursor position, returning a Promise that will be kept with
+-    #| (row, col) or Empty if unable
+-    method detect-cursor-pos() {
++    #| (row, col) or Empty if unable, including when the terminal does not
++    #| answer within $timeout seconds
++    method detect-cursor-pos(Real :$timeout) {
+         my regex response { ^ "\e[" (\d+) ';' (\d+) 'R' $ }
+ 
+-        self.query-terminal("\e[6n", &response).then: {
+-            (~.result) ~~ &response ?? (+$0, +$1) !! Empty
++        self.query-terminal("\e[6n", &response, :$timeout).then: {
++            .result.defined && (~.result) ~~ &response ?? (+$0, +$1) !! Empty
+         }
+     }
+ 
+     #| Detect terminal size, returning a Promise that will be kept with
+-    #| (rows, cols) or Empty if unable
+-    method detect-terminal-size() {
++    #| (rows, cols) or Empty if unable, including when the terminal does not
++    #| answer within $timeout seconds
++    method detect-terminal-size(Real :$timeout) {
+         # XXXX: This query has been found to have compatibility problems; it
+         #       works in xterm and libvte terminals, but not in many others
+         #       such as Konsole, Windows Console, linux, etc.
+@@ -592,7 +601,7 @@ role Terminal::LineEditor::RawTerminalUtils {
+         # the terminal, detecting the cursor position, and restoring the cursor.
+ 
+         $.output.print("\e7\e[9999;9999H");
+-        my $p := self.detect-cursor-pos;
++        my $p := self.detect-cursor-pos(:$timeout);
+         $.output.print("\e8");
+         $p
+     }
+@@ -692,6 +701,10 @@ class Terminal::LineEditor::CLIInput
+     has $.input-field;
+     has &.get-completions;
+ 
++    #| Seconds to wait for the terminal to answer each query (cursor position,
++    #| terminal size) before falling back to defaults
++    has Real:D $.query-timeout = 1;
++
+     #| Start the decoder reactor as soon as everything else is set up
+     submethod TWEAK() {
+         self.start-decoder;
+@@ -764,12 +777,20 @@ class Terminal::LineEditor::CLIInput
+             self.clear-input-field;
+         }
+ 
+-        # Detect current cursor position and terminal size
+-        my ($row,  $col)  = await self.detect-cursor-pos;
+-        my ($rows, $cols) = await self.detect-terminal-size;
++        # Detect current cursor position and terminal size, falling back to
++        # the first column of an 80-column terminal if the terminal does not
++        # answer
++        # (both queries are sent before waiting, so they wait concurrently)
++        my $timeout = $.query-timeout;
++        my $pos     = self.detect-cursor-pos(:$timeout);
++        my $size    = self.detect-terminal-size(:$timeout);
++        my ($row,  $col)  = await $pos;
++        my ($rows, $cols) = await $size;
++        $col  //= 1;
++        $cols //= 80;
+ 
+         # Set up an editable input buffer
+-        my $display-width = ($cols //= 80) - $col;
++        my $display-width = $cols - $col;
+         self.replace-input-field(:$display-width, :field-start($col), :$mask);
+ 
+         # History helpers
+-- 
+2.56.1
+
+
+From 2f97d149012cb56af2e557132f66a5f82a7fecae Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?St=C3=A9phane=20Payrard?= <cognominal@gmail.com>
+Date: Sat, 21 Nov 2026 20:32:54 +0100
+Subject: [PATCH 2/2] Add an &on-finish callback to read-input and prompt
+
+Enter always ended input, with no way for the caller to validate or
+rewrite the buffer first. &on-finish, if given, is called with the
+buffer contents on the finish action and returns True to finish,
+False to ignore the request, or a string that replaces the buffer
+contents while editing goes on.
+
+A REPL can use it to finish only complete statements, or, as the irak
+REPL of rak does, to show a rewritten submission on a first Enter and
+run it on a second.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../LineEditor/RawTerminalInput.rakumod       | 29 +++++++++++++++----
+ 1 file changed, 23 insertions(+), 6 deletions(-)
+
+diff --git a/lib/Terminal/LineEditor/RawTerminalInput.rakumod b/lib/Terminal/LineEditor/RawTerminalInput.rakumod
+index 6ac4ee3..c261021 100644
+--- a/lib/Terminal/LineEditor/RawTerminalInput.rakumod
++++ b/lib/Terminal/LineEditor/RawTerminalInput.rakumod
+@@ -761,9 +761,12 @@ class Terminal::LineEditor::CLIInput
+         self.do-edit('insert-string', $content);
+     }
+ 
+-    #| Full input/edit loop; returns final user input or Str if aborted
++    #| Full input/edit loop; returns final user input or Str if aborted.
++    #| &on-finish, if given, is called with the buffer contents when the user
++    #| asks to finish (Enter); it returns True to finish, False to ignore the
++    #| request, or a string that replaces the buffer contents, editing going on.
+     # XXXX: Bool:D :$history = False, Str:D :$context = 'default',
+-    method read-input(Str :$mask, :&on-suspend, :&on-continue --> Str) {
++    method read-input(Str :$mask, :&on-suspend, :&on-continue, :&on-finish --> Str) {
+         # If not a terminal, just read a line from input and return it
+         return $.input.get // Str unless $.input.t;
+ 
+@@ -857,6 +860,19 @@ class Terminal::LineEditor::CLIInput
+             $.output.flush;
+         }
+ 
++        # Finish, unless &on-finish says otherwise
++        my sub do-finish() {
++            my $verdict = &on-finish ?? on-finish($.input-field.buffer.contents) !! True;
++            if $verdict ~~ Str:D {
++                self.replace-input-field(:$display-width, :field-start($col),
++                                         :$mask, :content($verdict));
++            }
++            elsif $verdict {
++                self.set-done;
++                done;
++            }
++        }
++
+         # If not currently completing, all other actions reset completions
+         my sub reset-completions() {
+             $completions      = Nil;
+@@ -913,7 +929,7 @@ class Terminal::LineEditor::CLIInput
+                     when 'suspend'         { self.suspend(:&on-suspend, :&on-continue);
+                                              $.input-field.force-pos-to-start;
+                                              self.do-edit('insert-string', ''); }
+-                    when 'finish'          { self.set-done; done }
++                    when 'finish'          { do-finish }
+                     when 'abort-input'     { self.set-done; $aborted = True; done }
+                     when 'abort-or-delete' { unless $.input-field.buffer.contents {
+                                                    self.set-done;
+@@ -930,14 +946,15 @@ class Terminal::LineEditor::CLIInput
+         $aborted ?? Str !! $.input-field.buffer.contents
+     }
+ 
+-    #| Print and flush prompt then enter input loop, optionally masking password
+-    method prompt(Str:D $prompt = '', Str :$mask --> Str) {
++    #| Print and flush prompt then enter input loop, optionally masking
++    #| password; see read-input for &on-finish
++    method prompt(Str:D $prompt = '', Str :$mask, :&on-finish --> Str) {
+         my sub flush-prompt() {
+             $.output.print($prompt);
+             $.output.flush;
+         }
+ 
+         flush-prompt;
+-        self.read-input(:$mask, :on-continue(&flush-prompt))
++        self.read-input(:$mask, :on-continue(&flush-prompt), :&on-finish)
+     }
+ }
+-- 
+2.56.1
+

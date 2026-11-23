@@ -1,0 +1,402 @@
+[1;4mrak cheat sheet (for Raku programmers)[0m
+
+rak is Raku with a shellish surface syntax.
+It supports raku sigils.
+It includes features inspired by nushell and jq.
+
+Everything you know from Raku still
+holds unless a line below changes it. Words in [1mbold[0m are defined in
+GLOSSARY.md.
+
+[1;4mTurning it on[0m
+
+| How | rak mode? |
+|---|---|
+| [1m./rak file.rak[0m | yes |
+| [34m./rak[0m (REPL), [1m./rak -e '…'[0m, stdin | yes. This is [1mirak[0m. |
+| any [1mfile.rak[0m, run by [34m./rak[0m | yes |
+| [1m.raku[0m, [1m.rakumod[0m, [1m.pm6[0m files, even when run by [34m./rak[0m | no, plain Raku |
+| [1mRAKUDO_RAK_FRONTEND=1 RAKU_RAK_MODE=1 rakudo-m …[0m | same as [34m./rak[0m |
+
+The file extension decides. A file with no extension falls back to
+[1mRAKU_RAK_MODE[0m. Modules you [1muse[0m from a [1m.rak[0m file stay plain Raku.
+
+[1mEnvironment variables[0m
+
+| Variable | Effect |
+|---|---|
+| [1mRAKUDO_RAK_FRONTEND=1[0m | [1mrakudo-m[0m compiles with the rak frontend ([1mRak::Grammar[0m, [1mRak::Actions[0m). A [1m.rak[0m file is then in rak mode. |
+| [1mRAKU_RAK_MODE=1[0m | A source with no file extension ([1m-e[0m, stdin, the REPL) is in rak mode. Ignored by the default legacy frontend, so pair it with [1mRAKUDO_RAK_FRONTEND=1[0m. |
+
+[34m./rak[0m sets both. Without them, [1;32mrakudo-m[0m file.rak uses the legacy frontend and
+the file fails to compile as rak. [1mRAKUDO_RAKUAST=1[0m (upstream's RakuAST
+frontend) also honours both gates for now, until the rak code is removed from it.
+
+[1;4mAt a glance[0m
+
+| Raku | rak |
+|---|---|
+| [36msay[0m 'foo' | [36msay[0m [33mfoo[0m (naked string) |
+| [1mf 'a', 'b'[0m | [1mf a b[0m (juxtaposed words are separate arguments) |
+| [1m%h<name>[0m | [1m%h.name[0m |
+| [1m@a[1][0m | [1m@a.1[0m |
+| [3m%h[0m{'a b'}, [1m%h{"$k"}[0m | [3m%h[0m.'a b', [1m%h."$k"[0m |
+| [1m%h{$k}[0m | [1m%h.~k[0m (with [1;35mmy[0m [3m~k[0m) |
+| [1m@a[$i][0m | [1m@a.#i[0m (with [1;35mmy[0m [3m#i[0m) |
+| [1m$_<name>[0m, [1m$_[1][0m | [1m.name[0m, [1m.1[0m |
+| [1m$obj.meth[0m (no arguments) | [1m$obj->meth[0m |
+| [1m.meth[0m (on [3m$_[0m) | [1m->meth[0m |
+| [1m$obj.$meth[0m, [1m$obj.&f[0m | [1m$obj->$meth[0m, [1m$obj->&f[0m |
+| [1m$obj.meth(1)[0m, [3m$obj[0m.meth: 1 | unchanged |
+| [1;35mmy[0m str [3m$s[0m / [1;35mmy[0m int [3m$n[0m | [1;35mmy[0m [3m~s[0m / [1;35mmy[0m [3m#n[0m |
+| { [1;35mmy[0m [3m$*OUT[0m = [36mopen[0m 'f', :w; [36msay[0m 1 } | [36msay[0m 1 >[34mf[0m |
+| [36mspurt[0m 'f.json', [36mto-json[0m [3m@a[0m | [3m@a[0m >[34mf.json[0m |
+| [1;35mmy[0m [3m%h[0m = [36mfrom-json[0m [36mslurp[0m 'f.json' | [1;35mmy[0m [3m%h[0m <[34mf.json[0m |
+
+[1;4mWords: routine calls and naked strings[0m
+
+An unquoted word that names a routine already known *at that point in the file*
+(your own [1msub[0ms or built-ins) calls it. No parentheses are needed: the words
+after it are its arguments.
+
+    [1;35msub[0m double($x) { [3m$x[0m * 2 }
+    [36msay[0m [36mdouble[0m 3                  [2m# 6[0m
+    [36msay[0m [36muc[0m [33mhello[0m                  [2m# HELLO[0m
+
+Any other word is a [1mnaked string[0m: a [1mStr[0m literal. That applies to a word that
+starts with a letter or [1m_[0m, contains no whitespace, and is [1mnot[0m:
+
+- a keyword ([1mif[0m, [1mgiven[0m, [1mreturn[0m, …),
+- a routine or variable already known at that point,
+- followed directly by [1m([0m (that is always a call, even before the declaration).
+
+    [36msay[0m [33mfoo[0m                       [2m# foo[0m
+    [36msay[0m [33mfoo[0m; [1;35msub[0m foo { 42 }       [2m# foo  (foo not yet declared)[0m
+    [1;35msub[0m foo { 42 }; [36msay[0m [36mfoo[0m       [2m# 42   (foo is known: it is called)[0m
+    [36msay[0m bar(1); [1;35msub[0m bar($x) { [3m$x[0m + 1 }   [2m# 2[0m
+    [36msay[0m [33mlog123[0m                    [2m# log123[0m
+
+Juxtaposed words are separate positional arguments, as in a shell:
+
+    [1;35msub[0m n(*@a) { [3m@a[0m->elems }
+    [36mn[0m [33mfoo[0m [33mbar[0m [33mbaz[0m                 [2m# 3[0m
+    [36mn[0m [33mfoo[0m, [33mbar[0m [33mbaz[0m                [2m# 3: commas mix in[0m
+    [36mn[0m (1 + 3) [33mthings[0m              [2m# 2: a parenthesised term, then a word[0m
+    [36mn[0m [33mtoto[0m eq [33mtoto[0m                [2m# 1: a word infix still wins[0m
+    [3m$x[0m = [36mn[0m [33mfoo[0m [33mbar[0m [1;35mif[0m 0           [2m# `if` is a statement modifier, not a word[0m
+
+[1;4mSpacing is syntax[0m
+
+Binary operators are written with spaces around them. An operator that touches
+the next word is redirection, not an infix:
+
+    [3m$a[0m > [3m$b[0m        [2m# comparison[0m
+    [36msay[0m [33mx[0m >[34mout[0m     [2m# redirection[0m
+    [3m@a[0m >>+<< [3m@b[0m    [2m# hyperoperator (spaced), not an append[0m
+
+[1;4mNew sigils: `~` (native `str`) and `#` (native `int`)[0m
+
+    [1;35mmy[0m [3m~s[0m = "hello";   [1;35mmy[0m [3m#n[0m = 5;
+    [3m~s[0m ~ '!'           [2m# ~s reads the variable[0m
+    "hi ~s, n=#n"      [2m# both interpolate in "…"[0m
+    [1;35mmy[0m [3m~e[0m;  [1;35mmy[0m [3m#z[0m;     [2m# defaults are "" and 0, never undefined[0m
+    [1;35msub[0m f(~x, #y) { … }
+
+- The sigil is the type. [1mmy Str ~s[0m, [1mmy int #n[0m and [1mis Int[0m are compile errors.
+- [1mwhere[0m and [1mstate[0m fail, the same way they fail on Raku's [1mstr[0m and [1mint[0m.
+- [1m~foo[0m with no space is the variable, not "stringify [1mfoo()[0m". Write [1m~ foo()[0m or [1mfoo()->Str[0m for the old meaning.
+- [1m#[0m followed by an identifier is a variable, not a comment. Comments need a space
+  or a non-identifier character: [1m# note[0m, [1m#----[0m. An undeclared [1m#oops[0m is a
+  compile error.
+- Unaffected: [1m~42[0m, [1m'a' ~ 'b'[0m, [1m~~[0m, [1m~=[0m, [1m$~MAIN[0m.
+
+[1;4mDotty subscripts[0m
+
+[1m.[0m followed by a plain thing subscripts. It does not call a method.
+
+| rak | Raku |
+|---|---|
+| [1m%h.name[0m | [1m%h<name>[0m |
+| [3m%h[0m.'a b' | [3m%h[0m{'a b'} |
+| [1m%h."$k"[0m, [1m%h."id-{~n}"[0m | [1m%h{"$k"}[0m, [1m%h{"id-{~n}"}[0m (interpolates) |
+| [1m@a.1[0m | [1m@a[1][0m |
+| [1m%h.~k[0m | [1m%h{~k}[0m |
+| [1m@a.#i[0m | [1m@a[#i][0m |
+| [1m%h.toto.#i[0m | [1m%h<toto>[#i][0m |
+| [1m@a.1.0[0m, [1m%h.users.1.name[0m | [1m@a[1][0][0m, [1m%h<users>[1]<name>[0m |
+
+They stack, and all of them are lvalues: [3m%h[0m.x = 3, [3m@a[0m.0 = 9, [3m@a[0m.1.1 = 9.
+
+[1m%h.$key[0m is an error. Write [1m%h."$key"[0m for a subscript by a [1m$[0m variable,
+and [1m%h->$key[0m for Raku's indirect method call.
+
+Quoted keys are for keys that aren't identifiers, like jq's [1m."key"[0m. jq has
+no [1m.'key'[0m. With arguments, [1m."name"(…)[0m and [1m.'name'(…)[0m stay Raku's quoted
+method name call.
+
+[1mMethod calls[0m
+
+    [33mFoo[0m->new            [2m# parameterless call: use ->[0m
+    [3m$f[0m->bar->baz
+    [3m$f[0m.baz(5)           [2m# with arguments, . still calls[0m
+    [3m$f[0m.baz: 5
+    [3m%h[0m.keys()           [2m# empty parens also call[0m
+    [3m$x[0m->[3m$meth[0m           [2m# indirect call: Raku's $x.$meth[0m
+    $x->&f(1)           [2m# Raku's $x.&f(1)[0m
+    $_->&f              [2m# on the topic: a leading ->&f is a pointy block[0m
+
+[1m.$var[0m, [1m.@var[0m and [1m.&var[0m are compile errors that name the [1m->[0m spelling.
+
+[1m@a->[0][0m, [1m->{…}[0m and [1m->(…)[0m stay Raku's obsolete-syntax error.
+[1m-> $x { }[0m, [1m->$x { }[0m and [1m->Int $x { }[0m are still pointy blocks.
+
+[1mOn the topic[0m
+
+With nothing before it, the dotty form applies to [3m$_[0m:
+
+    [1;35mgiven[0m { a => 1, b => [5, 6] } {
+        .a          [2m# $_<a>[0m
+        ."a"        [2m# $_{"a"}[0m
+        .b.1        [2m# $_<b>[1][0m
+        ->elems     [2m# $_.elems[0m
+        .keys()     [2m# still a method call[0m
+    }
+    .5             [2m# in rak, .5 is $_[5]. Write 0.5 for the number.[0m
+
+[1;4mRedirection[0m
+
+Three forms: [1moutput redirection[0m (STMT >[34mfile[0m, STMT >>[34mfile[0m), [1minput
+redirection[0m (<[34mfile[0m STMT) and [1mload[0m (LVALUE <[34mfile[0m, or [1m<file[0m alone).
+The operator touches its target, which is a naked string, a quoted string or a
+variable. A naked target that starts with a digit ([1m>123.txt[0m) is not a target,
+except for a load: [3m$a[0m <5 loads the file [1m5[0m and warns at compile time. Write
+[3m$a[0m < 5 to compare.
+
+| Form | Meaning |
+|---|---|
+| STMT >[34mfile[0m | [1mOutput redirection[0m: bind [3m$*OUT[0m to [1mfile[0m (truncated) for this statement only. |
+| STMT >>[34mfile[0m | The same, but appending. |
+| <[34mfile[0m STMT | [1mInput redirection[0m: bind [3m$*IN[0m to [1mfile[0m for this statement only. |
+| LVALUE <[34mfile[0m | [1mLoad[0m: decode [1mfile[0m and assign it to the left-hand side. |
+| [1m<file[0m (on its own) | Load into [3m$_[0m. |
+
+    [36msay[0m [33mfoo[0m >[34mout.txt[0m              [2m# "foo\n"[0m
+    [36mprint[0m [33mfoo[0m >[34mout.txt[0m            [2m# "foo": the routine keeps its own behaviour[0m
+    [36mprint[0m 'a', 'b' >>[34mlog.txt[0m
+    [36mnote[0m [33moops[0m >[34mx.txt[0m              [2m# stderr is not captured; x.txt is empty[0m
+    [1;35mfor[0m 1..3 { [36msay[0m [3m$_[0m >>[34mn.txt[0m }   [2m# the outer $_ is visible[0m
+    <[34min.txt[0m [36msay[0m [3m$*IN[0m->slurp
+    <[34min.txt[0m [3m$n[0m = [3m$*IN[0m->lines->elems
+
+- The binding ends with the statement. The file is flushed and closed afterwards,
+  even when the statement throws.
+- An unwritable target or a missing input file throws an error that names the file.
+
+[1mFormats (`.json`, `.jsonl`, case-insensitive)[0m
+
+A target's extension picks its [1mformat[0m. Any other extension is plain text. With
+[1m>$var[0m, the format is chosen at run time.
+
+[1mValue mode[0m: the statement prints nothing, so its value is encoded.
+
+    [3m@a[0m >[34ma.json[0m          [2m# pretty JSON: 2-space indent, sorted keys, trailing \n[0m
+    [3m%h[0m >[34mh.json[0m
+    [3m$x[0m >[34mx.json[0m          [2m# "hi"[0m
+    1/3 >[34mr.json[0m         [2m# 0.3333333333333333[0m
+    [3m@a[0m >[34ma.jsonl[0m         [2m# one compact record per element[0m
+    [3m%r[0m >>[34mr.jsonl[0m        [2m# appends one record[0m
+    [3m$x[0m >[34mx.txt[0m           [2m# plain target + no output = empty file[0m
+
+[1mText mode[0m: the statement prints, so the printed text must be JSON. It is then
+re-encoded in standard form. Relaxed input (unquoted keys, single quotes, trailing
+commas) is accepted.
+
+    [36mprint[0m q[{ a: 'a', }] >[34mt.json[0m   [2m# {\n  "a": "a"\n}\n[0m
+    [36msay[0m [3m@a[0m >[34mt.json[0m                 [2m# dies: the gist "[1 2 3]" is not JSON[0m
+
+[1mLoad[0m:
+
+    [1;35mmy[0m [3m@a[0m <[34ma.json[0m        [2m# needs a JSON array[0m
+    [1;35mmy[0m [3m%h[0m <[34mh.json[0m        [2m# needs a JSON object[0m
+    [1;35mmy[0m [3m$x[0m <[34many.json[0m      [2m# takes anything[0m
+    [3m%h[0m<data> <[34ma.json[0m     [2m# any lvalue works[0m
+    [1;35mmy[0m [3m@l[0m <[34mf.txt[0m         [2m# plain text: lines[0m
+    [1;35mmy[0m [3m$s[0m <[34mf.txt[0m         [2m# plain text: the whole string[0m
+    [1;35mmy[0m [3m@r[0m <[34mr.jsonl[0m       [2m# array of records ($ gives the same array)[0m
+    <[34mdata.json[0m; [36msay[0m .users.1.name
+
+[1mErrors[0m (all are [1mX::Rak::Format[0m):
+
+| Exception | Cause |
+|---|---|
+| [1mX::Rak::Format::Encode[0m | The value has no JSON form ([1mSet[0m, [1mInf[0m, …). The target is left untouched. |
+| [1mX::Rak::Format::Decode[0m | Bad JSON. The message names the file and the line, and the target is left untouched. |
+| [1mX::Rak::Format::Shape[0m | Wrong sigil for the content, e.g. [1;35mmy[0m [3m%h[0m <[34marray.json[0m. |
+| [1mX::Rak::Format[0m | [1m>>file.json[0m. Appending JSON is refused; use [1m.jsonl[0m. |
+
+[1mURL targets (`http://`, `https://`)[0m
+
+A load from a URL is a GET, and [1m>url[0m is a POST of JSON. A naked URL
+interpolates [3m$name[0m; anything more complex goes in double quotes.
+
+    [1;35mmy[0m [3m%u[0m <[34mhttps://api.github.com/users/$user[0m    [2m# GET, JSON by Content-Type[0m
+    <[34mhttps://api.github.com/repos/rakudo/rakudo[0m; [36msay[0m .stargazers_count
+    [1;35mmy[0m [3m%r[0m <[34m"https://api.github.com/{$path}?per_page=5"[0m
+    [1;35mmy[0m [3m%i[0m = title => 'Test'
+    [3m%i[0m >[34mhttps://api.github.com/repos/OWNER/REPO/issues[0m   [2m# POST; value: the new issue[0m
+    echo '{"body": "hi"}' >https://…/comments           [2m# a command's output, POSTed[0m
+
+- The response's media type picks the format: [1mapplication/json[0m or any [1m+json[0m is
+  JSON; anything else is text. An empty response ([1m204[0m) gives [1mNil[0m.
+- The statement's value is the decoded response, not the value sent (ADR 0005).
+- [1m>>url[0m, <[34murl[0m STMT, [1m2>url[0m are compile-time errors.
+- A load may drop [1mhttps://[0m (a bare host) when the host
+  ends in a TLD and has three labels or a [1m/[0m after it: [1m<api.github.com/zen[0m,
+  [1;35mmy[0m [3m%r[0m <[34mgithub.com/rakudo[0m. [1m<README.md[0m, [1m<example.com[0m, [1m<'a.b.com'[0m and
+  [1m<./api.github.com[0m are files; so is any [1m>[0m target.
+- A 4xx or 5xx response, or a failed connection, throws [1mX::Rak::HTTP[0m
+  ([1m.status[0m, [1m.reason[0m: the JSON [1mmessage[0m, or the first line of the body).
+- Headers come from [34m~/.config/rak/http-headers.json[0m (relaxed JSON), keyed by host.
+  A value [3m$NAME[0m is that environment variable; [1mauth:[0m means [1mAuthorization: Bearer[0m.
+  With nothing configured, [1mapi.github.com[0m uses [1;32mgh[0m auth token.
+
+    // ~/.config/rak/http-headers.json
+    { 'api.github.com': { auth: '$GITHUB_TOKEN', 'X-GitHub-Api-Version': '2022-11-28' } }
+
+Requests go through [1mcurl[0m; without it, through [1mHTTP::UserAgent[0m (Rakudo Star).
+
+[1;4mirak (the REPL)[0m
+
+    $ ./rak
+    Welcome to irak, the rak shell.
+    [0] > {a => 1, b => [5, 6]}
+    [1] > .b               [2m# $_ is the previous value[0m
+    [5 6]
+    [2] > .1
+    6
+    [3] > ->succ
+    7
+    [4] > <[34mdata.json[0m       [2m# loads into $_ for the next line[0m
+
+ENTER twice runs a line. The first ENTER shows how irak reads it:
+
+- it inserts [1mmy[0m before the first use of an undeclared variable ([3m$x[0m = 1
+  becomes [1;35mmy[0m [3m$x[0m = 1), except in a string or for a likely typo;
+- it colors each word: keyword, routine, command, naked string, or undeclared.
+
+A second ENTER on the same line within a second runs it. An empty or unfinished line,
+[1m!n[0m, and input that is not a terminal run on the first ENTER. [1mNO_COLOR[0m turns the
+colors off.
+
+[3m$_[0m holds the value of the previous submission. A submission that fails, returns
+[1mNil[0m or prints output leaves [3m$_[0m unchanged. So does one starting with [1m- [0m: the
+prefix is dropped, the value shown, and [3m$_[0m kept, to look around in it.
+
+    [0] > { a => { b => 42 }, c => 7 }
+    [1] > - .a          [2m# {b => 42}; $_ is still the hash[0m
+    [2] > - .a.b        [2m# 42[0m
+    [3] > .c            [2m# 7, and now $_ is 7[0m
+
+Recalling submissions (only when the directive is the whole line; n is the
+prompt number, the last 1000 are kept):
+
+| Input | Effect |
+|---|---|
+| [1m!n[0m ENTER | re-runs submission n |
+| [1m!n[0m TAB | puts submission n's source in the edit buffer |
+| [1m!!n[0m | sets [3m$_[0m to submission n's value |
+| ↑ / ↓ | history, stops at both ends |
+| [1m!p[0m | pages the last output again |
+
+Output longer than 5 lines (or the terminal) goes to a pager, [1;32mless[0m -R unless
+[1mRAK_PAGER[0m or [1mPAGER[0m says otherwise; an empty [1mRAK_PAGER[0m turns paging off.
+When the pager quits, a summary stays: format, lines and size, then the start of
+the first line. Errors, [3m$*ERR[0m and external commands are never paged.
+
+[1;4mCommands[0m
+
+A statement whose first word is followed by more words runs a command; so does a
+lone word naming a program on [3m$PATH[0m.
+
+    [1;32mls[0m -l [3m@files[0m "my file" {1+1}   [2m# external command; @files gives one argument each[0m
+    [1;32m^sort[0m data.txt                 [2m# ^ forces the external command over rak's sort[0m
+    [1;35mmy[0m [3m$out[0m = [33mls[0m                   [2m# $out and $_ set to 'ls'[0m
+    [1;35mmy[0m [3m$out[0m = ([1;32mls[0m)                 [2m# value used: standard output of ls command captured as a Str[0m
+    ~([1;32mpwd[0m)                         [2m# same, in a contextualizer[0m
+    [36msay[0m $? == 0, $?->exitcode      [2m# $? is the last exit status, a Proc[0m
+    make 2>err >out >>log <in 2>&1 [2m# redirections, touching their target[0m
+
+In arguments, a leading [1m/[0m starts a naked path and [1mm/[0m starts a regex; write
+[34m./m/x[0m for a relative path named [1mm/…[0m.
+
+Builtins:
+
+| Builtin     | Effect                                             |
+|-------------|----------------------------------------------------|
+| [1;32mcd[0m dir      | change [3m$*CWD[0m and the process directory             |
+| [1mcd[0m          | go to [3m$*HOME[0m                                       |
+| [1;32mcd[0m -        | go back to the previous directory                  |
+| [1;32mtype[0m name   | list every meaning of [1mname[0m, marking the one that wins   |
+
+A non-zero exit status fails a [1m.rak[0m file; irak shows it.
+
+[1;4mPipelines[0m
+
+A statement that starts with a command, a load ([1m<file[0m) or a leading dotty
+subscript is a pipeline when a spaced [1m|[0m follows. Commands and rak stages mix.
+
+    [1;32m^printf[0m 'b\na\nb\n' | [1;32m^sort[0m | [1;32m^uniq[0m -c   [2m# commands: a Unix pipe[0m
+    [1;32mgit[0m log --format=%an | ->unique         [2m# a command's output is a Seq of lines[0m
+    <[34mdata.json[0m | .users | [36mmap[0m *.name;       [2m# rak stages only, as in jq[0m
+    [1;32mcurl[0m -s [3m$url[0m | from-json | .items;      [2m# decode: from-json, from-jsonl[0m
+    [1;32mcurl[0m -s [3m$url[0m | .                        [2m# show as indented JSON, like jq .[0m
+    .users | [1;32m^wc[0m -l                         [2m# values to a command: one line each,[0m
+                                            [2m#   hashes as JSON Lines[0m
+    [36msay[0m +$?, +@?                            [2m# first failure (else last); every command[0m
+
+| Stage | Gets the input as |
+|---|---|
+| command | standard input |
+| [1m->meth args[0m | [1minput.meth(args)[0m |
+| [1m.path[0m | [1minput.path[0m |
+| [1m{ block }[0m | [3m$_[0m |
+| [1mname args[0m | the last argument, as with [1m==>[0m |
+| [1m.[0m | shown as JSON |
+
+A lone [1m.[0m is the formatter: on its own it shows the topic [3m$_[0m as indented JSON,
+colored on a terminal. Text input is read as JSON, else as rak data literals
+([1m{ :a, b => 1 }[0m), else as one string.
+
+In irak, a load that decodes JSON shows its value the same way, so
+[1m<api.github.com/users/octocat[0m needs no [1m.[0m after it.
+
+Each stage gets the whole input, not one value at a time: use [1mmap[0m for that.
+
+[1;4mGotchas[0m
+
+- [1m.5[0m is [1m$_[5][0m, not a number. Write [1m0.5[0m.
+- [1m<a b>[0m word lists work at the top level ([1;35mmy[0m [3m@x[0m = <a b c>), but fail to
+  compile inside [1m(…)[0m or [1m[…][0m with "Unexpected closing bracket":
+  [1m[<a b>, <c d>][0m breaks. Use [1mqw[0m or quotes there.
+- [1mfoo[0m is a string until [1msub foo[0m has been parsed. Declare routines before you
+  call them without parentheses, or call them with [1mfoo(…)[0m.
+- [1m.meth[0m without parentheses is now a subscript. When porting Raku, change it to
+  [1m->meth[0m.
+- [1m.$meth[0m and [1m.&f[0m are errors. When porting Raku, change them to [1m->$meth[0m and
+  [1m->&f[0m.
+- [3m@names[0m | ^[36msort[0m is a junction, not a pipeline: only a command, a load or a
+  leading dotty starts one. Write [3m$_[0m = [3m@names[0m; .[] | [1;32m^sort[0m.
+- In a pipeline a spaced [1m|[0m is the pipe. For a junction there, write it
+  unspaced ([1m1|2[0m) or in parentheses ([1m(1 | 2)[0m). [1many(1, 2)[0m as a stage gets the
+  input as its last argument.
+- [36mmap[0m .name calls [1m.name[0m on [3m$_[0m right away. Write [36mmap[0m *.name or
+  [36mmap[0m { .name }.
+- A pipeline ending in a rak stage needs its [1m;[0m at the end of the line, like any
+  rak statement; only a command ends at the newline.
+
+[1;4mPlanned, not implemented[0m
+
+Planned in [1mPLANS/[0m, not available yet: [1malias[0m,
+globbing, indentation in place of braces, sigilless
+one-letter variables ([1mi[0m, [1ms[0m, …), a [1m^[0m sigil for native [1mnum[0m (unsettled), YAML and myaml data
+pattern matching, [1mhas ~.x[0m / [1mhas #.x[0m attributes, and [1m#n.WHAT[0m autoboxing.

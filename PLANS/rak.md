@@ -7,8 +7,8 @@ variables. Where Perl excelled at matching patterns in strings, rak also aims to
 patterns in data structures.
 
 rak is enabled by the `.rak` file extension, or by running the `./rak` wrapper with no
-file (see the [cheat sheet](../CHEATSHEET.md#turning-it-on), which also lists the
-[environment variables](../CHEATSHEET.md#environment-variables)). A `.raku` file keeps
+file (see the [cheat sheet](docs/CHEATSHEET.md#turning-it-on), which also lists the
+[environment variables](docs/CHEATSHEET.md#environment-variables)). A `.raku` file keeps
 standard Raku semantics. Using rak interactively, in [irak](features/irak.md), is a good
 way to learn it.
 

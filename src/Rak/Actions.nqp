@@ -884,7 +884,10 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
                 # Really has errors, so report them.
                 $exception.throw;
             }
-            else {
+            elsif !%*COMPILING<%?OPTIONS><no-worries> {
+                # irak feedback (REPL.rakumod) compiles a submission
+                # without running it and passes :no-worries, so that the
+                # worries do not garble the line being edited.
                 # Only potential difficulties, just print them. The gist of
                 # the group is setting code, which cannot run yet while the
                 # setting itself compiles, so fall back to a plain rendering.
@@ -2090,13 +2093,13 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
 
     method redir-naked-filename($/) {
         self.attach: $/, Nodify('QuotedString').new(
-            segments => [Nodify('StrLiteral').new(~$/)]
+            segments => [Nodify('StrLiteral').new($*LITERALS.intern-Str(~$/))]
         )
     }
 
     method redir-quoted-filename($/) {
         self.attach: $/, Nodify('QuotedString').new(
-            segments => [Nodify('StrLiteral').new(~$/[0])]
+            segments => [Nodify('StrLiteral').new($*LITERALS.intern-Str(~$/[0]))]
         )
     }
 

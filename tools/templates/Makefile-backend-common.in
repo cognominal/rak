@@ -151,7 +151,7 @@
 
 @backend_prefix@-all:: @bpm(RAK_LINE_EDITOR)@
 
-@bpm(RAK_LINE_EDITOR)@: @nfp(tools/build/rak-line-editor-dists)@ @bpm(RUNNER)@@for_specs( @bsm(SETTING_@ucspec@)@)@
+@bpm(RAK_LINE_EDITOR)@: @nfp(tools/build/rak-line-editor-dists)@ @nfp(tools/build/rak-line-editor-patches/Terminal-LineEditor-0.0.23.patch)@ @bpm(RUNNER)@@for_specs( @bsm(SETTING_@ucspec@)@)@
 	$(NOECHO)$(PERL5) @shquot(@script(rak-line-editor.pl)@)@ @nfpq(tools/build/rak-line-editor-dists)@ @nfpq(@base_dir@/gen/rak-dists)@
 	$(NOECHO)@nfpq($(BASE_DIR)/@bpm(RUNNER)@)@ @bpm(RUNNER_OPTS)@ @shquot(@script(install-rak-line-editor.raku)@)@ @nfpq(tools/build/rak-line-editor-dists)@ @nfpq(@base_dir@/gen/rak-dists)@ @nfpq(@base_dir@/gen/build_rakudo_home/vendor)@ @nfpq(@bpm(RAK_LINE_EDITOR)@)@
 
