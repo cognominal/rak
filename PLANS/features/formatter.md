@@ -28,6 +28,10 @@ its input as indented JSON, as `jq .` does. Until now a lone `.` was a syntax er
 - **Printing or returning.** At statement level `.` prints, as an external command does,
   so the [irak topic](../../GLOSSARY.md#irak-topic) stays the value being looked at. When
   its value is used (`my $s = .`, `. >x.json`) it returns the JSON text, uncolored.
+- **JSON loads in irak.** A submission whose value is what a load just decoded from
+  JSON (`<api.github.com/…` answering JSON, `<a.json`) shows that value as `.` would,
+  colors included, and it still becomes the topic. A load into a variable
+  (`my %h <a.json`) and a load without a format show as before.
 - **Colors.** Only on a terminal, with `jq`'s default palette (keys blue, strings green,
   null gray). No setting until someone asks for one.
 - **Layout.** Indented by 2, like the `.json` encoder. Keys of a Hash are sorted; keys of

@@ -390,6 +390,9 @@ A lone `.` is the formatter: on its own it shows the topic `$_` as indented JSON
 colored on a terminal. Text input is read as JSON, else as rak data literals
 (`{ :a, b => 1 }`), else as one string.
 
+In irak, a load that decodes JSON shows its value the same way, so
+`<api.github.com/users/octocat` needs no `.` after it.
+
 Each stage gets the whole input, not one value at a time: use `map` for that.
 
 ## Gotchas

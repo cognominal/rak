@@ -22,6 +22,7 @@ here, because they go stale.
 | Pipelines: commands and rak stages, `$?` pipefail, `@?` | [pipelines](features/pipelines.md) | `t/16-pipelines/rak/` |
 | The formatter, a lone `.` | [formatter](features/formatter.md) | `t/16-pipelines/rak/006-*`, `007-*` |
 | irak paging, `!p` | [paging](features/paging.md) | `t/02-rakudo/rak/022-*` |
+| irak shows JSON loads as `.` does | [formatter](features/formatter.md) | `t/02-rakudo/rak/024-*` |
 | irak `- ` keeps the topic | [irak](features/irak.md) | `t/02-rakudo/rak/023-*` |
 | One-pass CORE setting, `#COMPILER::` directives | [one-pass compilation](build/onepass-compile.md) | the build itself |
 

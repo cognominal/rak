@@ -787,6 +787,7 @@ do {
                 $stopped = 0;
                 my $initial_out_position = $*OUT.tell;
                 my $status-before := RAK-STATUS();
+                my $loaded-before := RAK-LOADED();
 
                 # An undef $newcode implies ^D or similar
                 if !$newcode.defined {
@@ -920,6 +921,20 @@ do {
                     $format = 'JSON';
                     my $*OUT = $page // $tty;
                     $output.show;
+                }
+                elsif irak() && $initial_out_position == $*OUT.tell
+                  && !($page && $page.wrote)
+                  && nqp::not_i(nqp::eqaddr(RAK-LOADED(), $loaded-before))
+                  && nqp::eqaddr($output<>, RAK-LOADED()) {
+                    # a load of JSON shows it as the formatter does
+                    $format = 'JSON';
+                    {
+                        my $*OUT = $page // $tty;
+                        print Rakudo::Internals::RakFormat.format(
+                          $output<>, :color(?(try $*OUT.t))) ~ "\n";
+                    }
+                    $previous-evals.push: $output<>;
+                    self!set-irak-topic($output<>) unless $keep-topic;
                 }
                 elsif nqp::istype($output, Failure) and not $output.handled {
                     .end with $page;

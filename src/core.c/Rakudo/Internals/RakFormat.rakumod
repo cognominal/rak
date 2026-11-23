@@ -882,6 +882,11 @@ sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code) is implementation-detail
     }
 }
 
+# The last value a load decoded from JSON. irak shows a submission whose value
+# it is the way the formatter does (PLANS/features/formatter.md).
+my $RAK-LOADED;
+sub RAK-LOADED() is raw is implementation-detail { $RAK-LOADED }
+
 # Load, `LVALUE <target`: the target's content, for assignment to LVALUE. A
 # target with a format is decoded and must have the shape the sigil asks for
 # (@ an array, % an object, ~ a string, # an integer, $ anything). A target
@@ -926,6 +931,7 @@ sub RAK-LOAD(Str() $target, Str:D $sigil, Str:D $name) is raw is implementation-
           :reason("expected $expected for $name, found $found")
         ).throw unless $found eq $expected;
     }
+    $RAK-LOADED := value if $format;
     $sigil eq '@' || $sigil eq '%' ?? value<> !! value
 }
 

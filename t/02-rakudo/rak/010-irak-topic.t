@@ -23,6 +23,7 @@ sub session(@submissions, :$irak = True) {
         %env<RAKUDO_RAKUAST> = 1;
     }
     %env<RAKUDO_LINE_EDITOR> = 'none';
+    %env<RAK_PAGER>          = '';    # output longer than 5 lines would page
     my $cmd  = "'{$*EXECUTABLE.absolute}'";
     my $proc = run $script, '-qec', $cmd, '/dev/null', :in, :out, :err, :%env;
     $proc.in.spurt: @submissions.join("\n") ~ "\n", :close;
