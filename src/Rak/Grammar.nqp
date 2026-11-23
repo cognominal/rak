@@ -4165,11 +4165,13 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     # method on the topic, as `.name` does in Raku. It stays a pointy block
     # when the word is followed by what can only start a signature's
     # parameter or the block: `->Int $x { }`, `->Str ~s { }`, `->Foo { }`.
+    # A `#` followed by a space is a comment, not the `#` sigil.
     token term:sym<rak-topic-method> {
         <?{ $*RAK-SEMANTICS }>
         '->'
         <?before <.identifier>>
-        <!before <.identifier> [ '::' <.identifier> ]* \s* <[$@%&~#\{|*\\:]>>
+        <!before <.identifier> [ '::' <.identifier> ]* \s*
+          [ <[$@%&~\{|*\\:]> | '#' <!before \s> ]>
         <methodop(Mu)>
     }
 
