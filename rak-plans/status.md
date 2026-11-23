@@ -23,6 +23,7 @@ here, because they go stale.
 | The formatter, a lone `.` | [formatter](features/formatter.md) | `t/16-pipelines/rak/006-*`, `007-*` |
 | irak paging, `!p` | [paging](features/paging.md) | `t/02-rakudo/rak/022-*` |
 | irak shows JSON loads as `.` does | [formatter](features/formatter.md) | `t/02-rakudo/rak/024-*` |
+| irak's web log, `@*IWEB` | [URL targets](features/url-targets.md) | `t/02-rakudo/rak/025-*` |
 | irak `- ` keeps the topic | [irak](features/irak.md) | `t/02-rakudo/rak/023-*` |
 | irak highlights the input line, a terminal cheat sheet | [highlight](highlight.md) | `t/02-rakudo/rak/026-*`, `027-*` |
 | One-pass CORE setting, `#COMPILER::` directives | [one-pass compilation](build/onepass-compile.md) | the build itself |

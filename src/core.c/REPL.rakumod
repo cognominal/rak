@@ -850,6 +850,37 @@ do {
         # irak topic: after a submission whose value is shown, $_ holds that
         # value, so the next submission can reach into it with a leading
         # dotty subscript. Assigns into the $_ the REPL's saved context sees.
+        # The web log, @*IWEB: the requests a submission made, each with
+        # the submission's number, source and value. It keeps the last 100,
+        # or fewer when their JSON would exceed 10 MB.
+        has @!iweb-size;
+        method !log-web(Int:D $idx, Str:D $subm, Mu $output, $exception --> Nil) {
+            my @taken = RAK-WEB-TAKE();
+            return unless @taken;
+            my $log := PROCESS::<@IWEB>;
+            sub size(%e) {
+                (try Rakudo::Internals::JSON.to-json(%e).encode.bytes) // %e.gist.encode.bytes
+            }
+            # the log was changed by hand: measure it again
+            @!iweb-size = $log.map({ size($_) }) if @!iweb-size.elems != $log.elems;
+            my $res := $exception.DEFINITE
+              ?? $exception.message
+              !! nqp::istype($output, Failure)
+                ?? $output.exception.message
+                !! (try Rakudo::Internals::RakFormat.format($output<>, :!color))
+                     // $output.gist;
+            for @taken -> %request {
+                my %e = %request, :$idx, :$subm, :$res;
+                $log.push: %e;
+                @!iweb-size.push: size(%e);
+            }
+            while $log.elems > 100
+              || ($log.elems > 1 && @!iweb-size.sum > 10_000_000) {
+                $log.shift;
+                @!iweb-size.shift;
+            }
+        }
+
         method !set-irak-topic(Mu $value --> Nil) {
             my $ctx := $!save_ctx;
             until nqp::isnull($ctx) || nqp::not_i(nqp::isconcrete($ctx)) {
@@ -1149,6 +1180,11 @@ do {
             }
             reset;
 
+            if irak() {
+                RAK-WEB-ON();
+                PROCESS::<@IWEB> := [];
+            }
+
             REPL: loop {
                 # Why doesn't the catch-default in repl-eval catch all?
                 CATCH {
@@ -1233,6 +1269,7 @@ do {
 
                 my $*CTXSAVE := self;
                 my $*MAIN_CTX;
+                RAK-WEB-TAKE();    # requests of an aborted submission
 
                 # irak holds what the submission prints, to page it.
                 my $tty  := $*OUT;
@@ -1275,6 +1312,7 @@ do {
                     my $n = $previous-evals.elems;
                     %!irak-sources{$n} = ($keep-topic ?? '- ' !! '') ~ $code.chomp;
                     %!irak-sources{$n - IRAK-KEEP}:delete;
+                    self!log-web($n, %!irak-sources{$n}, $output, $exception);
                 }
 
                 # Print the result if:

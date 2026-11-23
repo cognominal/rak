@@ -85,6 +85,31 @@ not create `~/.config/rak/`. The file will move to YAML once rak reads YAML.
   records the requests. Bare hosts are in `015-bare-host.rak`, which points curl at an
   unreachable proxy and checks the URL in the error.
 
+## The web log, `@*IWEB`
+
+In irak, `@*IWEB` ("irak web") logs the recent HTTP requests of URL targets: loads
+(`<https://…`, `<api.github.com/…`) and POST redirections (`> https://…`). Each element
+is one request, newest last: `@*IWEB[*-1]` is the last one, and `@*IWEB[*-1].out` its
+response headers. A submission that makes two requests adds two elements. An element is
+a hash with these keys:
+
+- `idx`: the number of the submission that made the request, as in its prompt `[n]`,
+  so `@*IWEB->grep({ .idx == 5 })` gives submission 5's requests.
+- `subm`: that submission's source.
+- `url`, `method` (`GET` or `POST`) and `status`: the status is the final one, after
+  redirects; it is undefined when the connection failed.
+- `in`: the request's headers, as name → value. `Authorization`, `Cookie` and headers
+  whose name contains `token`, `key` or `secret` show `***`.
+- `out`: the response's headers, as name → value, from the final response; repeated
+  headers are joined with `, `, and `Set-Cookie` shows `***`.
+- `body`: the response, decoded as a load decodes it: JSON by its media type, else text.
+- `res`: the submission's value, as the formatter writes it, without colors. It will be
+  YAML once rak writes YAML. When the submission fails, it is the error's message.
+
+A failed request is logged too. The log keeps the last 100 requests, or fewer when their
+JSON would exceed 10 MB: the oldest are dropped until both limits hold. A single request
+over 10 MB is kept alone. `.rak` files keep no log.
+
 ## Open questions
 
 - **Which HTTP method.** Nothing yet spells PATCH, PUT, or DELETE.

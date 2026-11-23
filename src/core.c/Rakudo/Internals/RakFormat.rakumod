@@ -644,6 +644,17 @@ my class X::Rak::HTTP is Exception {
 
 my int $RAK-HTTP-SEQ;
 
+# irak's web log (@*IWEB): while on, each request is kept here until the
+# REPL takes it, at the end of the submission, and adds what only it knows.
+my $RAK-WEB-ON;
+my $RAK-WEB := IterationBuffer.new;
+sub RAK-WEB-ON(--> Nil) is implementation-detail { $RAK-WEB-ON := True }
+sub RAK-WEB-TAKE() is implementation-detail {
+    my $taken := $RAK-WEB.List;
+    $RAK-WEB := IterationBuffer.new;
+    $taken
+}
+
 my class Rakudo::Internals::RakHTTP is implementation-detail {
 
     method is-url(Str:D $target) {
@@ -730,12 +741,43 @@ my class Rakudo::Internals::RakHTTP is implementation-detail {
     method request(Str:D $method, Str:D $url, Str $body?) {
         my @headers = self.headers($url);
         @headers.push: 'Content-Type' => 'application/json' if $body.defined;
-        my ($status, $type, $content) = self.which('curl')
-          ?? self!curl($url, @headers, $body)
-          !! self!user-agent($method, $url, @headers, $body);
-        X::Rak::HTTP.new(:$url, :$status, :reason(self!reason($type, $content, $status))).throw
-          if $status >= 400;
+        my %out;
+        my ($status, $type, $content);
+        {
+            CATCH {
+                default {
+                    self!log($method, $url, @headers, %out, $status, $type, $content)
+                      if $RAK-WEB-ON;
+                    .rethrow
+                }
+            }
+            ($status, $type, $content) = self.which('curl')
+              ?? self!curl($url, @headers, $body, %out)
+              !! self!user-agent($method, $url, @headers, $body, %out);
+            X::Rak::HTTP.new(:$url, :$status, :reason(self!reason($type, $content, $status))).throw
+              if $status >= 400;
+        }
+        self!log($method, $url, @headers, %out, $status, $type, $content) if $RAK-WEB-ON;
         ($status, $type, $content)
+    }
+
+    # A header that may carry a secret, hidden in the web log.
+    method !secret(Str:D $name) {
+        my $lc := $name.lc;
+        $lc eq 'authorization' | 'proxy-authorization' | 'cookie' | 'set-cookie'
+          || $lc.contains('token') || $lc.contains('key') || $lc.contains('secret')
+    }
+
+    method !log($method, $url, @in, %out, $status, $type, $content --> Nil) {
+        my %in;
+        for @in { %in{.key} = self!secret(.key) ?? '***' !! ~.value }
+        my %o = %out.map({ .key => (self!secret(.key) ?? '***' !! .value) });
+        my $body := $type.defined && $content.defined
+          ?? (try self.value($url, $type, $content)) // $content
+          !! Nil;
+        $RAK-WEB.push: {
+          :$url, :$method, :status($status // Int), :%in, :out(%o), :$body
+        };
     }
 
     # The server's message: a JSON body's `message`, else the first line.
@@ -762,7 +804,7 @@ my class Rakudo::Internals::RakHTTP is implementation-detail {
 
     # curl reads its options from standard input, so the URL and the
     # headers (tokens) never appear in a process listing.
-    method !curl(Str:D $url, @headers, $body) {
+    method !curl(Str:D $url, @headers, $body, %out) {
         sub q(Str() $s) {
             '"' ~ $s.subst('\\', '\\\\', :g).subst('"', '\\"', :g)
                     .subst("\n", '\\n', :g).subst("\r", '\\r', :g) ~ '"'
@@ -770,8 +812,10 @@ my class Rakudo::Internals::RakHTTP is implementation-detail {
         my $seq  := ++$RAK-HTTP-SEQ;
         my $out  := $*TMPDIR.add("rak-http-$*PID-$seq.out");
         my $in   := $*TMPDIR.add("rak-http-$*PID-$seq.in");
-        LEAVE { $out.unlink if $out.e; $in.unlink if $in.e }
+        my $hdr  := $*TMPDIR.add("rak-http-$*PID-$seq.hdr");
+        LEAVE { .unlink if .e for $out, $in, $hdr }
         my @config = "url = {q $url}", "output = {q $out}",
+          "dump-header = {q $hdr}",
           'silent', 'show-error', 'location',
           'write-out = "%{http_code}\n%{content_type}"';
         @config.push: "header = {q "{.key}: {.value}"}" for @headers;
@@ -792,12 +836,21 @@ my class Rakudo::Internals::RakHTTP is implementation-detail {
               if $err.starts-with('curl: (') && $err.contains(') ');
             X::Rak::HTTP.new(:$url, :reason($err || "curl failed with exit code $code")).throw;
         }
+        # The headers of the last response: a redirect dumps one block each.
+        if $hdr.e {
+            my @block;
+            for $hdr.slurp.lines {
+                if .starts-with('HTTP/') { @block = () }
+                elsif .contains(':') { @block.push: .substr(0, .index(':')) => .substr(.index(':') + 1).trim }
+            }
+            for @block { %out{.key} = %out{.key}:exists ?? "%out{.key}, {.value}" !! .value }
+        }
         my @meta = $meta.lines;
         (@meta[0].Int, @meta[1] // '', $out.e ?? $out.slurp !! '')
     }
 
     # Without curl: HTTP::UserAgent, if it is installed.
-    method !user-agent(Str:D $method, Str:D $url, @headers, $body) {
+    method !user-agent(Str:D $method, Str:D $url, @headers, $body, %out) {
         sub need(Str:D $name) {
             my $unit := $*REPO.need(CompUnit::DependencySpecification.new(:short-name($name)));
             $unit.handle.globalish-package.AT-KEY('HTTP').WHO.AT-KEY($name.substr(6))
@@ -812,6 +865,7 @@ my class Rakudo::Internals::RakHTTP is implementation-detail {
         $req.add-content($body) if $body.defined;
         my $res := try UA.new(:useragent<rak>, :!throw-exceptions).request($req);
         X::Rak::HTTP.new(:$url, :reason(~($! // 'no response'))).throw unless $res.defined;
+        for $res.header.hash.kv -> $name, $value { %out{$name} = $value.join(', ') }
         ($res.code.Int, ~($res.content-type // ''), ~($res.decoded-content // ''))
     }
 }
