@@ -2,7 +2,9 @@ use v6.e.PREVIEW;
 use Test;
 use nqp;
 
-plan 40; # Do not change this file to done-testing because of END block tests
+plan 41; # Do not change this file to done-testing because of END block tests
+
+my $rakuast := nqp::gethllsym('Raku', 'COMPILER-FRONTEND') eq 'rakuast';
 
 my $ast;
 my $deparsed;
@@ -140,9 +142,7 @@ subtest 'CONTROL phaser catching a warning' => {
                   name => RakuAST::Name.from-identifier("isa-ok"),
                   args => RakuAST::ArgList.new(
                     RakuAST::Var::Lexical.new('$_'),
-                    RakuAST::Type::Simple.new(
-                      RakuAST::Name.from-identifier-parts('CX', 'Warn')
-                    )
+                    RakuAST::Type::Simple.from-identifier-parts('CX', 'Warn')
                   )
                 )
               ),
@@ -201,9 +201,7 @@ subtest 'CATCH phaser catching an exception' => {
                   name => RakuAST::Name.from-identifier("isa-ok"),
                   args => RakuAST::ArgList.new(
                     RakuAST::Var::Lexical.new('$_'),
-                    RakuAST::Type::Simple.new(
-                      RakuAST::Name.from-identifier-parts('X', 'AdHoc')
-                    )
+                    RakuAST::Type::Simple.from-identifier-parts('X', 'AdHoc')
                   )
                 )
               ),
@@ -715,9 +713,7 @@ subtest 'KEEP / UNDO phaser thunk UNsuccessful exit' => {
             )
           ),
           RakuAST::Statement::Expression.new(
-            expression => RakuAST::Type::Simple.new(
-              RakuAST::Name.from-identifier("Int")
-            )
+            expression => RakuAST::Type::Simple.from-identifier("Int")
           )
         )
       )
@@ -790,9 +786,7 @@ subtest 'KEEP / UNDO phaser block UNsuccessful exit' => {
             )
           ),
           RakuAST::Statement::Expression.new(
-            expression => RakuAST::Type::Simple.new(
-              RakuAST::Name.from-identifier("Int")
-            )
+            expression => RakuAST::Type::Simple.from-identifier("Int")
           )
         )
       )
@@ -990,7 +984,7 @@ CODE
     }
 }
 
-todo("Depends on Raku grammar/actions") unless %*ENV<RAKUDO_RAKUAST>;
+todo("Depends on Raku grammar/actions") unless $rakuast;
 subtest 'While loop with FIRST phaser block and return value' => {
     my $run;
     my $guard = True;
@@ -1068,7 +1062,7 @@ CODE
     }
 }
 
-todo("Depends on Raku grammar/actions") unless %*ENV<RAKUDO_RAKUAST>;
+todo("Depends on Raku grammar/actions") unless $rakuast;
 subtest 'Subroutine with FIRST phaser block and return value' => {
     my $run;
     my $guard;
@@ -1711,6 +1705,35 @@ subtest 'ENTER phaser subclass added to a scope outside a parse' => {
       'block with two subclass ENTER phasers returns its value';
     is-deeply @ran, [<first second>],
       'each subclass phaser meta-object was called';
+}
+
+# This holds whichever block declares the code, and guards what it keeps.
+subtest 'ENTER phaser subclass with a statement added to a scope outside a parse' => {
+    plan 2;
+
+    my class MyEnter is RakuAST::StatementPrefix::Phaser::Enter {
+        has $.code is rw;
+        method meta-object() { $!code }
+    }
+    my @ran;
+    my $block = RakuAST::Block.new(
+      body => RakuAST::Blockoid.new(
+        RakuAST::StatementList.new(
+          RakuAST::Statement::Expression.new(
+            expression => RakuAST::IntLiteral.new(42)
+          )
+        )
+      )
+    );
+    my $phaser = MyEnter.new(
+      RakuAST::Statement::Expression.new(expression => RakuAST::IntLiteral.new(1))
+    );
+    $phaser.code = { @ran.push('ran') };
+    $block.add-enter-phaser($phaser);
+    is EVAL(RakuAST::StatementPrefix::Do.new($block)), 42,
+      'block with a subclass ENTER phaser holding a statement returns its value';
+    is-deeply @ran, ['ran'],
+      'the subclass phaser meta-object was called';
 }
 
 subtest 'two ENTER phasers in one scope keep their own values' => {

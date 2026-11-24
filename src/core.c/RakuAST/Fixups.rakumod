@@ -353,8 +353,11 @@ augment class RakuAST::Doc {
     multi method podify() {
         RakuAST::LegacyPodify.podify(self)
     }
-    multi method podify($WHEREFORE) {
+    multi method podify(Mu $WHEREFORE) {
         RakuAST::LegacyPodify.podify(self, $WHEREFORE)
+    }
+    multi method podify(Mu $WHEREFORE, $pod) {
+        RakuAST::LegacyPodify.podify(self, $WHEREFORE, $pod)
     }
 }
 
@@ -962,7 +965,6 @@ augment class RakuAST::Doc::Block {
 
     my int32 $space     =  32;  # " "
     my int32 $plus      =  43;  # "+"
-    my int32 $backslash =  92;  # "\\"
     my int32 $pipe      = 124;  # "|"
     my int   $gcprop = nqp::unipropcode("General_Category");
 
@@ -1004,6 +1006,12 @@ augment class RakuAST::Doc::Block {
                   )
                 );
             }
+        }
+
+        # is a given codepoint horizontal whitespace
+        my sub is-ws(int $codepoint) {
+            nqp::iseq_i($codepoint,$space)
+              || nqp::iseq_s(nqp::getuniprop_str($codepoint,$gcprop),'Zs')
         }
 
         # Error handling for mixed column divider types
@@ -1062,9 +1070,11 @@ in line '$line'";
                           nqp::atpos_i(@row-dividers,$curr),
                           nqp::if(                         # a divider
                             $is-row
-                              && nqp::isne_i($prev,$backslash)
                               && (nqp::iseq_i($curr,$pipe)
-                                   || nqp::iseq_i($curr,$plus)),
+                                   || nqp::iseq_i($curr,$plus))
+                              && is-ws($prev)
+                              && (nqp::iseq_i(nqp::add_i($i,1),$elems)
+                                   || is-ws(nqp::atpos_i(@codes,nqp::add_i($i,1)))),
                             nqp::if(                       # visual divider
                               @codes-per-row.elems,
                               mixed-up($line),             # mixed, give up
@@ -1153,13 +1163,6 @@ in line '$line'";
 
         # Parse the given line and find out offsets of columns and dividers
         my sub columnify($line) {
-
-            # is a given codepoint horizontal whitespace
-            my sub is-ws(int $codepoint) {
-                nqp::iseq_i($codepoint,$space)
-                  || nqp::iseq_s(nqp::getuniprop_str($codepoint,$gcprop),'Zs')
-            }
-
             nqp::strtocodes($line,nqp::const::NORMALIZE_NFC,my int32 @codes);
 
             my int $elems = nqp::elems(@codes);

@@ -21,16 +21,16 @@ class RakuAST::Origin {
     # widened to start before it. Stored one higher, so 0 means unset.
     has int $!locus;
 
-    method new(int :$from, int :$to, Mu :$nestings, RakuAST::Origin::Source :$source) {
+    method new(           int $from,
+                          int $to,
+      RakuAST::Origin::Source $source
+    ) {
+
         my $obj := nqp::create(self);
-        nqp::bindattr_i($obj, RakuAST::Origin, '$!from', $from);
-        nqp::bindattr_i($obj, RakuAST::Origin, '$!to', $to);
-        if nqp::isconcrete($nestings) {
-            nqp::bindattr($obj, RakuAST::Origin, '$!nestings', $nestings);
-        }
-        if nqp::isconcrete($source) || nqp::isconcrete($*ORIGIN-SOURCE) {
-            nqp::bindattr($obj, RakuAST::Origin, '$!source', ($source // $*ORIGIN-SOURCE))
-        }
+        nqp::bindattr_i($obj,RakuAST::Origin,'$!from',$from);
+        nqp::bindattr_i($obj,RakuAST::Origin,'$!to',  $to);
+        nqp::bindattr($obj,RakuAST::Origin,'$!source',$source)
+          if nqp::isconcrete($source);
         $obj
     }
 
@@ -47,6 +47,12 @@ class RakuAST::Origin {
     }
 
     method as-match() { $!source.match-from(self) }
+
+    # A match at the start of the span, where the code it covers begins,
+    # rather than at the locus.
+    method as-start-match() {
+        $!source.match-from(RakuAST::Origin.new($!from, $!to, $!source))
+    }
 
     method Str() {
         nqp::substr($!source.orig, $!from, $!to - $!from)
@@ -108,11 +114,11 @@ class RakuAST::Origin::Source {
         nqp::bindattr_s($obj, RakuAST::Origin::Source, '$!orig', $orig);
 
         my $file := %*COMPILING<%?OPTIONS><source-name>;
-        if !nqp::isconcrete($file) {
-            if nqp::isnull($file := nqp::getlexdyn('$?FILES')) {
-                $file := '<unknown file>';
-            }
-        }
+        $file := nqp::ifnull(
+          nqp::getlexdyn('$?FILES'),
+          '<unknown file>'
+        ) unless nqp::isconcrete($file);
+
         nqp::bindattr($obj, RakuAST::Origin::Source, '$!line-file', nqp::list(nqp::list(0, 0, $file)));
 
         my $line-ends := nqp::list;

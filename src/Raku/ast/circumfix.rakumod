@@ -22,27 +22,9 @@ class RakuAST::Circumfix::Parentheses
             if self.sunk && $!semilist.is-empty;
     }
 
-    # Generally needs to be called before children are visited, which is when the Apply*
-    # expressions implement their priming. After that happens, any RakuAST::Term::Whatever
-    # operands will have been converted to RakuAST::Var::Lexical. At that stage, the below
-    # IMPL-SINGLE-PRIMED-EXPRESSION is the appropriate check.
-    method IMPL-CONTAINS-SINGULAR-PRIMEABLE-EXPRESSION() {
-        nqp::elems($!semilist.IMPL-UNWRAP-LIST($!semilist.statements)) == 1
-            && (my $statement-expression := $!semilist.IMPL-UNWRAP-LIST($!semilist.statements)[0])
-            && nqp::istype($statement-expression, RakuAST::Statement::Expression)
-            && (my $expression := $statement-expression.expression)
-            && nqp::istype($expression, RakuAST::WhateverApplicable)
-            && $expression.IMPL-SHOULD-PRIME-DIRECTLY
-                ?? $expression
-                !! Nil
-    }
-
     method IMPL-SINGULAR-PRIMED-EXPRESSION() {
-        nqp::elems($!semilist.IMPL-UNWRAP-LIST($!semilist.statements)) == 1
-            && (my $statement-expression := $!semilist.IMPL-UNWRAP-LIST($!semilist.statements)[0])
-            && nqp::istype($statement-expression, RakuAST::Statement::Expression)
-            && (my $expression := $statement-expression.expression)
-            && nqp::istype($expression, RakuAST::WhateverApplicable)
+        my $expression := self.IMPL-FORWARDED-EXPRESSION;
+        nqp::istype($expression, RakuAST::WhateverApplicable)
             && $expression.IMPL-PRIMED
                 ?? $expression
                 !! Nil
@@ -57,15 +39,26 @@ class RakuAST::Circumfix::Parentheses
         $visitor($!semilist);
     }
 
+    # The expressions of the statements when each is an expression statement
+    # without a modifier, or null.
+    method IMPL-PLAIN-EXPRESSIONS() {
+        return nqp::null() unless nqp::istype($!semilist, RakuAST::SemiList);
+        my @expressions;
+        for self.IMPL-UNWRAP-LIST($!semilist.statements) {
+            return nqp::null()
+              unless nqp::istype($_, RakuAST::Statement::Expression)
+              && !nqp::isconcrete($_.condition-modifier)
+              && !nqp::isconcrete($_.loop-modifier);
+            nqp::push(@expressions, $_.expression);
+        }
+        @expressions
+    }
+
     method IMPL-IS-CONSTANT() {
-        my $statements := $!semilist.IMPL-UNWRAP-LIST($!semilist.statements);
-        for $statements {
-            if nqp::istype($_, RakuAST::Statement::Expression) {
-                return False unless $_.expression.IMPL-IS-CONSTANT;
-            }
-            else {
-                return False;
-            }
+        my $expressions := self.IMPL-PLAIN-EXPRESSIONS;
+        return False if nqp::isnull($expressions);
+        for $expressions {
+            return False unless $_.IMPL-IS-CONSTANT;
         }
         True
     }
@@ -85,16 +78,31 @@ class RakuAST::Circumfix::Parentheses
     # build parentheses around a bare expression rather than a semilist, so
     # the payload shape is checked rather than assumed.
     method return-type() {
+        my $expression := self.IMPL-FORWARDED-EXPRESSION;
+        nqp::isconcrete($expression) ?? $expression.return-type !! Mu
+    }
+
+    method IMPL-STATIC-ARG-TYPE() {
+        my $expression := self.IMPL-FORWARDED-EXPRESSION;
+        nqp::isconcrete($expression) ?? $expression.IMPL-STATIC-ARG-TYPE !! Mu
+    }
+
+    method IMPL-STATIC-ARG-IS-VALUE() {
+        my $expression := self.IMPL-FORWARDED-EXPRESSION;
+        nqp::isconcrete($expression) ?? $expression.IMPL-STATIC-ARG-IS-VALUE !! True
+    }
+
+    method IMPL-FORWARDED-EXPRESSION() {
         if nqp::istype($!semilist, RakuAST::SemiList)
           && $!semilist.IMPL-IS-SINGLE-EXPRESSION {
             my $statement := self.IMPL-UNWRAP-LIST($!semilist.statements)[0];
             nqp::isconcrete($statement.condition-modifier)
               || nqp::isconcrete($statement.loop-modifier)
-                ?? Mu
-                !! $statement.expression.return-type
+                ?? Nil
+                !! $statement.expression
         }
         else {
-            Mu
+            Nil
         }
     }
 
@@ -115,9 +123,14 @@ class RakuAST::Exception::TooComplex {
     method set-name($name) {
         nqp::bindattr(self, RakuAST::Exception::TooComplex, '$!name', $name);
     }
+    # The text shown when nothing converts this into a typed error.
+    method message() {
+        "Colon pair value '" ~ ($!name // '') ~ "' too complex to use in name"
+    }
     method throw() {
         my $ex := nqp::newexception();
         nqp::setpayload($ex, self);
+        nqp::setmessage($ex, self.message);
         nqp::throw($ex);
     }
 }
@@ -148,7 +161,9 @@ class RakuAST::Circumfix::ArrayComposer
                 nqp::die('canonicalize NYI for non-simple colonpairs: ' ~ $_.HOW.name($_))
                     unless nqp::istype($_, RakuAST::Statement::Expression);
                 RakuAST::Exception::TooComplex.new.throw unless nqp::can($_.expression, 'literal-value');
-                nqp::push(@parts, "'" ~ $_.expression.literal-value ~ "'");
+                my $value := $_.expression.literal-value;
+                RakuAST::Exception::TooComplex.new.throw unless nqp::isconcrete($value);
+                nqp::push(@parts, "'" ~ $value ~ "'");
             }
             @parts ?? '[' ~ nqp::join('; ', @parts) ~ ']' !! '<>'
         }
@@ -270,6 +285,6 @@ class RakuAST::Circumfix::HashComposer
     }
 
     method visit-children(Code $visitor) {
-        $visitor($!expression) if $!expression;
+        $visitor($!expression) if nqp::isconcrete($!expression);
     }
 }

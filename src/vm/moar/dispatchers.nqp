@@ -894,14 +894,13 @@ sub guard-type-concreteness($tracker) {
 
 # Array initialization checker
 my $array-init-check := -> $arr {
-    my $storage := nqp::getattr($arr, List, '$!reified');
-    nqp::isconcrete($storage) && nqp::elems($storage)
+    nqp::isconcrete(my $reified := nqp::getattr($arr, List, '$!reified'))
+      && nqp::elems($reified)
 }
 
 # Hash initialization checker
 my $hash-init-check := -> $hash {
-    my $storage := nqp::getattr($hash, Map, '$!storage');
-    nqp::isconcrete($storage) && nqp::elems($storage)
+    nqp::elems(nqp::getattr($hash, Map, '$!storage'))
 }
 
 # Actual dispatcher taking the attribute and returning 1 if initialized,
@@ -1055,14 +1054,17 @@ nqp::register('raku-call', -> $capture {
     if nqp::istype_nd($callee, Method)
       && (my str $meth-name := $callee.name)
       && (my $inv_param := try { $callee.signature.params.AT-POS(0) }) {
-        nqp::guard('literal', $Tcallee);
+        # The closures taken of a method share its signature, which gives the
+        # invocant type, so they share this program. Deferral takes the name
+        # from the callee, as a clone may be named apart from the method.
+        nqp::guard('literal', nqp::track('attr', $Tcallee, Code, '$!signature'));
 
-        # Add the type and method name to capture as expected
-        $capture := nqp::syscall('dispatcher-insert-arg-literal-str',
+        # Add the type and the callee to capture as expected
+        $capture := nqp::syscall('dispatcher-insert-arg',
           nqp::syscall('dispatcher-insert-arg-literal-obj',
             $capture, 1, $inv_param.type
           ),
-          2, $meth-name
+          2, $Tcallee
         );
 
         $delegate := 'raku-meth-call-resolved';
@@ -1450,8 +1452,8 @@ sub nil-or-callwith-propagation-terminal($capture) {
 
 # Resolved method call dispatcher. This is used to call a method, once we have
 # already resolved it to a callee. Its first arg is the callee, the second and
-# third are the type and name (used in deferral), and the rest are the args to
-# the method.
+# third are the type and name, or the callee to take the name from (used in
+# deferral), and the rest are the args to the method.
 nqp::register('raku-meth-call-resolved',
 
     # Initial dispatch
@@ -1542,9 +1544,12 @@ nqp::register('raku-meth-call-resolved',
             my $Tname := nqp::track('arg', $init, 1);
             nqp::guard('literal', $Tname);
 
-            # Build up the list of methods to defer through.
+            # Build up the list of methods to defer through. A call of a method
+            # already resolved carries the method in place of its name.
             my $start_type := nqp::captureposarg($init, 0);
-            my str $name := nqp::captureposarg_s($init, 1);
+            my str $name := nqp::captureposprimspec($init, 1) == nqp::const::BIND_VAL_STR
+              ?? nqp::captureposarg_s($init, 1)
+              !! nqp::captureposarg($init, 1).name;
             my $start_type_how := nqp::how_nd($start_type);
             my @mro := nqp::can($start_type_how, 'mro_unhidden')
               ?? $start_type_how.mro_unhidden($start_type)
@@ -4143,6 +4148,140 @@ nqp::register('raku-isinvokable', -> $capture {
     );
 });
 
+#- raku-concrete-value-of ------------------------------------------------------
+# Evaluates to the first argument, taken out of a Scalar or a native
+# reference when it is in one, when that is a concrete instance of the type
+# given as the second, else to null. A Proxy is never fetched.
+
+# The boxed value a native reference holds, or null for another container
+sub native-ref-value($ref) {
+    nqp::iscont_u($ref) ?? nqp::box_u(nqp::decont_u($ref), Int)
+      !! nqp::iscont_i($ref) ?? nqp::box_i(nqp::decont_i($ref), Int)
+      !! nqp::iscont_n($ref) ?? nqp::box_n(nqp::decont_n($ref), Num)
+      !! nqp::iscont_s($ref) ?? nqp::box_s(nqp::decont_s($ref), Str)
+      !! nqp::null()
+}
+
+# A value taken out of a Scalar or a native reference, else as given
+sub concrete-value($value) {
+    nqp::isconcrete_nd($value) && nqp::iscont($value)
+      ?? (nqp::eqaddr(nqp::what_nd($value), Scalar)
+           ?? nqp::getattr($value, Scalar, '$!value')
+           !! native-ref-value($value))
+      !! $value
+}
+
+# Read of a native reference at a site whose guards fix its kind
+my $native-ref-value := -> $ref, $type { native-ref-value($ref) };
+
+# The first argument taken out of a Scalar or a native reference, under
+# guards that fix what was read, as the value, its tracker and whether
+# it came out of a native reference
+sub track-concrete-arg($capture) {
+    my $value  := nqp::captureposarg($capture, 0);
+    my $Tvalue := nqp::track('arg', $capture, 0);
+    guard-type-concreteness($Tvalue);
+    my int $native := 0;
+    if nqp::isconcrete_nd($value) && nqp::iscont($value) {
+        if nqp::eqaddr(nqp::what_nd($value), Scalar) {
+            $value  := nqp::getattr($value, Scalar, '$!value');
+            $Tvalue := nqp::track('attr', $Tvalue, Scalar, '$!value');
+            guard-type-concreteness($Tvalue);
+        }
+        else {
+            $value  := native-ref-value($value);
+            $native := 1;
+        }
+    }
+    [$value, $Tvalue, $native]
+}
+
+# Delegates to the value track-concrete-arg read when it passed, else to null
+sub delegate-concrete-arg($capture, @read, int $passed) {
+    if !$passed {
+        delegate-constant($capture, nqp::null());
+    }
+    elsif @read[2] {
+        nqp::delegate('boot-code-constant',
+          nqp::syscall('dispatcher-insert-arg-literal-obj',
+            $capture, 0, $native-ref-value
+          )
+        );
+    }
+    else {
+        delegate-value($capture, @read[1]);
+    }
+}
+
+# Late-bound check for a megamorphic site
+my $concrete-value-of := -> $value, $type {
+    $value := concrete-value($value);
+    !nqp::isnull($value) && nqp::isconcrete($value) && nqp::istype($value, $type)
+      ?? $value
+      !! nqp::null()
+};
+
+nqp::register('raku-concrete-value-of', -> $capture {
+    if nqp::syscall('dispatcher-inline-cache-size') >= $MEGA-TYPE-CALLSITE-SIZE {
+        nqp::delegate('boot-code-constant',
+          nqp::syscall('dispatcher-insert-arg-literal-obj',
+            $capture, 0, $concrete-value-of
+          )
+        );
+    }
+    else {
+        my $type := nqp::captureposarg($capture, 1);
+        nqp::guard('literal', nqp::track('arg', $capture, 1));
+        my @read  := track-concrete-arg($capture);
+        my $value := @read[0];
+        delegate-concrete-arg($capture, @read,
+          !nqp::isnull($value) && nqp::isconcrete($value) && nqp::istype($value, $type));
+    }
+});
+
+#- raku-core-value-of ----------------------------------------------------------
+# Evaluates to the first argument, taken out of a Scalar or a native
+# reference when it is in one, when its type is exactly one of the kinds
+# the second names as bits, 1 Int, 2 Num, 4 Rat and 8 Str, else to null.
+
+# The bit for a value's exact core type, or 0
+my $Rat := nqp::null();
+sub core-kind-of($value) {
+    my $what := nqp::what($value);
+    nqp::eqaddr($what, Int) ?? 1
+      !! nqp::eqaddr($what, Num) ?? 2
+      !! nqp::eqaddr($what, Str) ?? 8
+      !! nqp::eqaddr($what, nqp::ifnull($Rat, ($Rat := nqp::gethllsym('Raku', 'Rat')))) ?? 4
+      !! 0
+}
+
+# Late-bound check for a megamorphic site
+my $core-value-of := -> $value, int $mask {
+    $value := concrete-value($value);
+    !nqp::isnull($value) && nqp::isconcrete($value) && (core-kind-of($value) +& $mask)
+      ?? $value
+      !! nqp::null()
+};
+
+nqp::register('raku-core-value-of', -> $capture {
+    if nqp::syscall('dispatcher-inline-cache-size') >= $MEGA-TYPE-CALLSITE-SIZE {
+        nqp::delegate('boot-code-constant',
+          nqp::syscall('dispatcher-insert-arg-literal-obj',
+            $capture, 0, $core-value-of
+          )
+        );
+    }
+    else {
+        my int $mask := nqp::captureposarg_i($capture, 1);
+        nqp::guard('literal', nqp::track('arg', $capture, 1));
+        my @read  := track-concrete-arg($capture);
+        my $value := @read[0];
+        delegate-concrete-arg($capture, @read,
+          !nqp::isnull($value) && nqp::isconcrete($value)
+            && (core-kind-of($value) +& $mask));
+    }
+});
+
 #- raku-boolify -------------------------------------------------------------
 # Dispatcher for boolification of a value.
 
@@ -4605,6 +4744,10 @@ sub select-coercer($coercion, $value, :$with-runtime = 0) {
     # on NQP/Raku language boundary. Therefore we use a truncated local
     # version of it.
     my sub method-cando($method, *@pos) {
+        # A method that a FALLBACK provides is a plain closure, so like a
+        # method call it takes whatever it is given
+        return nqp::list($method) unless nqp::istype($method, Routine);
+
         my $disp;
         if $method.is_dispatcher {
             $disp := $method;
@@ -4614,6 +4757,16 @@ sub select-coercer($coercion, $value, :$with-runtime = 0) {
             nqp::bindattr($disp, Routine, '@!dispatchees', nqp::list($method));
         }
         -> *@_ { $disp.find_best_dispatchee( nqp::usecapture(), 1) }(|@pos)
+    }
+
+    # A lookup site that has gone megamorphic skips fallbacks, so ask the
+    # type for one itself when the lookup finds nothing
+    my sub value-method($value, str $name) {
+        my $method := nqp::tryfindmethod($value, $name);
+        my $how    := nqp::how_nd($value);
+        nqp::defined($method) || nqp::not_i(nqp::can($how, 'find_method_fallback'))
+          ?? $method
+          !! $how.find_method_fallback($value, $name)
     }
 
     # Make sure none of the coercion method candidates uses run-time
@@ -4679,7 +4832,7 @@ sub select-coercer($coercion, $value, :$with-runtime = 0) {
 
     # There is .TargetType method on the value, use it.
     elsif nqp::defined(
-      $method := nqp::tryfindmethod(
+      $method := value-method(
         $value.WHAT,
         nqp::how_nd($nominal_target).name($nominal_target)
       )
@@ -5151,4 +5304,38 @@ nqp::register('raku-rv-typecheck', -> $capture {
 
     # Do the actual delegation
     nqp::delegate($delegate, $capture);
+});
+
+#- raku-rv-native --------------------------------------------------------------
+# Return value check for a routine with a native return type, given a value
+# that is not a concrete instance of that type's box type.
+
+# Unbox the value, as a Pointer or a class with a box target can be, or
+# error out if it cannot be
+sub native_return_coerce($ret, $type) {
+    my int $prim := nqp::objprimspec($type);
+    my $coerced  := nqp::null;
+    try {
+        $coerced := $prim == 2
+          ?? nqp::box_n(nqp::unbox_n($ret), Num)
+          !! $prim == 3
+            ?? nqp::box_s(nqp::unbox_s($ret), Str)
+            !! $prim == 10
+              ?? nqp::box_i(nqp::unbox_u($ret), Int)
+              !! nqp::box_i(nqp::unbox_i($ret), Int);
+    }
+    nqp::isnull($coerced) ?? return_error($ret, $type) !! $coerced
+}
+
+# The first value is the return value, the second is the native return type.
+# A Nil or a Failure is returned as is.
+nqp::register('raku-rv-native', -> $capture {
+    nqp::guard('type', nqp::track('arg', $capture, 0));
+    nqp::istype(nqp::captureposarg($capture, 0), Nil)
+      ?? nqp::delegate('boot-value', $capture)
+      !! nqp::delegate('boot-code-constant',
+           nqp::syscall('dispatcher-insert-arg-literal-obj',
+             $capture, 0, &native_return_coerce
+           )
+         );
 });

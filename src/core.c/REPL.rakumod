@@ -1136,7 +1136,9 @@ do {
             }
             if $e ~~ X::AdHoc {
                 my str $message = $e.message;
-                return $message eq 'Premature heredoc consumption'
+                # Code that needs a heredoc while compiling dies the
+                # same however much input follows.
+                return $message eq 'Premature heredoc consumption' && $e !~~ X::Comp
                   || $message.starts-with('Ending delimiter ')
                   || $message.starts-with("Couldn't find terminator")
                   || $message.contains("is immediately followed by a combining codepoint");
@@ -1391,6 +1393,9 @@ do {
                     $!save_ctx := $*MAIN_CTX;
                 }
 
+                # Hyper/Race may confuse the output checker, make sure
+                # they've completed running before doing anything else
+                $output.sink if nqp::istype($output,ParallelSequence);
                 if irak() {
                     my $n = $previous-evals.elems;
                     %!irak-sources{$n} = ($keep-topic ?? '- ' !! '') ~ $code.chomp;

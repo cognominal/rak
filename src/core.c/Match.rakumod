@@ -165,42 +165,51 @@ my class Match is Capture is Cool does NQPMatchRole {
         nqp::bindattr(self,Match,'$!match',NQPdidMATCH);
     }
 
-    # from !cursor_next in nqp
-    method CURSOR_NEXT() is raw is implementation-detail {
-        nqp::if(
-          nqp::defined($!restart),
-          $!restart(self),
-          nqp::stmts(
-            (my $cur := self."!cursor_start_cur"()),
-            $cur."!cursor_fail"(),
-            $cur
-          )
-        )
+    method !CURSOR_FAIL() is implementation-detail {
+        my $cur := self."!cursor_start_cur"();
+        $cur."!cursor_fail"();
+        $cur
     }
 
+    # from !cursor_next in nqp
+    method CURSOR_NEXT() is raw is implementation-detail {
+        nqp::defined($!restart)
+          ?? $!restart(self)
+          !! self!CURSOR_FAIL
+    }
 
     # adapted from !cursor_more in nqp
     method CURSOR_OVERLAP() is raw is implementation-detail {
-        my $new := nqp::create(self);
-        nqp::bindattr(  $new,$?CLASS,'$!shared',$!shared);
-        nqp::bindattr(  $new,$?CLASS,'$!braid',$!braid);
-        nqp::bindattr_i($new,$?CLASS,'$!from',
-          nqp::bindattr_i($new,$?CLASS,'$!to',-1));
-        nqp::bindattr_i($new,$?CLASS,'$!pos',nqp::add_i($!from,1));
-        $!regexsub($new)
+        if nqp::isnull($!regexsub) {
+            self!CURSOR_FAIL
+        }
+        else {
+            my $new := nqp::create(self);
+            nqp::bindattr(  $new,$?CLASS,'$!shared',$!shared);
+            nqp::bindattr(  $new,$?CLASS,'$!braid',$!braid);
+            nqp::bindattr_i($new,$?CLASS,'$!from',
+              nqp::bindattr_i($new,$?CLASS,'$!to',-1));
+            nqp::bindattr_i($new,$?CLASS,'$!pos',nqp::add_i($!from,1));
+            $!regexsub($new)
+        }
     }
 
     # adapted from !cursor_more in nqp
     method CURSOR_MORE() is raw is implementation-detail {
-        my $new := nqp::create(self);
-        nqp::bindattr(  $new,$?CLASS,'$!shared',$!shared);
-        nqp::bindattr(  $new,$?CLASS,'$!braid',$!braid);
-        nqp::bindattr_i($new,$?CLASS,'$!from',
-          nqp::bindattr_i($new,$?CLASS,'$!to',-1));
-        nqp::bindattr_i($new,$?CLASS,'$!pos',nqp::isge_i($!from,$!pos)
-          ?? nqp::add_i($!from,1)
-          !! $!pos);
-        $!regexsub($new)
+        if nqp::isnull($!regexsub) {
+            self!CURSOR_FAIL
+        }
+        else {
+            my $new := nqp::create(self);
+            nqp::bindattr(  $new,$?CLASS,'$!shared',$!shared);
+            nqp::bindattr(  $new,$?CLASS,'$!braid',$!braid);
+            nqp::bindattr_i($new,$?CLASS,'$!from',
+              nqp::bindattr_i($new,$?CLASS,'$!to',-1));
+            nqp::bindattr_i($new,$?CLASS,'$!pos',nqp::isge_i($!from,$!pos)
+              ?? nqp::add_i($!from,1)
+              !! $!pos);
+            $!regexsub($new)
+        }
     }
 
     # Transfer capture marker positions from the capture stack into

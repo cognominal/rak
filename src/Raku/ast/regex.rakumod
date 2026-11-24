@@ -129,7 +129,7 @@ class RakuAST::Regex
     # zerowidth atom instead. The thunk's compiled body rides along on
     # the argument reference for LTM, so it is at hand here.
     method IMPL-SIMPLIFY-BEFORE-ASSERTIONS(Mu $node) {
-        my int $i := 0;
+        my int $i;
         my int $n := nqp::elems(@($node));
         while $i < $n {
             my $visit := $node[$i];
@@ -159,10 +159,11 @@ class RakuAST::Regex
     # list reduces directly, since its negated zerowidth op holds at the
     # end of the string. The class and range ops demand a character even
     # when negated, so their negated forms pair with an anchor to the end
-    # of the string in a sequential alternation instead. The negated
-    # literal op fails wherever fewer characters remain than the length,
-    # all positions where the negated assertion must hold, so no anchor
-    # pairing preserves it and it stays a thunk.
+    # of the string in a sequential alternation instead. The class op
+    # ignores negation for `.`, so that negated assertion reduces to the
+    # anchor alone. The negated literal op fails wherever fewer characters
+    # remain than the length, all positions where the negated assertion
+    # must hold, so no anchor pairing preserves it and it stays a thunk.
     method IMPL-BEFORE-SIMPLE-ATOM(Mu $qast) {
         return nqp::null()
             unless $qast.rxtype eq 'subrule'
@@ -192,9 +193,12 @@ class RakuAST::Regex
                 :node($atom.node), :$negate, $atom[0] )
         }
         elsif $rxtype eq 'cclass' {
-            self.IMPL-HOLD-AT-EOS($negate, QAST::Regex.new(
-                :rxtype<cclass>, :subtype<zerowidth>,
-                :node($atom.node), :$negate, :name($atom.name) ))
+            $negate && $atom.name eq '.'
+                ?? QAST::Regex.new( :rxtype<anchor>, :subtype<eos>,
+                    :node($atom.node) )
+                !! self.IMPL-HOLD-AT-EOS($negate, QAST::Regex.new(
+                    :rxtype<cclass>, :subtype<zerowidth>,
+                    :node($atom.node), :$negate, :name($atom.name) ))
         }
         elsif $rxtype eq 'charrange' {
             self.IMPL-HOLD-AT-EOS($negate, QAST::Regex.new(
@@ -358,7 +362,7 @@ class RakuAST::Regex::Sequence
                 }
             }
             nqp::isconcrete($from)
-              ?? RakuAST::Origin.new(:from($from.from), :to($to.to), :source($from.source))
+              ?? RakuAST::Origin.new($from.from, $to.to, $from.source)
               !! Mu
         }
 
@@ -421,7 +425,7 @@ class RakuAST::Regex::Sequence
     # QRegex::P6Regex::Actions.termish.
     method IMPL-FUSE-CRLF($terms) {
         my @fused;
-        my int $i := 0;
+        my int $i;
         my int $n := nqp::elems($terms);
         while $i < $n {
             my $term := nqp::atpos($terms, $i);
@@ -1345,7 +1349,7 @@ class RakuAST::Regex::Interpolation
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
         [
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('PseudoStash')),
+          RakuAST::Type::Setting.from-identifier('PseudoStash'),
         ]
     }
 
@@ -1398,7 +1402,7 @@ class RakuAST::Regex::Interpolation
                 QAST::IVal.new( :value(0) ),
                 QAST::Op.new(
                     :op<callmethod>, :name<new>,
-                   self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].IMPL-TO-QAST($context)
+                   self.get-implicit-lookups[0].IMPL-TO-QAST($context)
                 )
     }
 
@@ -1492,16 +1496,16 @@ class RakuAST::Regex::Assertion::Named
         if $!capturing && $!name.is-identifier {
             [RakuAST::Var::Lexical.new('&' ~ $!name.canonicalize)]
         }
+        elsif $!name.is-identifier || $!name.is-indirect-lookup && !$!name.is-multi-part {
+            []
+        }
         else {
-            if $!name.is-identifier || $!name.is-indirect-lookup && !$!name.is-multi-part {
-                []
-            }
-            else {
-                my @parts := $!name.IMPL-UNWRAP-LIST($!name.parts);
-                my @package-parts := nqp::slice(@parts, 0, nqp::elems(@parts) - 2);
-                my $package-name := RakuAST::Name.new(|@package-parts);
-                [RakuAST::Type::Simple.new($package-name)]
-            }
+            my @parts := $!name.IMPL-UNWRAP-LIST($!name.parts);
+            [
+              RakuAST::Type::Simple.new(RakuAST::Name.new(
+                |nqp::slice(@parts, 0, nqp::elems(@parts) - 2)
+              ))
+            ]
         }
     }
 
@@ -1517,7 +1521,7 @@ class RakuAST::Regex::Assertion::Named
                 nqp::die('Can only use <sym> token in a proto regex');
             }
             else {
-                my $lookups := self.IMPL-UNWRAP-LIST(self.get-implicit-lookups);
+                my $lookups := self.get-implicit-lookups;
                 my $qast;
                 if $!capturing
                     && nqp::elems($lookups) && (my $lookup := $lookups[0]).is-resolved
@@ -1553,7 +1557,7 @@ class RakuAST::Regex::Assertion::Named
             my $sub-name := RakuAST::Name.new($sub);
             $sub-name.set-colonpairs(@pairs);
 
-            my $lookups := self.IMPL-UNWRAP-LIST(self.get-implicit-lookups);
+            my $lookups := self.get-implicit-lookups;
             my $package := $lookups[0].meta-object;
             $context.ensure-sc($package);
             my $qast := QAST::Regex.new: :rxtype<subrule>,:subtype<method>,
@@ -1796,9 +1800,7 @@ class RakuAST::Regex::Assertion::InterpolatedBlock
     }
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
-        [
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('PseudoStash')),
-        ]
+        [ RakuAST::Type::Setting.from-identifier('PseudoStash') ]
     }
 
     method IMPL-REGEX-QAST(RakuAST::IMPL::QASTContext $context, %mods) {
@@ -1807,7 +1809,7 @@ class RakuAST::Regex::Assertion::InterpolatedBlock
           %mods,
           self.IMPL-REGEX-BLOCK-CALL($context, $!block),
           $!sequential,
-          self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0]
+          self.get-implicit-lookups[0]
         )
     }
 
@@ -1836,9 +1838,7 @@ class RakuAST::Regex::Assertion::InterpolatedVar
     }
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
-        [
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('PseudoStash')),
-        ]
+        [ RakuAST::Type::Setting.from-identifier('PseudoStash') ]
     }
 
     method PERFORM-CHECK(RakuAST::Resolver $resolver, RakuAST::IMPL::QASTContext $context) {
@@ -1854,7 +1854,7 @@ class RakuAST::Regex::Assertion::InterpolatedVar
           %mods,
           $!var.IMPL-TO-QAST($context),
           $!sequential,
-          self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0]
+          self.get-implicit-lookups[0]
         )
     }
 
@@ -1889,7 +1889,7 @@ class RakuAST::Regex::Assertion::Callable
 
     method visit-children(Code $visitor) {
         $visitor($!callee);
-        $visitor($!args) if $!args;
+        $visitor($!args) if nqp::isconcrete($!args);
     }
 }
 
@@ -2075,7 +2075,7 @@ class RakuAST::Regex::CharClassElement::Property
     }
 
     method visit-children(Code $visitor) {
-        $visitor($!predicate) if $!predicate;
+        $visitor($!predicate) if nqp::isconcrete($!predicate);
     }
 }
 
@@ -2414,7 +2414,7 @@ class RakuAST::Regex::QuantifiedAtom
     method visit-children(Code $visitor) {
         $visitor($!atom);
         $visitor($!quantifier);
-        $visitor($!separator) if $!separator;
+        $visitor($!separator) if nqp::isconcrete($!separator);
     }
 }
 
@@ -2434,7 +2434,7 @@ class RakuAST::Regex::Quantifier
     }
 
     method visit-children(Code $visitor) {
-        $visitor($!backtrack) if $!backtrack;
+        $visitor($!backtrack) if nqp::isconcrete($!backtrack);
     }
 }
 
@@ -2549,7 +2549,7 @@ class RakuAST::Regex::Quantifier::BlockRange
     }
 
     method visit-children(Code $visitor) {
-        $visitor(self.backtrack) if self.backtrack;
+        $visitor(self.backtrack) if nqp::isconcrete(self.backtrack);
         $visitor($!block);
     }
 }

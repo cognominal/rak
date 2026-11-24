@@ -4033,7 +4033,8 @@ class Perl6::Actions is HLL::Actions does STDActions {
         if $*OFTYPE {
             $of_type := $*OFTYPE.ast;
             my $archetypes := $of_type.HOW.archetypes($of_type);
-            unless $archetypes.nominalish
+            unless $archetypes.nominal
+                || $archetypes.nominalizable
                 || $archetypes.generic
                 || $archetypes.definite
                 || $archetypes.coercive {
@@ -4268,6 +4269,14 @@ class Perl6::Actions is HLL::Actions does STDActions {
                 $world.apply_traits(@late_traits, $varvar);
                 if $varvar.implicit-lexical-usage {
                     $world.mark_lexical_used_implicitly($BLOCK, $name);
+                }
+                # an is default trait can give the container a generic
+                # default, which needs the same reification as a generic type
+                if nqp::istype($past, QAST::Var) && $descriptor.is_default_generic {
+                    $past := QAST::Op.new(
+                        :op('callmethod'), :name('instantiate_generic'),
+                        QAST::Op.new( :op('p6var'), $past ),
+                        QAST::Op.new( :op('curlexpad') ));
                 }
             }
         }
@@ -6623,10 +6632,16 @@ class Perl6::Actions is HLL::Actions does STDActions {
         make make_yada('&die', $/);
     }
 
+    my %mop_ops := nqp::hash(
+        'what', 1, 'how', 1, 'who', 1, 'where', 1,
+        'p6var', 1, 'p6reprname', 1, 'p6definite', 1);
     method term:sym<dotty>($/) {
         my $past := $<dotty>.ast;
         $past.unshift(WANTED(QAST::Var.new( :name('$_'), :scope('lexical') ),'dotty') );
-        make QAST::Op.new( :op('hllize'), $past);
+        # The MOP ops act on the value itself, so their result is never foreign
+        make nqp::istype($past, QAST::Op) && nqp::existskey(%mop_ops, $past.op)
+            ?? $past
+            !! QAST::Op.new( :op('hllize'), $past);
     }
 
     sub find_macro_routine(@symbol) {
@@ -8009,7 +8024,8 @@ Did you mean a call like '"
                 nqp::istype($target[0], QAST::Op) && $target[0].op eq 'call' &&
                 ((my $target_0_name := $target[0].name) eq '&postcircumfix:<[ ]>' ||
                  $target_0_name eq '&postcircumfix:<{ }>' ||
-                 $target_0_name eq '&postcircumfix:<[; ]>') {
+                 $target_0_name eq '&postcircumfix:<[; ]>' ||
+                 $target_0_name eq '&postcircumfix:<{; }>') {
             $source.named('BIND');
             $target[0].push($source);
             $target.nosink(1);
@@ -8018,7 +8034,8 @@ Did you mean a call like '"
         elsif nqp::istype($target, QAST::Op) && $target.op eq 'call' &&
               ((my $target_name := $target.name) eq '&postcircumfix:<[ ]>' ||
                $target_name eq '&postcircumfix:<{ }>' ||
-               $target_name eq '&postcircumfix:<[; ]>') {
+               $target_name eq '&postcircumfix:<[; ]>' ||
+               $target_name eq '&postcircumfix:<{; }>') {
             $source.named('BIND');
             $target.push($source);
             $target.nosink(1);
@@ -8139,7 +8156,8 @@ Did you mean a call like '"
         elsif nqp::istype($lhs_ast, QAST::Op) && $lhs_ast.op eq 'call' &&
               ((my $lhs_ast_name := $lhs_ast.name) eq '&postcircumfix:<[ ]>' ||
                $lhs_ast_name eq '&postcircumfix:<{ }>' ||
-               $lhs_ast_name eq '&postcircumfix:<[; ]>') &&
+               $lhs_ast_name eq '&postcircumfix:<[; ]>' ||
+               $lhs_ast_name eq '&postcircumfix:<{; }>') &&
                 +@($lhs_ast) == 2 { # no adverbs
             $lhs_ast.push($rhs_ast);
             $past := $lhs_ast;

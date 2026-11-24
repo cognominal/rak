@@ -1,4 +1,3 @@
-use NQPP5QRegex;
 use Rak::Actions;
 
 sub p6ize_recursive($x) {
@@ -157,7 +156,7 @@ role Rak::Common {
 #-------------------------------------------------------------------------------
 # Quote parsing
 
-    method Regex($P5?) { self.slang_grammar($P5 ?? 'P5Regex' !! 'Regex') }
+    method Regex() { self.slang_grammar('Regex') }
 
     method Quote() { self.slang_grammar('Quote') }
 
@@ -354,9 +353,15 @@ role Rak::Common {
         has $!delim;
         has $!orignode;
         has $!grammar;
+        has $!resolver-state;
+        has $!lang;
+        has $!package;
         method delim() { $!delim }
         method orignode() { $!orignode }
         method grammar() { $!grammar }
+        method resolver-state() { $!resolver-state }
+        method lang() { $!lang }
+        method package() { $!package }
     }
 
     role herestop {
@@ -381,7 +386,21 @@ role Rak::Common {
                         last;
                     }
                 }
-                my $doc := $here.nibble($lang);
+                # The body is parsed after its line ends but runs where the
+                # heredoc starts, so it takes the scopes, pragmas and package
+                # from there.
+                my $*LANG := $herestub.lang;
+                my $*PACKAGE := $herestub.package;
+                $*R.IMPL-ENTER-HEREDOC-BODY($herestub.resolver-state);
+                my $doc;
+                {
+                    CATCH {
+                        $*R.IMPL-LEAVE-HEREDOC-BODY;
+                        nqp::rethrow($_);
+                    }
+                    $doc := $here.nibble($lang);
+                }
+                $*R.IMPL-LEAVE-HEREDOC-BODY;
                 if $doc {
                     # Match stopper.
                     my $stop := self.lang-cursor-at($lang, $doc.pos).stopper;
@@ -399,8 +418,11 @@ role Rak::Common {
                     my int $body-to := $stop.pos;
                     --$body-to if $body-to > $doc.from && nqp::iscclass(
                       nqp::const::CCLASS_NEWLINE, self.orig, $body-to - 1);
-                    $heredoc.set-body-origin(self.Nodify('Origin').new(
-                      :from($doc.from), :to($body-to)));
+                    $heredoc.set-body-origin(
+                      self.Nodify('Origin').new(
+                        $doc.from, $body-to, $*ORIGIN-SOURCE
+                      )
+                    );
                     my str $ws := $stop.MATCH<ws>.Str;
                     my int $actualchars := nqp::chars($ws);
                     my int $indent := $actualchars;
@@ -419,6 +441,7 @@ role Rak::Common {
                     self.panic("Ending delimiter $*DELIM not found");
                 }
             }
+            $*R.IMPL-HEREDOC-BODIES-ATTACHED;
             $here.pass-at-current;
             $here.set_actions($actions);
             $here
@@ -428,20 +451,37 @@ role Rak::Common {
         }
     }
 
-    token cheat-heredoc {
+    # Takes the queued heredoc bodies after the given closer when it ends the
+    # line, or after either closer given none. A statement passes a semicolon
+    # so a closing brace stays with its block, which a semicolon may follow.
+    token cheat-heredoc($closer?) {
+        :my $scope;
+        :my $package;
         <?{ nqp::elems($*CU.herestub-queue) }>
         \h*
-        <[ ; } ]>
+        $<closer>=[
+          | <?{ nqp::isconcrete($closer) }> $closer
+          | <!{ nqp::isconcrete($closer) }> <[ ; } ]>
+        ]
+        [ <?{ $<closer> eq '}' }> \h* ';' ]?
         \h*
         <?before \n | '#'>
 
-        # <.ws> is where the heredoc body splices in. Leave this scope for
-        # it, then restore the same one. Re-entering a fresh scope would
-        # drop the declarations already registered into it, so begin-time
-        # code later could not resolve any enclosing lexical.
-        :my $scope := $*R.leave-scope;
+        # <.ws> splices in the heredoc body. After a closing brace the body is
+        # parsed outside the block, and outside a package the block is the
+        # body of, so leave those scopes and re-enter the same objects.
+        {
+            if $<closer> eq '}' {
+                $scope := $*R.leave-scope;
+                $package := $*R.leave-scope
+                  if nqp::istype($*R.current-scope, self.Nodify('Package'));
+            }
+        }
         <.ws>
-        { $*R.re-enter-scope($scope) }
+        {
+            $*R.re-enter-scope($package) if nqp::isconcrete($package);
+            $*R.re-enter-scope($scope) if nqp::isconcrete($scope);
+        }
         <?MARKER('end-statement')>
     }
 
@@ -471,11 +511,13 @@ role Rak::Common {
 
         {
             if nqp::can($lang,'herelang') {
-                my $delim := $<nibble>.ast.literal-value // $/.panic(
+                my $delim := $<nibble>.ast.IMPL-AWAIT-BODY // $/.panic(
                   "Stopper '" ~ $<nibble> ~ "' too complex for heredoc"
                 );
                 $*CU.queue-heredoc(Herestub.new(
-                  :$delim, :grammar($lang.herelang), :orignode(self)
+                  :$delim, :grammar($lang.herelang), :orignode(self),
+                  :resolver-state($*R.IMPL-HEREDOC-STATE), :lang($*LANG),
+                  :package($*PACKAGE)
                 ));
             }
         }
@@ -907,6 +949,13 @@ role Rak::Common {
             self.typed-panic: 'X::Syntax::Variable::Initializer', :$name;
         }
 
+        elsif (my str $refusal := $*R.IMPL-HEREDOC-REFUSED($name)) eq 'ambiguous' {
+            self.typed-panic: 'X::Syntax::Heredoc::AmbiguousName', symbol => $name;
+        }
+        elsif $refusal eq 'hidden' {
+            self.typed-panic: 'X::Syntax::Heredoc::HiddenName', symbol => $name;
+        }
+
         # Not resolved and not a Callable
         else {
             self.typed-panic: 'X::Undeclared',
@@ -1204,7 +1253,6 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         nqp::hash(
           'Quote',   [Rak::QGrammar,       Rak::QActions],
           'Regex',   [Rak::RegexGrammar,   Rak::RegexActions],
-          'P5Regex', [Rak::P5RegexGrammar, Rak::P5RegexActions],
         )
     }
 
@@ -1400,6 +1448,11 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
              {self.typed-panic: 'X::Syntax::Confused', reason => 'Unexpected closing bracket'}
           || {self.typed-panic: 'X::Syntax::Confused'}  # huh??
         ]
+        # A heredoc on a last line that has no newline gets no body.
+        [
+          <?{ nqp::elems($*CU.herestub-queue) }>
+          <.panic("Ending delimiter " ~ $*CU.herestub-queue[0].delim ~ " not found")>
+        ]?
         { $*R.leave-scope }
     }
 
@@ -1583,7 +1636,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     }
 
     # Parsing a block *without* a signature (e.g. phasers)
-    token block($kind = 'Block', :$parameterization) {
+    token block($kind = 'Block', :$parameterization, :$package-body) {
         :dba('scoped block')
         :my $borg := $*BORG;                        # keep current context
         :my $has-mystery := 0;  # never set, see missing-block
@@ -1591,7 +1644,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         :my $*BLOCK;                                # localize block to here
         [
           || <?[{]>                                 # block without signature
-             <.enter-block-scope($kind, $parameterization)>
+             <.enter-block-scope($kind, $parameterization, $package-body)>
              {
                  if nqp::istype($*BLOCK, self.Nodify('ParseTime')) {
                      $*BLOCK.ensure-parse-performed($*R, $*CU.context);
@@ -1618,7 +1671,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
             '{'                                     # actual block start
             <.enter-block-body>
             <statementlist=.key-origin('statementlist')>
-            [<.cheat-heredoc> || '}' <.leave-block-body>]  # actual block end
+            [<.cheat-heredoc('}')> || '}' <.leave-block-body>]  # actual block end
             <?end-statement>              # mark line-ending } as a terminator
           || <.missing-block($borg, $has-mystery)>  # OR give up
         ]
@@ -1633,14 +1686,14 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     }
 
     # Parsing any unit scoped block (either package or sub)
-    token unit-block($decl, $kind = 'Block', :$parameterization) {
+    token unit-block($decl, $kind = 'Block', :$parameterization, :$package-body) {
         :my $*BLOCK;
         {                                           # entry check
             $/.typed-panic("X::UnitScope::MustHaveUnit",:what($decl))
               unless $*SCOPE eq 'unit';
         }
         { $*IN-DECL := ''; }                        # not inside declaration
-        <.enter-block-scope($kind, $parameterization)>
+        <.enter-block-scope($kind, $parameterization, $package-body)>
         {
             if nqp::istype($*BLOCK, self.Nodify('ParseTime')) {
                 $*BLOCK.ensure-parse-performed($*R, $*CU.context);
@@ -1652,7 +1705,18 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
 
     # Helper token to set the kind of scope a block is in, *and* have
     # any appropriate actions executed on them
-    token enter-block-scope($*SCOPE-KIND, $*PARAMETERIZATION = Mu) { <?> }
+    token enter-block-scope($*SCOPE-KIND, $*PARAMETERIZATION = Mu, $*PACKAGE-BODY = Mu) { <?> }
+
+    # Helper token to enter the body of a package ahead of its traits, as the
+    # body holds what they declare
+    token enter-package-body($*SCOPE-KIND, $*PARAMETERIZATION) { <?> }
+
+    # Helper token to mark the end of the traits of a package
+    token leave-package-header { <?> }
+
+    # Helper token to claim the leading doc of a declaration that is made
+    # after the expression it holds
+    token claim-leading-doc() { <?> }
 
     # Helper token to make the actions handle the end of a scope
     token enter-block-body()  { <?> }
@@ -1758,9 +1822,34 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         [ <?before 'my'? '$'\w+\s+'(' >
           <.typed-panic: 'X::Syntax::P5'>
         ]?
-        [ <?before '(' <.EXPR>? ';' <.EXPR>? ';' <.EXPR>? ')' >
-          <.obs: 'C-style "for (;;)" loop', '"loop (;;)"'>
-        ]?
+        <?MARKER('for-source')>
+    }
+
+    # A for source that starts with a parenthesized list of three expressions
+    # separated by semicolons, any of them empty, is a C-style loop. Checking
+    # it in a lookahead would parse it twice and declare everything in it twice.
+    method vet-c-style-for(int $from, $semilist) {
+        my int $semicolons;
+        my int $part-statements;
+        for $semilist<statement> {
+            if $_.to > $_.from {
+                my $ast := $_.ast;
+                return self unless ++$part-statements == 1
+                  && nqp::istype($ast, self.Nodify('Statement::Expression'))
+                  && !nqp::isconcrete($ast.condition-modifier)
+                  && !nqp::isconcrete($ast.loop-modifier)
+                  && !nqp::elems($ast.IMPL-UNWRAP-LIST($ast.labels));
+            }
+            if nqp::eqat(self.orig, ';', $_.to) {
+                ++$semicolons;
+                $part-statements := 0;
+            }
+        }
+        if $semicolons == 2 && !$*LANG.pragma('p5isms') {
+            self.'!clear_highwater'();
+            self.new-cursor-at($from).obs('C-style "for (;;)" loop', '"loop (;;)"');
+        }
+        self
     }
 
     # Handle "for"
@@ -1895,7 +1984,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
             { $/.typed-panic: 'X::Language::TooLate', version => ~$<version> }
 
           | <module-name=.longname>
-            [ <.spacey> <arglist> <.cheat-heredoc>? ]?
+            [ <.spacey> <arglist> <.cheat-heredoc(';')>? ]?
         ]
         <.ws>
     }
@@ -2340,7 +2429,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     token statement-prefix:sym<NEXT>  { <.phaser-NEXT>  <.kok> <blorst> }
     token statement-prefix:sym<POST>  { <.phaser-POST>  <.kok> <blorst> }
     token statement-prefix:sym<PRE>   { <.phaser-PRE>   <.kok> <blorst> }
-    token statement-prefix:sym<QUIT>  { <.phaser-QUIT>  <.kok> <blorst> }
+    token statement-prefix:sym<QUIT>  { <.phaser-QUIT>  <.kok> <blorst=.block> }
     token statement-prefix:sym<TEMP>  { <.phaser-TEMP>  <.kok> <blorst> }
     token statement-prefix:sym<UNDO>  { <.phaser-UNDO>  <.kok> <blorst> }
 
@@ -2370,7 +2459,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
 
           | <![;]>
             <block=.statement>
-            <.cheat-heredoc>?
+            <.cheat-heredoc(';')>?
               || <.missing: 'block or statement'>
         ]
     }
@@ -2470,8 +2559,9 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     # The EXPR method implements an operator precedence parsing algorithm.
     # One needs a stack for that and there's not a neat way to express it
     # within the rule language.
-    method EXPR(str $preclim = '') {
+    method EXPR(str $preclim = '', int $invocant-ok = 0) {
         my $*LEFTSIGIL := '';
+        my $*INVOCANT_OK := $invocant-ok;
         my int $noinfix := $preclim eq 'y=';
 
         my $here    := self.new-cursor;
@@ -2609,11 +2699,14 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
                     my $op1 := self.rak-list-op-name(
                       @opstack[nqp::elems(@opstack)-1]<OPER>,
                       @opstack[nqp::elems(@opstack)-1]<OPER>.Str);
-                    my $op2 := self.rak-list-op-name($infix, $infix.Str);
+                    my $op2 := self.rak-list-op-name($infix, $infix<OPER>.Str);
                     self.EXPR-nonlistassoc($infix, $op1, $op2)
                       if $op1 ne $op2 && $op1 ne ':';
                 }
             }
+
+            # A comma ends the first argument, the only one a call can take as its invocant
+            $*INVOCANT_OK := 0 if $inprec eq 'g=';
 
             nqp::push(@opstack, $infix); # The Shift
             $here.set-pos($pos);
@@ -3674,8 +3767,10 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         :my $*RAK-CAPTURE := 1;
         :my $*RAK-IN-PAREN := 1;
         :my $*RAK-PIPE := 0;
+        :my $for-source := self.MARKED('for-source') ?? 1 !! 0;
         :dba('parenthesized expression')
-        '(' ~ ')' [ <?{ $*RAK-SEMANTICS }> \s* <rak-command> \s* <?before ')'> || <semilist> ]
+        '(' ~ ')' [ <?{ $*RAK-SEMANTICS }> \s* <rak-command> \s* <?before ')'>
+                || <semilist> { $/.vet-c-style-for(self.pos, $<semilist>) if $for-source } ]
     }
 
     token circumfix:sym<[ ]> {
@@ -4062,11 +4157,13 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
                '('
                <.ws>
                [
-                 || <accept=.maybe-typename>
+                 # A :: before a name looks the type up, as a term would,
+                 # rather than declaring a type capture in the enclosing scope.
+                 || [ '::' <?before <.ident>> ]? <accept=.maybe-typename(:allow-capture(0))>
                     <?{
-                        my $it := $<accept>.ast;
-                        nqp::istype($it,self.Nodify('Type::Coercion'))
-                          || $*R.is-name-type($it.name)
+                        my $it := $<accept>.ast.IMPL-BASE-TYPE;
+                        nqp::istype($it, self.Nodify('Type::Simple'))
+                          && $*R.is-name-type($it.name)
                     }>
                  || $<accept_any>=<?>
                ]
@@ -4588,7 +4685,10 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         :my $*BLOCK;
         :my $*PACKAGE;
         :my $*PACKAGE-BEGIN-SORRY-BASE := $*R.deferred-begin-sorries;
+        :my $*PACKAGE-HEADER-GENERATED := 0;
+        :my $*PACKAGE-HEADER-GENERATED-END := 0;
         :my $scope;
+        :my $body-scope;
         <!!{ $/.clone_braid_from(self) }>
         <longname>? {}
         <.stub-package($<longname>)>
@@ -4598,16 +4698,18 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           { $*IN-DECL := ''; }
         ]?
         { $/.set_package($*PACKAGE) }
+        <.enter-package-body($*PACKAGE.declarator eq 'role' ?? 'RoleBody' !! 'Block', $<signature> ?? $<signature>.ast !! Mu)>
         <trait($*PACKAGE)>*
-        { $scope := $*R.leave-scope() }
-        <.enter-package-scope($<signature>, $scope)>
+        <.leave-package-header>
+        { $body-scope := $*R.leave-scope(); $scope := $*R.leave-scope() }
+        <.enter-package-scope($<signature>, $scope, $body-scope)>
         [
-          || <?[{]> { $*START-OF-COMPUNIT := 0; } <block($*PACKAGE.declarator eq 'role' ?? 'RoleBody' !! 'Block', :parameterization($<signature> ?? $<signature>.ast !! Mu))>
+          || <?[{]> { $*START-OF-COMPUNIT := 0; } <block($*PACKAGE.declarator eq 'role' ?? 'RoleBody' !! 'Block', :parameterization($<signature> ?? $<signature>.ast !! Mu), :package-body($body-scope))>
           || ';'
              [
                || <?{ $*START-OF-COMPUNIT }>
                   { $*START-OF-COMPUNIT := 0; }
-                  <unit-block($*PKGDECL, $*PACKAGE.declarator eq 'role' ?? 'RoleBody' !! 'Block', :parameterization($<signature> ?? $<signature>.ast !! Mu))>
+                  <unit-block($*PKGDECL, $*PACKAGE.declarator eq 'role' ?? 'RoleBody' !! 'Block', :parameterization($<signature> ?? $<signature>.ast !! Mu), :package-body($body-scope))>
 
                || { $/.typed-panic: "X::UnitScope::TooLate", what => $*PKGDECL }
              ]
@@ -4619,7 +4721,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     }
 
     token stub-package($*PACKAGE-NAME) { <?> }
-    token enter-package-scope($*SIGNATURE, $*LEXICAL-SCOPE) { <?> }
+    token enter-package-scope($*SIGNATURE, $*LEXICAL-SCOPE, $*BODY-SCOPE = Mu) { <?> }
     token leave-package-scope { <?> }
 
     proto token scope-declarator {*}
@@ -4801,7 +4903,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
                        '{' ~ '}' <semilist>
                        {
                            self.typed-sorry('X::Syntax::Reserved',
-                             reserved => "{} shape syntax with the $sigil sigil"
+                             reserved => '{} shape syntax with the ' ~ $sigil ~ ' sigil'
                            ) if $sigil ne '%';
                        }
 
@@ -5042,7 +5144,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           <trait($*BLOCK)>*
           '{'<.regex-whitespace>[
             | ['*'|'<...>'|'<*>'] <?{ $*MULTINESS eq 'proto' }> $<onlystar>={1}
-            | <nibble(self.quote-lang(self.Regex(%*RX<P5>), '{', '}'))>
+            | <nibble(self.quote-lang(self.Regex, '{', '}'))>
           ]
           '}'<!RESTRICTED><?end-statement>
           <.leave-block-scope>
@@ -5094,13 +5196,15 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
             || <.typed-panic: "X::Syntax::Missing", :what('initializer on constant declaration')>
         ]
 
-        <.cheat-heredoc>?
+        <.cheat-heredoc(';')>?
     }
 
     token type-declarator:sym<enum> {
         <.typer-enum>
         <.kok>
         :my $*IN-DECL := 'enum';
+        :my $*CLAIMED-DOC;
+        <.claim-leading-doc>
         [
           | <longname>
           | <variable>
@@ -5112,6 +5216,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         <trait>*
 
         [ <?[<(«]>
+          <.claim-leading-doc>
           <term>
           <.ws>
             || <.panic: 'An enum must supply an expression using <>, «», or ()'>
@@ -5121,12 +5226,15 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     rule type-declarator:sym<subset> {
         <.typer-subset><.kok>
         :my $*IN-DECL := 'subset';
+        :my $*CLAIMED-DOC;
+        <.claim-leading-doc>
         [
           [
             [ <longname> ]
             { $*IN-DECL := '' }
             <trait>*
-            [ <.constraint-where> <EXPR('e=')> ]?
+            [ <?before <.constraint-where>> <.claim-leading-doc>
+              <.constraint-where> <EXPR('e=')> ]?
           ] || <.malformed: 'subset'>
         ]
     }
@@ -5473,7 +5581,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         {}  # make sure $/ gets set
         <.qok($/)>
         <rx-adverbs>
-        <quibble(self.Regex(%*RX<P5>))>
+        <quibble(self.Regex)>
         <!old-rx-modifiers>
     }
 
@@ -5484,7 +5592,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         {}  # make sure $/ gets set
         <.qok($/)>
         <rx-adverbs>
-        <quibble(self.Regex(%*RX<P5>))>
+        <quibble(self.Regex)>
         <!old-rx-modifiers>
     }
 
@@ -5495,7 +5603,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         { %*RX<s> := 1; %*RX<sigspace> := 1 }
         <.qok($/)>
         <rx-adverbs>
-        <quibble(self.Regex(%*RX<P5>))>
+        <quibble(self.Regex)>
         <!old-rx-modifiers>
     }
 
@@ -5506,7 +5614,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         {}  # make sure $/ gets set
         <.qok($/)>
         <rx-adverbs>
-        <sibble(self.Regex(%*RX<P5>), self.Quote, 'qq')>
+        <sibble(self.Regex, self.Quote, 'qq')>
         [ <?{ $<sibble><infixish> }> || <.old-rx-modifiers>? ]
     }
 
@@ -5517,7 +5625,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         { %*RX<s> := 1; %*RX<sigspace> := 1 }
         <.qok($/)>
         <rx-adverbs>
-        <sibble(self.Regex(%*RX<P5>), self.Quote, 'qq')>
+        <sibble(self.Regex, self.Quote, 'qq')>
         [ <?{ $<sibble><infixish> }> || <.old-rx-modifiers>? ]
     }
 
@@ -5528,7 +5636,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         {}  # make sure $/ gets set
         <.qok($/)>
         <rx-adverbs>
-        <sibble(self.Regex(%*RX<P5>), self.Quote, 'qq')>
+        <sibble(self.Regex, self.Quote, 'qq')>
         [ <?{ $<sibble><infixish> }> || <.old-rx-modifiers>? ]
     }
 
@@ -5539,7 +5647,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         { %*RX<s> := 1; %*RX<sigspace> := 1 }
         <.qok($/)>
         <rx-adverbs>
-        <sibble(self.Regex(%*RX<P5>), self.Quote, 'qq')>
+        <sibble(self.Regex, self.Quote, 'qq')>
         [ <?{ $<sibble><infixish> }> || <.old-rx-modifiers>? ]
     }
 
@@ -5719,7 +5827,11 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         ]?
         <.unspace>?
         [ <?{ $coercion }> <?[(]>
-          '(' ~ ')' [<.ws> [<accept=.typename> || $<accept_any>=<?>] <.ws>]
+          '(' ~ ')' [<.ws> [
+            [ <!{ $allow-capture }> '::' <?before <.ident>> ]?
+            <accept=.typename(:$allow-capture)>
+            || $<accept_any>=<?>
+          ] <.ws>]
         ]?
         [<.ws> <.traitmod-of> <.ws> <typename> ]?
     }
@@ -5729,17 +5841,22 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         {
             my $longname := $<longname>.ast.canonicalize;
             my $method := $panic ?? 'typed-panic' !! 'typed-sorry';
-            $/."$method"('X::Undeclared',
-              what   => "Type",
-              symbol => $longname,
-              suggestions => $*R.suggest-typename($longname)
-            );
+            my str $refusal := $*R.IMPL-HEREDOC-REFUSED($longname);
+            $refusal eq 'ambiguous'
+              ?? $/."$method"('X::Syntax::Heredoc::AmbiguousName', symbol => $longname)
+              !! $refusal eq 'hidden'
+                ?? $/."$method"('X::Syntax::Heredoc::HiddenName', symbol => $longname)
+                !! $/."$method"('X::Undeclared',
+                     what   => "Type",
+                     symbol => $longname,
+                     suggestions => $*R.suggest-typename($longname)
+                   );
         }
     }
 
-    method maybe-typename() {
+    method maybe-typename(*%options) {
         CATCH { return self.new-cursor }
-        self.typename;
+        self.typename(|%options);
     }
 
 #-------------------------------------------------------------------------------
@@ -5968,25 +6085,25 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
 #-------------------------------------------------------------------------------
 # Argument lists and captures
 
-    token args($*INVOCANT_OK = 0) {
+    token args($invocant-ok = 0) {
         :my $*INVOCANT;
         :my $*GOAL := '';
         :my $*ADVERB-AS-INFIX := 0;
         :dba('argument list')
         [
-          | '(' ~ ')' <semiarglist>             # keep these two lines
-          | <.unspace> '(' ~ ')' <semiarglist>  # separate for performance
-          | [ \s <arglist> ]
+          | '(' ~ ')' <semiarglist($invocant-ok)>             # keep these two lines
+          | <.unspace> '(' ~ ')' <semiarglist($invocant-ok)>  # separate for performance
+          | [ \s <arglist($invocant-ok)> ]
           | <?>
         ]
     }
 
-    token semiarglist {
-        <arglist>+ % ';'
+    token semiarglist($invocant-ok = 0) {
+        <arglist($invocant-ok)> [ ';' <arglist> ]*
         <.ws>
     }
 
-    token arglist {
+    token arglist($invocant-ok = 0) {
         :my $*GOAL := 'endargs';
         :my $*QSIGIL := '';
         <.ws>
@@ -5994,7 +6111,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         [
           | <?stdstopper>
 
-          | <EXPR('e=')>
+          | <EXPR('e=', $invocant-ok)>
             {
                 sub handle-any-named($ast) {
                     $ast.set-key(self.named2str($ast.key))
@@ -6412,6 +6529,9 @@ Rakudo significantly on *every* run."
                 :value($scalar),
             )
         );
+
+        # If an outer $*GRAMMAR is specified, then set it here
+        try $*GRAMMAR := self;
 
         $*LANG := self;
         #$*LEAF := self;
@@ -6849,7 +6969,7 @@ Rakudo significantly on *every* run."
         <.doc-newline>
 
         # and any following lines as well
-        $<lines>=[[^^ $<margin> \h* [ <-[=\n]> | '=' ** 2..* ] \N* \n? ]* \n*]
+        $<lines>=[[^^ $<margin> \h* [ <-[=\n]> | '=' <!before \w> ] \N* \n? ]* \n*]
     }
 
     token doc-block:sym<abbreviated> {
@@ -6874,7 +6994,7 @@ Rakudo significantly on *every* run."
         [ [ \h+ $<header>=[\N+ \n?]? ] | <.doc-newline> ]
 
         # and any following lines as well
-        $<lines>=[[^^ $<margin> \h* [ <-[=\n]> | '=' ** 2..* ] \N* \n? ]* \n*]
+        $<lines>=[[^^ $<margin> \h* [ <-[=\n]> | '=' <!before \w> ] \N* \n? ]* \n*]
     }
 
     token doc-block:sym<lines> {
@@ -7559,29 +7679,5 @@ grammar Rak::RegexGrammar is QRegex::P6Regex::Grammar does Rak::Common {
         :my $*IN_REGEX_ASSERTION := 1;
         <!RESTRICTED>
         <arglist=.LANG('MAIN','arglist')>
-    }
-}
-
-#-------------------------------------------------------------------------------
-# Grammar to parse PCRE like regexes
-
-grammar Rak::P5RegexGrammar is QRegex::P5Regex::Grammar does Rak::Common {
-    token rxstopper { <stopper> }
-
-    token p5metachar:sym<(?{ })> {
-        '(?' <?[{]> <codeblock> ')'
-    }
-
-    token p5metachar:sym<(??{ })> {
-        '(??' <?[{]> <codeblock> ')'
-    }
-
-    token p5metachar:sym<var> {
-        <?[$]> <var=.LANG('MAIN', 'variable')>
-    }
-
-    token codeblock {
-        :my $*ESCAPEBLOCK := 1;
-        <block=.LANG('MAIN','block')>
     }
 }

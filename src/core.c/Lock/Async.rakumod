@@ -54,7 +54,6 @@ my class Lock::Async {
     # The current holder record, with waiters queue, of the lock.
     has Holder $!holder = Holder;
 
-
     # Singleton Promise to be used when there's no need to wait.
     my $KEPT-PROMISE := nqp::null;
     method lock(Lock::Async:D: --> Promise) {

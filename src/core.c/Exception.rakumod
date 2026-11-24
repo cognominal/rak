@@ -236,13 +236,20 @@ my class X::Method::NotFound is Exception {
     }
 
     method !create-message() {
+        # The accessor would call .item on the invocant, which an uncomposed
+        # class that declares no parent does not have yet
         my @message = $.private
           ?? "No such private method '!$.method' for invocant $.of-type"
-          !! nqp::istype($.invocant,Str)
+          !! nqp::istype($!invocant,Str)
             ?? "No such method '$.method' for string '$.invocant'"
             !! "No such method '$.method' for invocant $.of-type";
 
         @!tips.push: "You actually called '$.method' on a container, was that what you intended?" if $.containerized;
+
+        my $how := $!invocant.HOW;
+        @!tips.push: "'$.typename' is not composed yet, so its multi methods and any methods from its roles or its default parent are not available yet."
+          if nqp::istype($how,Metamodel::ClassHOW)
+          && !$how.is_composed($!invocant);
 
         @message.push: $.addendum if $.addendum;
 
@@ -860,7 +867,13 @@ my class X::IO::NotAChild does X::IO {
 
 my class X::IO::Resolve does X::IO {
     has $.path;
-    method message() { "Failed to completely resolve {$.path.raku}" }
+    has $.reason;
+    method message() {
+        my str $message = "Failed to completely resolve $.path.raku()";
+        $.reason
+          ?? "$message: $.reason"
+          !! $message
+    }
 }
 
 my class X::IO::Rmdir does X::IO {
@@ -1427,8 +1440,8 @@ my class X::Undeclared::Symbols does X::Comp {
             for %.unk_routines.sort(*.key) {
                 $r ~= "    $_.key() &l($_.value)";
                 $r ~= " (in Raku please use $_ instead)" with %obs{$_.key};
-                if +%.routine_suggestion{$_.key()}.list {
-                    $r ~= ". " ~ s(%.routine_suggestion{$_.key()}.list);
+                if %.routine_suggestion{$_.key} -> $suggestions {
+                    $r ~= ". " ~ s($suggestions.list);
                 }
                 $r ~= "\n";
             }
@@ -1871,6 +1884,19 @@ my class X::Syntax::Variable::Match does X::Syntax {
 my class X::Syntax::Variable::Initializer does X::Syntax {
     has $.name = '<anon>';
     method message() { "Cannot use variable $!name in declaration to initialize itself" }
+}
+
+my class X::Syntax::Heredoc::AmbiguousName does X::Syntax {
+    has $.symbol;
+    method message() {
+        "Name '$!symbol' in a heredoc body is ambiguous: it means one declaration where the heredoc starts and another where its body is written".naive-word-wrapper
+    }
+}
+
+my class X::Syntax::Heredoc::HiddenName is X::Undeclared {
+    method message() {
+        "Name '$.symbol' in a heredoc body is declared only inside a block that closes on the heredoc's line, before the body. Move the closing brace of the block after the body to use it".naive-word-wrapper
+    }
 }
 
 my class X::Syntax::Variable::SignatureAssignment does X::Syntax {
@@ -3090,7 +3116,7 @@ my class X::TypeCheck::Assignment is X::TypeCheck {
     method operation { 'assignment' }
     method message {
         my $symbol := $!symbol // $!desc.name;
-        my $location = !$symbol.defined || $symbol eq '$'
+        my $location = !$symbol || $symbol eq '$'
             ?? "in assignment"
             !! $symbol.starts-with("@" | "%")
                 ?? "for an element of $symbol"
@@ -3578,7 +3604,7 @@ my class X::Multi::NoMatch is Exception {
                     unless @cand == @un-rw-cand
                 )
             !! ( @cand
-                 ??  join "\n    ", 'none of these signatures matches:', @cand
+                 ??  join "\n    ", 'none of these signatures match:', @cand
                  !! "Routine does not have any candidates.  Is only the proto defined?"
                )
         );
@@ -3776,6 +3802,16 @@ my class X::WhateverCode::SmartMatch::LHS {
     }
 }
 
+my class X::Whatever::ShortCircuit {
+    has $.what;
+    has $.operator;
+    method message() {
+        "$!what tested first by $!operator does not curry the $!operator expression,\n"
+            ~ "and is always true and defined.\n"
+            ~ "Try a block using \$_ instead if results are not as expected."
+    }
+}
+
 my class X::EXPORTHOW::InvalidDirective does X::Comp {
     has $.directive;
     method message() {
@@ -3910,8 +3946,9 @@ my class X::NotEnoughDimensions is Exception {
     has $.operation;
     has $.got-dimensions;
     has $.needed-dimensions;
+    has $.aggregate = 'array';
     method message() {
-        "Cannot $.operation a $.needed-dimensions dimension array with only $.got-dimensions dimensions"
+        "Cannot $.operation a $.needed-dimensions dimension $.aggregate with only $.got-dimensions dimensions"
     }
 }
 
@@ -3919,8 +3956,9 @@ my class X::TooManyDimensions is Exception {
     has $.operation;
     has $.got-dimensions;
     has $.needed-dimensions;
+    has $.aggregate = 'array';
     method message() {
-        "Cannot $.operation a $.needed-dimensions dimension array with $.got-dimensions dimensions"
+        "Cannot $.operation a $.needed-dimensions dimension $.aggregate with $.got-dimensions dimensions"
     }
 }
 
@@ -3936,7 +3974,7 @@ my class X::ArrayShapeMismatch is Exception {
     has $.target-shape;
     has $.source-shape;
     method message() {
-        "Cannot assign an array of shape $.source-shape to an array of shape $.target-shape"
+        "Cannot $.action an array of shape $.source-shape to an array of shape $.target-shape"
     }
 }
 my class X::Assignment::ArrayShapeMismatch is X::ArrayShapeMismatch {

@@ -603,11 +603,11 @@ augment class RakuAST::Node {
 
     multi method raku(RakuAST::Name:D: --> Str:D) {
         my @parts      := self.parts;
-        my $colonpairs := self.colonpairs;
 
-        if @parts && nqp::istype(@parts.are, RakuAST::Name::Part::Simple) {
+        if @parts
+          && @parts.are(RakuAST::Name::Part::Simple)
+          && !self.colonpairs {
             my str $args = @parts.map(*.name.raku).join(',');
-            $args ~= ', colonpairs => ' ~ rakufy($colonpairs) if $colonpairs;
             self.^name ~ (@parts.elems == 1
               ?? ".from-identifier($args)"
               !! ".from-identifier-parts($args)"
@@ -615,7 +615,8 @@ augment class RakuAST::Node {
         }
         else {
             indent;
-            my str @lines = @parts.map({ $*INDENT ~ rakufy($_) });
+            my $colonpairs := self.colonpairs;
+            my str @lines   = @parts.map({ $*INDENT ~ rakufy($_) });
             @lines.push($*INDENT ~ 'colonpairs => ' ~ rakufy($colonpairs))
               if $colonpairs;
             dedent;
@@ -1171,10 +1172,7 @@ augment class RakuAST::Node {
 
     multi method raku(RakuAST::StatementPrefix::Phaser::Post:D: --> Str:D) {
         # skip the auto-generated code
-        self!positional(RakuAST::Statement::Expression.new(
-          expression => self.blorst.body
-            .statement-list.statements.head.condition-modifier.expression
-        ))
+        self!positional(self.original-blorst)
     }
 
     multi method raku(RakuAST::StatementPrefix::Phaser::Pre:D: --> Str:D) {
@@ -1307,13 +1305,22 @@ augment class RakuAST::Node {
 #- Type ------------------------------------------------------------------------
 
     multi method raku(RakuAST::Type::Capture:D: --> Str:D) {
-        indent;
-        my str $name = $*INDENT ~ self.name.raku;
-        dedent;
-        my str $nameds = self!nameds: <smiley>;
-        $nameds.ends-with('.new')
-          ?? self.^name ~ ".new(\n$name\n$*INDENT)"
-          !! $nameds.subst(".new(\n", ".new(\n$name,\n")
+        my $Name := self.name;
+        my @parts = $Name.parts;
+        if @parts == 1
+          && nqp::istype(@parts.head, RakuAST::Name::Part::Simple)
+          && !$Name.colonpairs {
+            self.^name ~ ".from-identifier(@parts.head.name.raku())"
+        }
+        else {
+            indent;
+            my str $name = $*INDENT ~ $Name.raku;
+            dedent;
+            my str $nameds = self!nameds: <smiley>;
+            $nameds.ends-with('.new')
+              ?? self.^name ~ ".new(\n$name\n$*INDENT)"
+              !! $nameds.subst(".new(\n", ".new(\n$name,\n")
+        }
     }
 
     multi method raku(RakuAST::Type::Coercion:D: --> Str:D) {
@@ -1341,12 +1348,21 @@ augment class RakuAST::Node {
         self!nameds: <base-type args>
     }
 
-    multi method raku(RakuAST::Type::Setting:D: --> Str:D) {
-        self!positional(self.name)
-    }
-
     multi method raku(RakuAST::Type::Simple:D: --> Str:D) {
-        self!positional(self.name)
+        my $name := self.name;
+        my @parts = $name.parts;
+        if @parts
+          && @parts.are(RakuAST::Name::Part::Simple)
+          && !$name.colonpairs {
+            my str $args = @parts.map(*.name.raku).join(',');
+            self.^name ~ (@parts.elems == 1
+              ?? ".from-identifier($args)"
+              !! ".from-identifier-parts($args)"
+            )
+        }
+        else {
+            self!positional($name)
+        }
     }
 
     multi method raku(RakuAST::Type::Subset:D: --> Str:D) {
@@ -1521,11 +1537,11 @@ augment class RakuAST::Name::Part {
 
 #- Name::Part-------------------------------------------------------------------
 
-    multi method raku(RakuAST::Name::Part::Empty:U: --> Str:D) {
+    multi method raku(RakuAST::Name::Part::EmptyEdge:U: --> Str:D) {
         self.^name
     }
 
-    multi method raku(RakuAST::Name::Part::Empty:D: --> Str:D) {
+    multi method raku(RakuAST::Name::Part::EmptyEdge:D: --> Str:D) {
         self.^name ~ '.new'
     }
 

@@ -31,11 +31,11 @@ class RakuAST::Term::Name
 
     # Folding must agree with IMPL-EXPR-QAST on which names may use their
     # resolution: only a leading-:: package search, and not ::GLOBAL.
-    method has-compile-time-value() {
-        self.is-resolved
-          && self.resolution.has-compile-time-value
+    method has-compile-time-value(--> Bool) {
+        ?self.is-resolved
+          && ?self.resolution.has-compile-time-value
           && (!$!name.is-pseudo-package
-               || $!name.is-package-search
+               || ?$!name.is-package-search
                     && !$!name.without-first-part.is-global-lookup)
     }
 
@@ -84,8 +84,9 @@ class RakuAST::Term::Name
     method PERFORM-CHECK(RakuAST::Resolver $resolver, RakuAST::IMPL::QASTContext $context) {
         my $name := $!name;
         if $name.is-pseudo-package
-            ?? nqp::istype($name.first-part, RakuAST::Name::Part::Empty) && $name.base-name.is-empty && $name.has-colonpairs
+            ?? nqp::istype($name.first-part, RakuAST::Name::Part::EmptyEdge) && $name.base-name.is-empty && $name.has-colonpairs
             !! ! $name.is-package-lookup && ! $name.is-indirect-lookup && ! self.is-resolved
+              && ! self.IMPL-HEREDOC-REPORT($resolver)
         {
             self.add-sorry:
                 $resolver.build-exception: 'X::NoSuchSymbol', :symbol($!name.canonicalize);
@@ -264,9 +265,7 @@ class RakuAST::Term::TopicCall
     }
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
-        [
-            RakuAST::Var::Lexical.new('$_'),
-        ]
+        [ RakuAST::Var::Lexical.new('$_') ]
     }
 
     method PERFORM-CHECK(RakuAST::Resolver $resolver, RakuAST::IMPL::QASTContext $context) {
@@ -276,9 +275,9 @@ class RakuAST::Term::TopicCall
     method IMPL-EXPR-QAST(RakuAST::IMPL::QASTContext $context) {
         my $postfix-ast := $!call.IMPL-POSTFIX-QAST(
           $context,
-          self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].resolution.IMPL-LOOKUP-QAST($context)
+          self.get-implicit-lookups[0].resolution.IMPL-LOOKUP-QAST($context)
         );
-        nqp::istype($!call, RakuAST::Call::Methodish)
+        nqp::istype($!call, RakuAST::Call::Methodish) && $!call.IMPL-HLLIZE-RESULT
             ?? QAST::Op.new(:op<hllize>, $postfix-ast)
             !! $postfix-ast
     }
@@ -294,7 +293,7 @@ class RakuAST::Term::TopicCall
     method IMPL-BIND-QAST(RakuAST::IMPL::QASTContext $context, QAST::Node $source-qast) {
         $!call.IMPL-BIND-POSTFIX-QAST(
           $context,
-          self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0],
+          self.get-implicit-lookups[0],
           $source-qast
         )
     }
@@ -335,6 +334,24 @@ class RakuAST::Term::Named
             self.set-resolution($resolved);
         }
         Nil
+    }
+
+    method PERFORM-CHECK(RakuAST::Resolver $resolver, RakuAST::IMPL::QASTContext $context) {
+        # A term routine declared later in the scope is hoisted to its start,
+        # so adopt it over an earlier `External` resolution.
+        if self.is-resolved && nqp::istype(self.resolution, RakuAST::Declaration::External) {
+            my $lexical := $resolver.resolve-term($!name);
+            if $lexical && !nqp::istype($lexical, RakuAST::Declaration::External) {
+                self.set-resolution($lexical);
+            }
+        }
+
+        # The setting's terms have no effect beyond their result. A
+        # user-defined term is a call like any other and may be made for its
+        # effects.
+        self.add-sunk-worry($resolver, self.origin ?? self.origin.Str !! self.DEPARSE)
+            if self.sunk && self.is-resolved
+            && nqp::istype(self.resolution, RakuAST::Declaration::External::Setting);
     }
 
     method IMPL-EXPR-QAST(RakuAST::IMPL::QASTContext $context) {
@@ -446,9 +463,7 @@ class RakuAST::WhateverCode::Argument
         nqp::bindattr_i(self, RakuAST::WhateverCode::Argument, '$!hyper', 1);
     }
 
-    method is-hyper() {
-        $!hyper ?? True !! False
-    }
+    method is-hyper(--> Bool) { $!hyper }
 
     method set-name(RakuAST::Name $name) {
         nqp::bindattr(self, RakuAST::WhateverCode::Argument, '$!name', $name);
@@ -576,8 +591,8 @@ class RakuAST::Term::Reduce
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
         [
-            RakuAST::Var::Lexical.new('&infix:<,>'),
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier($!infix.reducer-name)),
+          RakuAST::Var::Lexical.new('&infix:<,>'),
+          RakuAST::Type::Setting.from-identifier($!infix.reducer-name),
         ]
     }
 
@@ -604,7 +619,7 @@ class RakuAST::Term::Reduce
     }
 
     method IMPL-HOP-INFIX() {
-        my &reducer := self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[1].resolution.compile-time-value;
+        my &reducer := self.get-implicit-lookups[1].resolution.compile-time-value;
         $!triangle ?? &reducer($!infix.IMPL-HOP-INFIX, True) !! &reducer($!infix.IMPL-HOP-INFIX)
     }
 
@@ -647,8 +662,7 @@ class RakuAST::Term::Reduce
             # Form a List of the arguments and pass it to the reducer. A
             # thunky operator's arguments were already rewritten into thunks
             # by the IMPL-THUNK-ARGUMENTS call at begin time.
-            my $name :=
-              self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].resolution.lexical-name;
+            my $name := self.get-implicit-lookups[0].resolution.lexical-name;
             my $form-list := QAST::Op.new(:op('call'), :$name);
             $!args.IMPL-ADD-QAST-ARGS($context, $form-list);
             QAST::Op.new( :op<call>, $form-meta, $form-list )

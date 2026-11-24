@@ -29,14 +29,12 @@ class RakuAST::FatArrow
     method named-arg-value() { $!value }
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
-        [
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('Pair')),
-        ]
+        [ RakuAST::Type::Setting.from-identifier('Pair') ]
     }
 
     method IMPL-EXPR-QAST(RakuAST::IMPL::QASTContext $context) {
         my $pair-type :=
-          self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].resolution.compile-time-value;
+          self.get-implicit-lookups[0].resolution.compile-time-value;
         my $key := $!key;
         $context.ensure-sc($key);
         QAST::Op.new(
@@ -50,7 +48,7 @@ class RakuAST::FatArrow
     method IMPL-CAN-INTERPRET() { $!value.IMPL-CAN-INTERPRET }
 
     method IMPL-INTERPRET(RakuAST::IMPL::InterpContext $ctx) {
-        self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].resolution.compile-time-value.new(
+        self.get-implicit-lookups[0].resolution.compile-time-value.new(
           $!key, $!value.IMPL-INTERPRET($ctx)
         )
     }
@@ -143,13 +141,11 @@ class RakuAST::ColonPair
     }
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
-        [
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('Pair')),
-        ]
+        [ RakuAST::Type::Setting.from-identifier('Pair') ]
     }
 
     method IMPL-CREATE-PAIR(Str $key, Mu $value) {
-        my $Pair := self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].resolution.compile-time-value;
+        my $Pair := self.get-implicit-lookups[0].resolution.compile-time-value;
         my $pair := nqp::create($Pair);
         nqp::bindattr($pair, $Pair, '$!key', $key);
         nqp::bindattr($pair, $Pair, '$!value', $value);
@@ -158,7 +154,7 @@ class RakuAST::ColonPair
 
     method IMPL-EXPR-QAST(RakuAST::IMPL::QASTContext $context) {
         my $pair-type :=
-          self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].resolution.compile-time-value;
+          self.get-implicit-lookups[0].resolution.compile-time-value;
         my $key := $!key;
         $context.ensure-sc($key);
         QAST::Op.new(
@@ -228,9 +224,7 @@ class RakuAST::ColonPair::True
     }
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
-        [
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('Pair'))
-        ]
+        [ RakuAST::Type::Setting.from-identifier('Pair') ]
     }
 
     method value() {
@@ -252,7 +246,7 @@ class RakuAST::ColonPair::True
     method IMPL-CAN-INTERPRET() { True }
 
     method IMPL-INTERPRET(RakuAST::IMPL::InterpContext $ctx) {
-        self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].resolution.compile-time-value.new(
+        self.get-implicit-lookups[0].resolution.compile-time-value.new(
           self.key, True
         )
     }
@@ -274,9 +268,7 @@ class RakuAST::ColonPair::False
     }
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
-        [
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('Pair'))
-        ]
+        [ RakuAST::Type::Setting.from-identifier('Pair') ]
     }
 
     method value() {
@@ -298,7 +290,7 @@ class RakuAST::ColonPair::False
     method IMPL-CAN-INTERPRET() { True }
 
     method IMPL-INTERPRET(RakuAST::IMPL::InterpContext $ctx) {
-        self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].resolution.compile-time-value.new(
+        self.get-implicit-lookups[0].resolution.compile-time-value.new(
           self.key, False
         )
     }
@@ -331,7 +323,7 @@ class RakuAST::ColonPair::Number
     method IMPL-CAN-INTERPRET() { True }
 
     method IMPL-INTERPRET(RakuAST::IMPL::InterpContext $ctx) {
-        self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].resolution.compile-time-value.new(
+        self.get-implicit-lookups[0].resolution.compile-time-value.new(
           self.key, $!value.IMPL-INTERPRET($ctx)
         )
     }
@@ -391,6 +383,10 @@ class RakuAST::ColonPair::Value
     # be interpreted so IMPL-QUOTE-VALUE can render the same `<a b>`
     # canonical form as `:foo<a b>`.
     method canonicalize() {
+        # A name cannot wait for a heredoc body at the end of the line.
+        RakuAST::Exception::TooComplex.new.throw
+          if !$!has-cached-value
+          && nqp::isconcrete(RakuAST::Heredoc.IMPL-AWAITING-IN($!value));
         my $value := self.IMPL-INTERPRETED-VALUE-OR-NIL;
         self.key ~ (
             $!has-cached-value && nqp::isconcrete($value)
@@ -431,7 +427,7 @@ class RakuAST::ColonPair::Value
     method IMPL-CAN-INTERPRET() { $!value.IMPL-CAN-INTERPRET }
 
     method IMPL-INTERPRET(RakuAST::IMPL::InterpContext $ctx) {
-        self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].resolution.compile-time-value.new(
+        self.get-implicit-lookups[0].resolution.compile-time-value.new(
           self.key, $!value.IMPL-INTERPRET($ctx)
         )
     }

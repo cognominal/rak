@@ -338,7 +338,6 @@ augment class Rakudo::Internals {
 
       '$*SCHEDULER', anon sub SCHEDULER() is raw {
           PROCESS::<$SCHEDULER> := ThreadPoolScheduler.new
-
       },
 
       '$*THREAD', anon sub THREAD() is raw {

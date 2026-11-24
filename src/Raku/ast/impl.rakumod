@@ -86,7 +86,6 @@ class RakuAST::IMPL::QASTContext {
         nqp::bindattr($obj, RakuAST::IMPL::QASTContext, '$!sub-id-to-cloned-code-objects', {});
         nqp::bindattr($obj, RakuAST::IMPL::QASTContext, '$!sub-id-to-sc-idx', {});
         nqp::bindattr($obj, RakuAST::IMPL::QASTContext, '$!cleanup-tasks', []);
-        nqp::bindattr_i($obj, RakuAST::IMPL::QASTContext, '$!is-nested', 0);
         nqp::bindattr($obj, RakuAST::IMPL::QASTContext, '$!setting', $setting);
         nqp::bindattr($obj, RakuAST::IMPL::QASTContext, '$!language-revision', $language-revision);
         nqp::bindattr($obj, RakuAST::IMPL::QASTContext, '$!world-bridge', Mu);
@@ -152,7 +151,7 @@ class RakuAST::IMPL::QASTContext {
 #?endif
     }
 
-    method is-precompilation-mode() {
+    method is-precompilation-mode(--> Bool) {
         $!precompilation-mode
     }
 
@@ -173,7 +172,7 @@ class RakuAST::IMPL::QASTContext {
         Nil
     }
 
-    method has-stubbed-code-object(Mu $code-obj) {
+    method has-stubbed-code-object(Mu $code-obj --> Bool) {
         nqp::existskey($!stubbed-code-objects, ~nqp::objectid($code-obj))
     }
 
@@ -276,7 +275,7 @@ class RakuAST::IMPL::QASTContext {
     # passed, returns the matching code ref; otherwise returns Mu.
     method IMPL-FIXUP-COMPILED-CODEREFS(Mu $coderefs, $block-cuid?, :$drain-compstuff-fixups) {
         my int $n := nqp::elems($coderefs);
-        my int $i := 0;
+        my int $i;
         my $result;
         while $i < $n {
             my $coderef := nqp::atpos($coderefs, $i);
@@ -340,6 +339,39 @@ class RakuAST::IMPL::InterpContext {
         nqp::bindattr($obj, RakuAST::IMPL::InterpContext, '$!resolver', $resolver);
         nqp::bindattr($obj, RakuAST::IMPL::InterpContext, '$!context', $context);
         $obj
+    }
+}
+
+# Takes the place of an operand's thunks while BEGIN time evaluation compiles
+# the application around it, so the operand compiles to the value it has.
+class RakuAST::IMPL::BeginTimeValue {
+    has Mu $!value;
+
+    method new(Mu $value) {
+        my $obj := nqp::create(self);
+        nqp::bindattr($obj, RakuAST::IMPL::BeginTimeValue, '$!value', $value);
+        $obj
+    }
+
+    method next() { Mu }
+
+    method thunk-kind() { 'BEGIN time value' }
+
+    method thunk-details() { '' }
+
+    method visit-children(Code $visitor) { Nil }
+
+    method IMPL-QAST-BLOCK(*@pos, *%named) { Nil }
+
+    method IMPL-THUNK-CODE-QAST(*@pos) { Nil }
+
+    method IMPL-DECLARES-EVALUATED-CODE() { False }
+
+    method IMPL-COMPILED-ALONE() { False }
+
+    method IMPL-THUNK-VALUE-QAST(RakuAST::IMPL::QASTContext $context) {
+        $context.ensure-sc($!value);
+        QAST::WVal.new(:value($!value))
     }
 }
 

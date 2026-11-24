@@ -37,52 +37,58 @@ class RakuAST::StatementModifier::Condition
     method IMPL-NATIVE-CONDITION() { $!native-condition }
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
-        [
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('Empty'))
-        ]
+        [ RakuAST::Type::Setting.from-identifier('Empty') ]
     }
 
     method IMPL-EMPTY(RakuAST::IMPL::QASTContext $context) {
-        self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].IMPL-TO-QAST($context)
+        self.get-implicit-lookups[0].IMPL-TO-QAST($context)
     }
 
     method expression-thunk() {
         RakuAST::StatementModifier::Condition::Thunk.new(self)
     }
+
+    # A block with a signature or placeholders is formed immediate, so its
+    # arity is set and it is given the condition's value, as in
+    # `{ say $^x } if $y`. The implicit $_ of a plain block does not count.
+    method IMPL-IMMEDIATE-BLOCK(RakuAST::Expression $expression) {
+        nqp::istype($expression, RakuAST::Block)
+          && ($expression.signature || $expression.placeholder-signature) ?? True !! False
+    }
+}
+
+# The if/unless statement modifier.
+class RakuAST::StatementModifier::IfUnless
+  is RakuAST::StatementModifier::Condition
+{
+    method IMPL-WRAP-QAST(
+      RakuAST::IMPL::QASTContext $context,
+                              Mu $qast
+    ) {
+        my $cond-qast := self.expression.IMPL-TO-QAST($context);
+        $cond-qast    := self.IMPL-NATIVE-CONDITION-QAST($cond-qast, $qast)
+          if self.IMPL-NATIVE-CONDITION;
+        QAST::Op.new(
+          :op(self.condition-type),
+          $cond-qast,
+          $qast,
+          self.IMPL-EMPTY($context)
+        )
+    }
 }
 
 # The if statement modifier.
 class RakuAST::StatementModifier::If
-  is RakuAST::StatementModifier::Condition
+  is RakuAST::StatementModifier::IfUnless
 {
-    method IMPL-WRAP-QAST(RakuAST::IMPL::QASTContext $context, Mu $statement-qast) {
-        my $cond-qast := self.expression.IMPL-TO-QAST($context);
-        $cond-qast := self.IMPL-NATIVE-CONDITION-QAST($cond-qast)
-            if self.IMPL-NATIVE-CONDITION;
-        QAST::Op.new(
-            :op('if'),
-            $cond-qast,
-            $statement-qast,
-            self.IMPL-EMPTY($context)
-        )
-    }
+    method condition-type() { 'if' }
 }
 
 # The unless statement modifier.
 class RakuAST::StatementModifier::Unless
-  is RakuAST::StatementModifier::Condition
+  is RakuAST::StatementModifier::IfUnless
 {
-    method IMPL-WRAP-QAST(RakuAST::IMPL::QASTContext $context, Mu $statement-qast) {
-        my $cond-qast := self.expression.IMPL-TO-QAST($context);
-        $cond-qast := self.IMPL-NATIVE-CONDITION-QAST($cond-qast)
-            if self.IMPL-NATIVE-CONDITION;
-        QAST::Op.new(
-            :op('unless'),
-            $cond-qast,
-            $statement-qast,
-            self.IMPL-EMPTY($context)
-        )
-    }
+    method condition-type() { 'unless' }
 }
 
 # The when statement modifier.
@@ -253,8 +259,6 @@ class RakuAST::StatementModifier::Loop
   is RakuAST::StatementModifier
 {
     method expression-thunk() { Nil }
-
-    method handles-condition() { True }
 }
 
 class RakuAST::StatementModifier::WhileUntil
@@ -264,19 +268,10 @@ class RakuAST::StatementModifier::WhileUntil
     # Is the condition negated?
     method negate() { False }
 
-    method handles-condition() { False }
-
-    method IMPL-NEGATE-IF-NEEDED(RakuAST::Resolver $resolver, RakuAST::IMPL::QASTContext $context) {
-    }
-
-    method IMPL-UNNEGATE-IF-NEEDED() {
-        Nil
-    }
-
     method PRODUCE-IMPLICIT-LOOKUPS() {
         [
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('Nil')),
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('Seq'))
+          RakuAST::Type::Setting.from-identifier('Nil'),
+          RakuAST::Type::Setting.from-identifier('Seq'),
         ]
     }
 
@@ -291,7 +286,7 @@ class RakuAST::StatementModifier::WhileUntil
     method IMPL-WRAP-QAST(RakuAST::IMPL::QASTContext $context, Mu $statement-qast, Bool :$sink, Bool :$block, Mu :$expression) {
         if $sink {
             my $cond-qast := self.expression.IMPL-TO-QAST($context);
-            $cond-qast := self.IMPL-NATIVE-CONDITION-QAST($cond-qast)
+            $cond-qast := self.IMPL-NATIVE-CONDITION-QAST($cond-qast, $statement-qast)
                 if $!native-condition;
             QAST::Op.new(
                 :op(self.negate ?? 'until' !! 'while'),
@@ -300,7 +295,7 @@ class RakuAST::StatementModifier::WhileUntil
             )
         }
         else {
-            my $Seq := self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[1].IMPL-TO-QAST($context);
+            my $Seq := self.get-implicit-lookups[1].IMPL-TO-QAST($context);
             QAST::Op.new(:op<callmethod>, :name('from-loop'),
                 $Seq,
                 $statement-qast,
@@ -321,29 +316,12 @@ class RakuAST::StatementModifier::Until
   is RakuAST::StatementModifier::WhileUntil
 {
     method negate() { True }
-
-    method IMPL-NEGATE-IF-NEEDED(RakuAST::Resolver $resolver, RakuAST::IMPL::QASTContext $context) {
-        nqp::bindattr(self, RakuAST::StatementModifier, '$!expression', RakuAST::ApplyPostfix.new(
-            :postfix(
-                RakuAST::Call::Method.new(:name(RakuAST::Name.from-identifier('not')))
-            ),
-            :operand(self.expression),
-        ));
-        self.expression.ensure-begin-performed($resolver, $context);
-    }
-
-    method IMPL-UNNEGATE-IF-NEEDED() {
-        nqp::bindattr(self, RakuAST::StatementModifier, '$!expression', self.expression.operand);
-        True
-    }
 }
 
 # The given statement modifier.
 class RakuAST::StatementModifier::Given
   is RakuAST::StatementModifier::Loop
 {
-    method handles-condition() { False }
-
     method IMPL-WRAP-QAST(RakuAST::IMPL::QASTContext $context, Mu $statement-qast, Bool :$sink, Bool :$block, Mu :$expression) {
         if $block {
             if $sink {
@@ -379,9 +357,10 @@ class RakuAST::StatementModifier::For
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
         [
-            RakuAST::Var::Lexical::Setting.new(
-                :desigilname(RakuAST::Name.from-identifier('IterationEnd'))),
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('Nil')),
+          RakuAST::Var::Lexical::Setting.new(
+            :desigilname(RakuAST::Name.from-identifier('IterationEnd'))
+          ),
+          RakuAST::Type::Setting.from-identifier('Nil'),
         ]
     }
 
@@ -399,7 +378,7 @@ class RakuAST::StatementModifier::For
             ?? nqp::istype($expression, RakuAST::Code)
                  && self.IMPL-CAN-USE-STATEMENT-FORM($expression)
             !! True) {
-            my @lookups := self.IMPL-UNWRAP-LIST(self.get-implicit-lookups);
+            my @lookups := self.get-implicit-lookups;
             my $Nil := @lookups[1].resolution.compile-time-value;
 
             # An integer range or sequence source the optimize pass approved becomes a
@@ -412,7 +391,7 @@ class RakuAST::StatementModifier::For
                     $context, $source, $statement-qast, $Nil);
             }
 
-            if !nqp::isconcrete($for-qast) {
+            unless nqp::isconcrete($for-qast) {
                 $for-qast := self.IMPL-TO-QAST-STATEMENT(
                     $context,
                     $source-qast,
@@ -479,14 +458,20 @@ class RakuAST::StatementModifier::Condition::Thunk
         # The condition wraps what the expression evaluates to, which is the
         # value of an inner thunk when the expression already had one, as
         # a WhateverCode does.
+        my $statement-qast;
         if self.next {
             self.next.IMPL-THUNK-CODE-QAST($context, $target, $expression);
-            $target.push($!condition.IMPL-WRAP-QAST($context,
-                self.next.IMPL-THUNK-VALUE-QAST($context)));
+            $statement-qast := self.next.IMPL-THUNK-VALUE-QAST($context);
+        }
+        elsif $!condition.IMPL-IMMEDIATE-BLOCK($expression) {
+            $statement-qast := $expression.IMPL-EXPR-QAST($context, :immediate);
         }
         else {
-            $target.push($!condition.IMPL-WRAP-QAST($context, $expression.IMPL-EXPR-QAST($context)));
+            $statement-qast := $expression.IMPL-EXPR-QAST($context);
+            $statement-qast := QAST::Op.new( :op('p6sink'), $statement-qast )
+                if $expression.needs-sink-call && $expression.sunk;
         }
+        $target.push($!condition.IMPL-WRAP-QAST($context, $statement-qast));
     }
 
     method IMPL-THUNK-VALUE-QAST(RakuAST::IMPL::QASTContext $context) {

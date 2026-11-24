@@ -84,14 +84,9 @@ BEGIN {
 }
 
 {
-
     # This thread pool scheduler will be the default one.
     PROCESS::<$SCHEDULER> = ThreadPoolScheduler.new();
-
 }
-
-# Required for use in the optimizer
-nqp::bindhllsym('Raku', 'Mu:U', Mu:U);
 
 #COMPILER::if moar
 # Cannot be added in the Uni class, as we don't have native arrays

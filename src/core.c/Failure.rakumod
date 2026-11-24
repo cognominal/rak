@@ -5,9 +5,7 @@ my class Failure is Nil {
 
     method !SET-SELF(\exception) {
         $!exception := exception;
-        $!backtrace := exception.backtrace || Backtrace.new(
-            4
-        );
+        $!backtrace := exception.backtrace || Backtrace.new(4);
         exception.reset-backtrace;
         self
     }

@@ -3,7 +3,7 @@ use nqp;
 use Test;
 use Test::Helpers;
 
-plan 40;
+plan 43;
 
 subtest 'Supply.interval with negative value warns' => {
     plan 2;
@@ -82,11 +82,6 @@ is-run ｢my $ = ^2 .grep: {try 1 after 0}; my $ = {try 5 == 5}()｣,
 
 is-run ｢my @a; sink @a; my $b := gather { print 'meow' }; sink $b｣,
     :out<meow>, 'no warnings when sinking variables';
-
-todo('Macros NYI') if %*ENV<RAKUDO_RAKUAST>;
-is-run ｢use experimental :macros; macro z($) { quasi {} };
-    z $; z <x>; print "pass"｣, :compiler-args[<-I lib>], :out<pass>,
-    'args to macros do not cause useless use warnings';
 
 # https://github.com/rakudo/rakudo/issues/2554
 is-run ｢my @a[Int] = 1,2,3; dd @a｣,
@@ -237,5 +232,21 @@ is-run ｢print so "abc de" ~~ / a [ :s bc ] d e /｣,
 is-run ｢grammar G { rule R { a { my token T { c d } } b } }; print so "a b" ~~ /<G::R>/｣,
     'a token declared inside a rule body block warns about a space between atoms',
     :out<True>, :err(/'Space is not significant'/);
+
+is-run ｢my $x = 12; print <<a b $x>>;｣,
+    'a >> quote terminator after an interpolation does not warn',
+    :out('a b 12'), :err('');
+
+is-run ｢my $x = 12; print «a b $x»;｣,
+    'a » quote terminator after an interpolation does not warn',
+    :out('a b 12'), :err('');
+
+is-run ｢my $x = ["a", "b"]; print <<a b $x>>.uc;｣,
+    'a bare method call after a >> quote terminator does not warn',
+    :out('A B A B'), :err('');
+
+is-run ｢my $x = <c d>; print <<a b $x>>.uc() >>;｣,
+    'a >> hyper postfix matching the quote terminator warns',
+    :out('a b C D'), :err(/'Ambiguous use of >>'/);
 
 # vim: expandtab shiftwidth=4

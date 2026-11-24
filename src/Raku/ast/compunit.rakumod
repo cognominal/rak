@@ -93,7 +93,6 @@ class RakuAST::CompUnit
 
         nqp::bindattr_i($obj, RakuAST::CompUnit, '$!precompilation-mode',
           $precompilation-mode ?? 1 !! 0);
-        nqp::bindattr_i($obj, RakuAST::CompUnit, '$!explicit-ctxsave', 0);
         nqp::bindattr($obj, RakuAST::CompUnit, '$!pod-content', nqp::create(Array));
         nqp::bindattr($obj, RakuAST::CompUnit, '$!data-content', nqp::null);
         nqp::bindattr($obj, RakuAST::CompUnit, '$!herestub-queue', []);
@@ -205,6 +204,7 @@ class RakuAST::CompUnit
 
         $!mainline.IMPL-CHECK($resolver, $!context);
         self.IMPL-CHECK($resolver, $!context);
+        $resolver.IMPL-CHECK-HEREDOC-WATCHES;
 
         # Not all RakuAST::Doc objects actually have their PERFORM-CHECK
         # method called on them, causing holes to occur in $=pod (albeit
@@ -260,7 +260,7 @@ class RakuAST::CompUnit
             nqp::unshift(@parts,$base);
         }
 
-        my $name := RakuAST::Name.from-identifier-parts(|@parts);
+        my $name := RakuAST::Name.from-identifier-list(@parts);
         $!statement-list.add-statement: RakuAST::Statement::Expression.new(
           expression => RakuAST::StatementPrefix::Phaser::Init.new(
             RakuAST::Block.new(
@@ -468,7 +468,7 @@ class RakuAST::CompUnit
                     $check-phaser();
                 }
                 CATCH {
-                    my $lookups := self.IMPL-UNWRAP-LIST(self.get-implicit-lookups);
+                    my $lookups := self.get-implicit-lookups;
                     my $exception := $_;
                     my $BeginTime := $lookups[2].resolution.compile-time-value;
                     my $coercer := $lookups[3].resolution.compile-time-value;
@@ -484,19 +484,19 @@ class RakuAST::CompUnit
 
     method PRODUCE-IMPLICIT-LOOKUPS() {
         [
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier-parts(
-                'CompUnit', 'RepositoryRegistry',
-            )),
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('&FATALIZE')),
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier-parts(
-                'X', 'Comp', 'BeginTime'
-            )),
-            RakuAST::Type::Setting.new(RakuAST::Name.from-identifier('&COMP_EXCEPTION')),
+          RakuAST::Type::Setting.from-identifier-parts(
+            'CompUnit', 'RepositoryRegistry',
+          ),
+          RakuAST::Type::Setting.from-identifier('&FATALIZE'),
+          RakuAST::Type::Setting.from-identifier-parts(
+            'X', 'Comp', 'BeginTime'
+          ),
+          RakuAST::Type::Setting.from-identifier('&COMP_EXCEPTION'),
         ]
     }
 
     method IMPL-FATALIZE {
-        self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[1].resolution.compile-time-value;
+        self.get-implicit-lookups[1].resolution.compile-time-value
     }
 
     # True when this compunit IS the CORE setting (NULL.c / NULL.d / NULL.e).
@@ -519,6 +519,10 @@ class RakuAST::CompUnit
         # it as the current package.
         if $!is-eval {
             add(RakuAST::VarDeclaration::Implicit::BlockTopic.new(:!parameter));
+            # The frame carries the caller's $/ so a closure built here
+            # still reaches one by name after precompilation has left this
+            # frame at the end of its outer chain.
+            add(RakuAST::VarDeclaration::Implicit::Outer.new(:name('$/')));
             # A setting context declares no $?PACKAGE, and the unit then
             # declares its own for the package the resolver stands in.
             if nqp::isconcrete($!resolver)
@@ -526,10 +530,10 @@ class RakuAST::CompUnit
                 my $package := $!resolver.current-package;
                 add(RakuAST::VarDeclaration::Implicit::Constant.new(
                     name => '$?PACKAGE', value => $package
-                ));
+                ).IMPL-SET-META-OBJECT-OF-PACKAGE);
                 add(RakuAST::VarDeclaration::Implicit::Constant.new(
                     name => '::?PACKAGE', value => $package
-                ));
+                ).IMPL-SET-META-OBJECT-OF-PACKAGE);
             }
         }
         else {
@@ -547,10 +551,10 @@ class RakuAST::CompUnit
             unless $core-setting {
                 add(RakuAST::VarDeclaration::Implicit::Constant.new(
                     name => '$?PACKAGE', value => $global.compile-time-value
-                ));
+                ).IMPL-SET-META-OBJECT-OF-PACKAGE);
                 add(RakuAST::VarDeclaration::Implicit::Constant.new(
                     name => '::?PACKAGE', value => $global.compile-time-value
-                ));
+                ).IMPL-SET-META-OBJECT-OF-PACKAGE);
             }
 
             # GLOBAL package is always added so generated-global can find it
@@ -673,13 +677,16 @@ class RakuAST::CompUnit
         if !$!precompilation-mode
             && !$*INSIDE-EVAL
             && +(@*MODULES // []) == 0
-            && (my $main := self.find-lexical('&MAIN'))
+            && self.find-lexical('&MAIN')
         {
+            # Run the mainline before looking up &MAIN, since &MAIN only holds
+            # a sub bound or assigned to it once the mainline has run.
+            my $mainline-result := QAST::Node.unique('mainline_result');
             my $run-main := QAST::Op.new(
               :op('call'),
               :name('&RUN-MAIN'),
-              QAST::WVal.new(:value($main.meta-object)),
-              QAST::Stmts.new(|$top-level.list) # run the mainline and get its result
+              QAST::Var.new(:name('&MAIN'), :scope('lexical')),
+              QAST::Var.new(:name($mainline-result), :scope('local'))
             );
             unless $!language-revision.Int < 2 {
                 $run-main.push(
@@ -689,7 +696,14 @@ class RakuAST::CompUnit
                   )
                 );
             }
-            $top-level.set_children([$run-main]);
+            $top-level.set_children([
+                QAST::Op.new(
+                  :op('bind'),
+                  QAST::Var.new(:name($mainline-result), :scope('local'), :decl('var')),
+                  QAST::Stmts.new(|$top-level.list) # run the mainline and get its result
+                ),
+                $run-main
+            ]);
         }
 
         # Nested EVAL: wrap the inner mainline in an anonymous QAST::Block.
@@ -719,7 +733,7 @@ class RakuAST::CompUnit
             :post_deserialize($context.post-deserialize()),
             :repo_conflict_resolver(QAST::Op.new(
                 :op('callmethod'), :name('resolve_repossession_conflicts'),
-                self.IMPL-UNWRAP-LIST(self.get-implicit-lookups)[0].IMPL-TO-QAST($context) )),
+                self.get-implicit-lookups[0].IMPL-TO-QAST($context) )),
             # If this unit is loaded as a module, we want it to automatically
             # execute the mainline code above after all other initializations
             # have occurred.
@@ -754,7 +768,6 @@ class RakuAST::CompUnit
                 QAST::VM.new(
                     :jvm(QAST::SVal.new( :value('ModuleLoader.class') )),
                     :moar(QAST::SVal.new( :value('ModuleLoader.moarvm') )),
-                    :js(QAST::SVal.new( :value('ModuleLoader') ))
                 )),
             QAST::Op.new(
                 :op('callmethod'), :name('load_module'),
@@ -861,7 +874,7 @@ class RakuAST::CompUnit
             QAST::Op.new(:op('null'))
         }
         else {
-            RakuAST::CtxSave.IMPL-TO-QAST($context)
+            RakuAST::CtxSave.IMPL-EXPR-QAST($context)
         }
     }
 
@@ -883,10 +896,10 @@ class RakuAST::CompUnit
     method visit-children(Code $visitor) {
         $visitor($!mainline);
         $visitor($!statement-list);
-        $visitor($!pod)     if $!pod;
-        $visitor($!data)    if $!data;
-        $visitor($!finish)  if $!finish;
-        $visitor($!rakudoc) if $!rakudoc;
+        $visitor($!pod)     if nqp::isconcrete($!pod);
+        $visitor($!data)    if nqp::isconcrete($!data);
+        $visitor($!finish)  if nqp::isconcrete($!finish);
+        $visitor($!rakudoc) if nqp::isconcrete($!rakudoc);
     }
 }
 
@@ -907,7 +920,7 @@ class RakuAST::CtxSave
         $resolver.find-attach-target('compunit').set-explicit-ctxsave;
     }
 
-    method IMPL-TO-QAST(RakuAST::IMPL::QASTContext $context) {
+    method IMPL-EXPR-QAST(RakuAST::IMPL::QASTContext $context) {
         QAST::Stmts.new(
             QAST::Op.new(
                 :op('bind'),
@@ -980,7 +993,7 @@ class RakuAST::LiteralBuilder {
     # Convert an optionally signed decimal literal, single underscores
     # between digits allowed, to an Int. Returns null on anything else.
     method IMPL-DECIMAL-INT(str $source) {
-        my int $from := 0;
+        my int $from;
         my int $negate;
         if nqp::eqat($source, '-', 0) || nqp::eqat($source, '−', 0) {
             $negate := 1;

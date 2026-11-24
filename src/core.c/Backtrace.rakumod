@@ -85,14 +85,10 @@ my class Backtrace {
         self
     }
     multi method new() {
-        nqp::create(self)!SET-SELF(
-          nqp::backtrace(nqp::null),
-          0)
+        nqp::create(self)!SET-SELF(nqp::backtrace(nqp::null),0)
     }
     multi method new(Int:D $offset) {
-        nqp::create(self)!SET-SELF(
-          nqp::backtrace(nqp::null),
-          $offset)
+        nqp::create(self)!SET-SELF(nqp::backtrace(nqp::null),$offset)
     }
     multi method new(Exception:D $ex) {
         nqp::create(self)!SET-SELF(
