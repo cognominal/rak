@@ -10,7 +10,7 @@
 # and moarvm.
 
 pkgname=rak-git
-pkgver=2026.08.r0.g0000000
+pkgver=2026.11.r43289.g2ffa3a1
 pkgrel=1
 pkgdesc='Rakudo with the rak frontend: a shell-flavoured Raku, and irak, its REPL'
 arch=(x86_64 aarch64)

@@ -3,20 +3,26 @@
 Status: a `rak-git` PKGBUILD is in [`packaging/aur/rak-git/`](../../packaging/aur/rak-git/).
 It is not submitted yet; see [Before submitting](#before-submitting).
 
-## What the AUR already has (November 2026)
+## What the AUR already has (checked 2026-11-24)
 
-| package | version | notes |
-|---|---|---|
-| `moarvm` | 2026.04 | release tarball, `--prefix=/usr` |
-| `nqp` | 2026.04 | depends on `moarvm>=2026.04` |
-| `rakudo` | 2026.04 | depends on `nqp>=2026.04`; also installs `perl6-install-dist` |
-| `rakudo-bin` | 2026.11.01 | the rakudo.org binary build; provides and conflicts with the three above and `zef` |
-| `zef` | 1.1.3 | depends on `rakudo` |
-| `rakudo-git` | 20181221 | abandoned |
+| Package | Version |
+|---|---|
+| `moarvm` | 2026.11 |
+| `nqp` | 2026.11 |
+| `rakudo` | 2026.11 |
+| `rakudo-bin` | 2026.11_01 |
+| `zef` | 1.1.3 |
+| `rakudo-git` | 20181221 |
+
+- `moarvm`, `nqp` and `rakudo` build the release tarballs with `--prefix=/usr`. Each
+  depends on the one before; `rakudo` also installs `perl6-install-dist`.
+- `rakudo-bin` is the rakudo.org binary build. It provides, and conflicts with, the
+  three above and `zef`.
+- `zef` depends on `rakudo`. `rakudo-git` is abandoned.
 
 Nothing is called `rak` in the AUR or in the official repos. The fork on GitHub carries
 no tags, so `pkgver()` can't use `git describe`; it uses Rakudo's `VERSION` plus a commit
-count (`2026.08.r42866.g82f0ba1`). Arch's official repos
+count (`2026.11.r43289.g2ffa3a1`). Arch's official repos
 have no Raku packages at all. `rlwrap` (0.48) is in `extra`.
 
 One name clash exists outside the AUR: lizmat's `App::Rak`, installed with zef,
@@ -25,9 +31,11 @@ gets whichever comes first.
 
 ## Why rak can't depend on the AUR's rakudo stack
 
-rak pins newer versions than the AUR packages: `tools/templates/NQP_REVISION` is
-`2026.08-25-gf681164c5`, and nqp's `MOAR_REVISION` is `2026.08-10-g66bd4afce`. The AUR
-has 2026.04 for both. rak is also a fork of rakudo itself (the Rak frontend is compiled
+rak follows Rakudo main, which pins commits newer than the AUR's 2026.11 releases:
+`tools/templates/NQP_REVISION` is `2026.11-12-g5fbb82e9a`, and nqp's `MOAR_REVISION` is
+`2026.11-21-gfbae51aca`. That MoarVM has fixes rak needs, MoarVM#2087 and the NQP
+bytecode write fix nqp#882, which no release carries yet. Even when a release catches
+up, the pins move with every merge of Rakudo main. rak is also a fork of rakudo itself (the Rak frontend is compiled
 into it), so it can't be a module on top of an existing rakudo.
 
 So the package builds its own MoarVM, nqp and rakudo and installs all three under
@@ -64,6 +72,14 @@ into `gen/rak-dists/` in `prepare()`, so the build stays offline:
 
 They are all pure Raku. Terminal::API uses NativeCall for termios, which is why rak
 mode has to be able to compile core's `NativeCall` (see below).
+
+The build patches Terminal::LineEditor after unpacking it, with
+`tools/build/rak-line-editor-patches/Terminal-LineEditor-0.0.23.patch`, from the rak
+source tree: the patch is not a separate package source. It adds the `&on-finish`
+callback that irak's double Enter needs, and a time limit on terminal queries. It is
+not submitted to japhb/Terminal-LineEditor yet. Rakudo Star ships Terminal::LineEditor
+0.0.23 unpatched, and not Terminal-API, Terminal::Capabilities or Text::MiscUtils (see
+the [architectural note](../architectural-note.md#dependencies)).
 
 irak keeps its own history file, `~/.raku/irak-history`, since rak lines aren't valid
 Raku. `RAKUDO_HIST` still overrides it.
@@ -122,7 +138,7 @@ included. Two rak-only rules in the grammars applied *whatever the file's extens
 
 Both rules are now gated on `$*RAK-SEMANTICS`, in both grammar pairs: in rak code `#foo`
 and `~foo` are variables; modules and `.raku` files parse as Raku. Both bugs also showed
-under plain RakuAST (`RAKUDO_RAKUAST=1`), where Rakudo Star 2026.08 parses the same code
+under plain RakuAST (then `RAKUDO_RAKUAST=1`, the default since Rakudo 2026.11), where Rakudo Star 2026.08 parses the same code
 fine:
 
 ```raku
