@@ -1,6 +1,6 @@
 pkgbase = rak-git
 	pkgdesc = Rakudo with the rak frontend: a shell-flavoured Raku, and irak, its REPL
-	pkgver = 2026.11.r43289.g2ffa3a1
+	pkgver = 0.0.1.r1.g6c98428
 	pkgrel = 1
 	url = https://github.com/cognominal/rak
 	arch = x86_64

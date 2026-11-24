@@ -44,6 +44,8 @@ Build and test instructions are in `CLAUDE.md`.
 - [One-pass compilation](build/onepass-compile.md): the CORE setting in one pass,
   `#COMPILER::` directives.
 - [AUR](build/AUR.md): the `rak-git` package, its bundled line editor, building offline.
+- [Cutting a release](build/release.md): `RAK_VERSION`, the `v*` tags, the release
+  tarball (`tools/build/rak-dist.sh`), building from it, the `rak` package.
 
 ## Archive
 

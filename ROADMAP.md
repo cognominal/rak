@@ -8,8 +8,9 @@ ten years.
 Rak terms link to the rak [glossary](GLOSSARY.md). For Raku terms, see the
 [Raku glossary](https://docs.raku.org/language/glossary).
 
-No version has been released yet. I intend to publish 0.1 and later versions on the
-[AUR](https://aur.archlinux.org/). Rakudo itself is not in the official
+No version has been released yet, except [0.0.1](rak-docs/releases/0.0.1.md), a
+GitHub pre-release that previews the DONE items of 0.1 to try a packaged rak. I intend
+to publish 0.1 and later versions on the [AUR](https://aur.archlinux.org/). Rakudo itself is not in the official
 [Arch](https://archlinux.org/) repositories; it is only in the AUR (`rakudo`,
 `rakudo-bin`). The current focus is [irak](GLOSSARY.md#irak), the interactive rak.
 

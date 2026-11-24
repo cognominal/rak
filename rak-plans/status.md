@@ -32,6 +32,7 @@ here, because they go stale.
 | irak OSC 133 prompt marks | [irak](features/irak.md#shell-integration-osc-133-marks) | `t/02-rakudo/rak/028-*` |
 | irak's line editor bundled, core modules compile under the rak frontend | [AUR](build/AUR.md#the-line-editor-is-part-of-the-package) | `t/02-rakudo/rak/018-*`, `019-*` |
 | The `rak-git` AUR package (not submitted) | [AUR](build/AUR.md) | — |
+| rak versions (`RAK_VERSION`, `v*` tags), release tarball, `rak` package (local) | [release](build/release.md) | `t/02-rakudo/rak/011-*`, `012-*` |
 | One-pass CORE setting, `#COMPILER::` directives | [one-pass compilation](build/onepass-compile.md) | the build itself |
 
 How rak differs from Rakudo, and its dependencies, are in

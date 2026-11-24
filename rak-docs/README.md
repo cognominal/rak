@@ -12,6 +12,10 @@ open questions are in [rak-plans](../rak-plans/README.md).
 - [irak tutorial](irak-tutorial.md), also in [French](irak-tutorial.fr.md) and
   [Russian](irak-tutorial.ru.md).
 
+## Releases
+
+- [0.0.1](releases/0.0.1.md): a pre-release, to try a packaged rak.
+
 ## Background
 
 Essays on where rak comes from. Written with the help of DeepSeek.

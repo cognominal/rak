@@ -1,0 +1,66 @@
+# Maintainer: Stéphane Payrard <cognominal at gmail dot com>
+#
+# rak: a Rakudo fork with a .rak frontend (naked strings, dotty subscripts,
+# shellish redirection) and irak, its REPL. Built from a release tarball made
+# by tools/build/rak-dist.sh, which holds rak, the nqp and MoarVM commits it
+# pins, their submodules and the line editor: the build needs no network and
+# no git. See rak-plans/build/release.md and rak-plans/build/AUR.md.
+#
+# Not submitted to the AUR: for now it installs a release locally,
+#   cd packaging/aur/rak && makepkg -si
+#
+# Like rak-git, it installs the whole toolchain under /usr/lib/rak, and only
+# /usr/bin/rak on PATH, so it coexists with rakudo, rakudo-bin, nqp and moarvm.
+
+pkgname=rak
+pkgver=0.0.1
+pkgrel=1
+pkgdesc='Rakudo with the rak frontend: a shell-flavoured Raku, and irak, its REPL'
+arch=(x86_64 aarch64)
+url='https://github.com/cognominal/rak'
+license=(Artistic-2.0 MIT)
+depends=(glibc zstd)
+makedepends=(perl)
+conflicts=(rak-git)
+options=(!makeflags !lto)
+source=("$url/releases/download/v$pkgver/rak-$pkgver.tar.gz"
+        rak.sh)
+sha256sums=('SKIP'
+            'b690d727ea35d2659abdf0da70ad5f46cb3091fb3b7cb254a9603f65f826904e')
+
+# A tarball has no .git, so Configure can't fetch nqp and MoarVM
+# (--gen-nqp, --gen-moar): build them in turn, each installed into the prefix
+# the next one uses. Relocatable, into $srcdir/root, which package() copies to
+# /usr/lib/rak (see AUR.md, "A relocatable build, installed in $srcdir").
+build() {
+  local prefix="$srcdir/root"
+  cd "rak-$pkgver/nqp/MoarVM"
+  perl Configure.pl --prefix="$prefix" --relocatable
+  make
+  make install
+
+  cd ..
+  perl Configure.pl --backends=moar --prefix="$prefix" --relocatable \
+    --with-moar="$prefix/bin/moar"
+  make
+  make install
+
+  cd ..
+  perl Configure.pl --backends=moar --prefix="$prefix" --relocatable \
+    --with-nqp="$prefix/bin/nqp"
+  make
+  make install   # also installs the line editor into the vendor repository
+}
+
+package() {
+  install -d "$pkgdir/usr/lib"
+  cp -a "$srcdir/root" "$pkgdir/usr/lib/rak"
+  # The only file that records the build prefix.
+  sed -i "s|$srcdir/root|/usr/lib/rak|g" "$pkgdir/usr/lib/rak/share/pkgconfig/moar.pc"
+
+  cd "rak-$pkgver"
+  install -Dm755 "$srcdir/rak.sh" "$pkgdir/usr/bin/rak"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "gen/rak-dists/Terminal-ANSIColor-0.14/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/Terminal-ANSIColor.LICENSE"
+}

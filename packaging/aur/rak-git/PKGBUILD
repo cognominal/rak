@@ -10,7 +10,7 @@
 # and moarvm.
 
 pkgname=rak-git
-pkgver=2026.11.r43289.g2ffa3a1
+pkgver=0.0.1.r1.g6c98428
 pkgrel=1
 pkgdesc='Rakudo with the rak frontend: a shell-flavoured Raku, and irak, its REPL'
 arch=(x86_64 aarch64)
@@ -101,9 +101,10 @@ _offline_git() {
 
 pkgver() {
   cd rak
-  # The fork carries no tags, so use Rakudo's VERSION plus a commit count.
-  printf '%s.r%s.g%s' "$(<VERSION)" "$(git rev-list --count HEAD)" \
-    "$(git rev-parse --short=7 HEAD)"
+  # rak's release tags are v0.0.1 and up: 0.0.1.r5.gabc1234 is five commits
+  # past v0.0.1. (Rakudo's own tags, 2026.11 and so on, aren't in the fork.)
+  git describe --long --tags --match 'v[0-9]*' --abbrev=7 |
+    sed 's/^v//; s/\([^-]*-g\)/r\1/; s/-/./g'
 }
 
 # The build installs the line editor itself (tools/build/rak-line-editor.pl):

@@ -20,9 +20,11 @@ It is not submitted yet; see [Before submitting](#before-submitting).
   three above and `zef`.
 - `zef` depends on `rakudo`. `rakudo-git` is abandoned.
 
-Nothing is called `rak` in the AUR or in the official repos. The fork on GitHub carries
-no tags, so `pkgver()` can't use `git describe`; it uses Rakudo's `VERSION` plus a commit
-count (`2026.11.r43289.g2ffa3a1`). Arch's official repos
+Nothing is called `rak` in the AUR or in the official repos. `pkgver()` uses
+`git describe` against rak's own release tags, `v0.0.1` and up (`0.0.1.r5.gabc1234`).
+Rakudo's tags aren't in the fork. A `rak` package, in
+[`packaging/aur/rak/`](../../packaging/aur/rak/), builds a release from its tarball; it
+is for local installs only for now ([Cutting a release](release.md)). Arch's official repos
 have no Raku packages at all. `rlwrap` (0.48) is in `extra`.
 
 One name clash exists outside the AUR: lizmat's `App::Rak`, installed with zef,
@@ -166,4 +168,5 @@ so any module that RakuAST can't parse yet won't load in rak.
 - Decide `pkgdesc` and the maintainer line.
 - Regenerate `.SRCINFO` (`makepkg --printsrcinfo > .SRCINFO`) and push the PKGBUILD,
   the `rak` launcher and `.SRCINFO` to `ssh://aur@aur.archlinux.org/rak-git.git`.
-- Once rak has tagged releases, a non-`-git` `rak` package can use release tarballs.
+- The `rak` package, built from release tarballs, can follow once 0.1 is released
+  ([Cutting a release](release.md)).

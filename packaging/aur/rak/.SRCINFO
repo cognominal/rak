@@ -1,0 +1,21 @@
+pkgbase = rak
+	pkgdesc = Rakudo with the rak frontend: a shell-flavoured Raku, and irak, its REPL
+	pkgver = 0.0.1
+	pkgrel = 1
+	url = https://github.com/cognominal/rak
+	arch = x86_64
+	arch = aarch64
+	license = Artistic-2.0
+	license = MIT
+	makedepends = perl
+	depends = glibc
+	depends = zstd
+	conflicts = rak-git
+	options = !makeflags
+	options = !lto
+	source = https://github.com/cognominal/rak/releases/download/v0.0.1/rak-0.0.1.tar.gz
+	source = rak.sh
+	sha256sums = SKIP
+	sha256sums = b690d727ea35d2659abdf0da70ad5f46cb3091fb3b7cb254a9603f65f826904e
+
+pkgname = rak

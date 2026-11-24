@@ -123,6 +123,11 @@ nqp#882 and MoarVM#2087).
   host such as `api.github.com/…` be read as a URL.
 - **`packaging/aur/rak-git/`** is the AUR package ([AUR](build/AUR.md)). It
   installs everything under `/usr/lib/rak`, so it coexists with a system Rakudo.
+  `packaging/aur/rak/` builds a release the same way, from its tarball.
+- **Versions**: `RAK_VERSION` holds rak's own version (`0.0.1`); `VERSION` stays
+  Rakudo's. Releases are `v*` tags, with a self-contained tarball made by
+  `tools/build/rak-dist.sh` ([Cutting a release](build/release.md)). The irak banner
+  and `rak --version` show the version.
 - **Docs**:
   - `rak-plans/` holds the design documents;
   - `rak-docs/` holds the reader documentation and tutorials;
