@@ -28,7 +28,8 @@ lists: DONE and TBD.
     [commands](GLOSSARY.md#command) and [pipelines](GLOSSARY.md#pipeline) (Unix and
     jq style, mixed; `$?` and `@?`), recalling submissions (`!n`, `!!n`, up and down
     arrows), [topic-keeping submissions](GLOSSARY.md#topic-keeping-submission) (`- `), [paging](GLOSSARY.md#paging) long irak output, the
-    [formatter](GLOSSARY.md#formatter) (a lone `.`).
+    [formatter](GLOSSARY.md#formatter) (a lone `.`), [OSC 133](rak-plans/features/irak.md#shell-integration-osc-133-marks)
+    semantic prompt marks for terminals (`RAKUDO_DISABLE_OSC133` turns them off).
   - TBD:
       - irak usability, discoverability, onboarding feedback thru highlighting. first run of irak or `irak --fresh` should start with a tutorial history (work in branch irak-feedback)
       - aliases

@@ -251,9 +251,16 @@ do {
             $cli.save-history($.history-file);
         }
 
+        # irak OSC 133 marks may wrap the prompt: this editor prints the
+        # prompt verbatim and takes the input field's start column from a
+        # cursor-position query, so escapes in the prompt are not counted
+        # as width, and edits redraw only the field, never the prompt.
+        method osc133-capable(--> True) { }
+
         method repl-read(Mu \prompt) {
             self.update-completions;
-            my $line = $cli.prompt(prompt.chop, :on-finish(self.irak-on-finish));
+            my $line = $cli.prompt(self.osc133-prompt(prompt.chop),
+              :on-finish(self.irak-on-finish));
 
             if $line.defined && $line.match(/\S/) {
                 $cli.add-history($line);
@@ -520,6 +527,50 @@ do {
         # irak: the last submission's output and its format, for `!p`.
         has $!irak-output;
         my constant IRAK-KEEP = 1000;
+
+        # irak OSC 133 shell integration (semantic prompt marks): A before
+        # the prompt, B after it, C before a submission's output, D;<status>
+        # after it. Only with a line editor that tolerates escapes in the
+        # prompt (Terminal::LineEditor), on a tty, unless
+        # RAKUDO_DISABLE_OSC133 is set. See rak-plans/features/irak.md.
+        has Bool $!osc133;          # emit marks in this session
+        has Bool $!osc133-fresh;    # the prompt being read starts a submission
+        has Bool $!osc133-output;   # C was sent for the current submission
+        has Int  $!osc133-bytes;    # bytes of C, not output of the submission
+        has      $!osc133-out;      # the terminal: irak points $*OUT at a page
+
+        sub osc133(Str:D $mark --> Str:D) { "\e]133;$mark\e\\" }
+
+        # The prompt to give the line editor: wrapped in A and B when it
+        # starts a submission. Continuation prompts stay bare, so a
+        # multi-line submission is one command.
+        method osc133-prompt(Str:D $prompt --> Str:D) {
+            $!osc133 && $!osc133-fresh
+              ?? osc133('A') ~ $prompt ~ osc133('B')
+              !! $prompt
+        }
+
+        # Send C once per submission, before its first output.
+        method !osc133-output(--> Nil) {
+            if $!osc133 && !$!osc133-output {
+                $!osc133-output = True;
+                my $before = $!osc133-out.tell;
+                $!osc133-out.print: osc133('C');
+                $!osc133-out.flush;
+                # The REPL shows a value only when nothing was printed.
+                $!osc133-bytes += $!osc133-out.tell - $before;
+            }
+        }
+
+        # Close the submission with D and its status.
+        method !osc133-done(Int:D $status --> Nil) {
+            if $!osc133 {
+                self!osc133-output;
+                $!osc133-out.print: osc133("D;$status");
+                $!osc133-out.flush;
+            }
+            $!osc133-output = False;
+        }
 
         # irak: the REPL of the rak frontend (see GLOSSARY.md).
         sub irak(--> Bool:D) {
@@ -1185,17 +1236,31 @@ do {
                 PROCESS::<@IWEB> := [];
             }
 
+            $!osc133 = irak()
+              && !%*ENV<RAKUDO_DISABLE_OSC133>
+              && so(self.?osc133-capable)
+              && $*IN.t && $*OUT.t;
+            $!osc133-out := $*OUT;
+            $!osc133-output = False;
+
             REPL: loop {
                 # Why doesn't the catch-default in repl-eval catch all?
                 CATCH {
-                    default { say $_; reset }
+                    default {
+                        self!osc133-output;
+                        say $_;
+                        self!osc133-done(1);
+                        reset
+                    }
                 }
                 $!irak-before = $code;
+                $!osc133-fresh = $code !~~ /\S/;
                 my $newcode = self.repl-read(~$prompt);
                 last if $no-exit and $newcode and $newcode eq 'exit';
 
                 $stopped = 0;
                 my $initial_out_position = $*OUT.tell;
+                $!osc133-bytes = 0;
                 my $status-before := RAK-STATUS();
                 my $loaded-before := RAK-LOADED();
 
@@ -1216,8 +1281,11 @@ do {
                 # `!!n` sets $_ to submission n's value.
                 # `!p` pages the last output again.
                 if irak() && $code eq '' && $newcode ~~ /^ \s* '!p' \s* $/ {
+                    self!osc133-output;
+                    my int $status = 0;
                     if !IrakPage.command {
                         say "irak: paging is off";
+                        $status = 1;
                     }
                     orwith $!irak-output {
                         $*OUT.t
@@ -1226,8 +1294,10 @@ do {
                     }
                     else {
                         say "irak: no output to page";
+                        $status = 1;
                     }
                     $keep-topic = False;
+                    self!osc133-done($status);
                     next;
                 }
 
@@ -1237,14 +1307,18 @@ do {
                     if $0.chars {
                         if $n < $previous-evals.elems {
                             self!set-irak-topic($previous-evals[$n]);
+                            self!osc133-done(0);
                         }
                         else {
+                            self!osc133-output;
                             say "irak: no value for submission $n";
+                            self!osc133-done(1);
                         }
                         $keep-topic = False;
                         next;
                     }
                     with %!irak-sources{$n} {
+                        self!osc133-output;
                         say $_;
                         $newcode = $_;
                         if $newcode.starts-with('- ') {
@@ -1253,10 +1327,13 @@ do {
                         }
                         # The echo is not output of the re-run code.
                         $initial_out_position = $*OUT.tell;
+                        $!osc133-bytes = 0;
                     }
                     else {
+                        self!osc133-output;
                         say "irak: no submission $n";
                         $keep-topic = False;
+                        self!osc133-done(1);
                         next;
                     }
                 }
@@ -1297,9 +1374,15 @@ do {
                     next;
                 }
 
+                # The submission is complete. C normally went out from
+                # ctxsave, when its code started running; a compile error
+                # never runs, so send C before showing it.
+                self!osc133-output;
+
                 if self.input-toplevel-control($output) {
                     .end with $page;
                     say "Control flow commands not allowed in toplevel";
+                    self!osc133-done(1);
                     reset;
                     next;
                 }
@@ -1334,7 +1417,7 @@ do {
                     my $*OUT = $page // $tty;
                     $output.show;
                 }
-                elsif irak() && $initial_out_position == $*OUT.tell
+                elsif irak() && $initial_out_position + $!osc133-bytes == $*OUT.tell
                   && !($page && $page.wrote)
                   && nqp::not_i(nqp::eqaddr(RAK-LOADED(), $loaded-before))
                   && nqp::eqaddr($output<>, RAK-LOADED()) {
@@ -1353,7 +1436,7 @@ do {
                     self.repl-print($output);
                     $previous-evals.push: $output<>;
                 }
-                elsif $initial_out_position == $*OUT.tell
+                elsif $initial_out_position + $!osc133-bytes == $*OUT.tell
                     && !($page && $page.wrote) {
                     $format = $output.^name;
                     {
@@ -1371,16 +1454,25 @@ do {
                 }
 
                 # irak shows a non-zero exit status of the last command, dimmed.
+                my int $command-exit;
+                my Bool $failed = so $exception.DEFINITE
+                  || (nqp::istype($output, Failure) && !$output.handled);
                 if irak() {
                     my $status := RAK-STATUS();
                     if $status.DEFINITE
                       && nqp::not_i(nqp::eqaddr($status, $status-before))
                       && $status.exitcode {
+                        $command-exit = $status.exitcode;
                         say $*OUT.t
-                          ?? "\e[2mexit {$status.exitcode}\e[0m"
-                          !! "exit {$status.exitcode}";
+                          ?? "\e[2mexit $command-exit\e[0m"
+                          !! "exit $command-exit";
                     }
                 }
+
+
+                # D's status: a failed command's exit status, else 1 when
+                # the submission threw or returned an unhandled Failure.
+                self!osc133-done($command-exit || ($failed ?? 1 !! 0));
                 reset;
             }
 
@@ -1394,6 +1486,9 @@ do {
         method ctxsave(--> Nil) {
             $*MAIN_CTX := nqp::ctxcaller(nqp::ctx());
             $*CTXSAVE := 0;
+            # The submission parsed and its code starts running now: its
+            # output follows. An incomplete submission never gets here.
+            self!osc133-output;
         }
 
         method save-ctx() { $!save_ctx }

@@ -33,6 +33,69 @@ line is redrawn at the new width, keeping its text and cursor, and history recal
 that width too. A terminal that reflows the old row may leave a fragment of it above
 the redrawn prompt.
 
+## Shell integration: OSC 133 marks
+
+Status: **done** (`src/core.c/REPL.rakumod`, test
+`t/02-rakudo/rak/028-irak-osc133.t`).
+
+irak marks its prompts and outputs with the
+[OSC 133](https://gitlab.freedesktop.org/Per_Bothner/specifications/blob/master/proposals/semantic-prompts.md)
+semantic prompt sequences, as zsh, fish and bash do with their shell integration.
+Terminals that read them (kitty, WezTerm, Ghostty, iTerm2, foot, VS Code) can then jump
+from prompt to prompt, select a submission's output, and flag the submissions that failed.
+
+| mark | sent |
+|---|---|
+| `A` | before the prompt |
+| `B` | after the prompt |
+| `C` | before the output |
+| `D;n` | after the output |
+
+Each mark is `ESC ] 133 ; <mark> ESC \`.
+
+- **One command per submission.** A multi-line
+  [irak submission](../../GLOSSARY.md#irak-submission) is one command: only its first
+  prompt gets `A` and `B`. The continuation prompts stay bare.
+- **When `C` goes out.** irak cannot tell a submission is complete until it has compiled
+  it, and running follows compiling without a pause. So `C` is sent from the REPL's
+  `ctxsave` hook, which the compiled code calls as it starts running. An incomplete
+  submission never runs, so it never gets a `C` too early. A submission that fails to
+  compile gets its `C` just before the error is shown.
+- **Paging.** irak holds a submission's output to page it, so the marks bypass the
+  page and go straight to the terminal. `C` comes before the held output, and a pager
+  that runs, with its summary, comes before `D`.
+- **The status in `D`.** A failed command's exit status, as `$?` holds it (`D;3` after
+  `sh -c 'exit 3'`). Otherwise 1 when the submission threw or returned an unhandled
+  `Failure`, else 0. The `!n`, `!!n` and `!p` directives also end with a `D`: 1 when
+  the submission or output they name does not exist, or paging is off for `!p`.
+- **`exit`.** A submission that calls `exit` gets a `C` but no `D`, since the process
+  ends while it runs.
+- **When marks are sent.** Only in irak, only with
+  [Terminal::LineEditor](../build/AUR.md) as the line editor, and only when standard
+  input and output are both a tty. `RAKUDO_DISABLE_OSC133=1` turns them off.
+
+Terminal::LineEditor 0.0.23 lets `A` and `B` go inside the prompt string. Its `prompt`
+method prints the string once, as is. Then `read-input` asks the terminal for the cursor
+position (`ESC [6n`), and the input field starts at the column the terminal reports.
+Escape sequences in the prompt are therefore never counted as width. Edits redraw only
+the input field, by moving the cursor relative to where it starts, never the prompt. The
+prompt is printed again only after a suspend (Ctrl-Z, then `fg`) and when irak redraws
+the line after a terminal resize. Both reprint the prompt at the start of its line, so
+sending `A` and `B` again is right.
+
+Readline would need the marks wrapped in `\001`…`\002`, and Linenoise counts every byte
+of the prompt as width, so irak sends no marks with them.
+
+The test runs irak under `script(1)` and answers the editor's cursor queries itself. It
+drives one prompt per session because of a Terminal::LineEditor 0.0.23 bug that rak's
+patches leave in place. After a line
+is read, its parser thread stays blocked in `$*IN.read(1)`. MoarVM serializes operations
+on a handle, so the next prompt's `$*IN.t` waits for that read. By then the tty is back
+in cooked mode, so the read returns only once a whole line is typed. Under a harness
+that waits for the prompt before typing, the second prompt stalls. How this shows in a
+real terminal has not been checked. The multi-line case is therefore tested up to the
+continuation prompt. Repro: `start { $*IN.read(1) }; sleep 1; $*IN.t` blocks until input
+arrives.
 
 ## Navigating data with TAB and SHIFT-TAB
 
