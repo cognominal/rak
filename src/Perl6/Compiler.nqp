@@ -174,6 +174,16 @@ class Perl6::Compiler is HLL::Compiler {
           ~ ".\nBuilt on "
           ~ $backend-version
           ~ "."
+          ~ self.rak-version-line
+    }
+
+    # Under the rak frontend, `--version` also names the rak version, from
+    # the build config (tools/build/gen-rak-build-info.pl).
+    method rak-version-line() {
+        my $version := self.config()<rak-version>;
+        +nqp::getenvhash()<RAKUDO_RAK_FRONTEND> && $version
+          ?? "\nrak v" ~ $version ~ "."
+          !! ""
     }
 
 

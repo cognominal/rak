@@ -11,7 +11,7 @@ use nqp;
 my $script = run(<sh -c>, 'command -v script', :out, :err).out.slurp(:close).trim;
 plan :skip-all('script(1) is needed to give the REPL a tty') unless $script;
 
-plan 7;
+plan 8;
 
 my sub has-module($name) {
     so $*REPO.resolve(CompUnit::DependencySpecification.new(:short-name($name)))
@@ -44,9 +44,12 @@ my $config := nqp::gethllsym('default', 'SysConfig').rakudo-build-config;
 my $where   = (nqp::atkey($config, 'rak-repo-url'), nqp::atkey($config, 'rak-head'))
                 .grep(*.chars).join(' @ ');
 
+my $version = nqp::hllize(nqp::atkey($config, 'rak-version'));
+
 my $out = banner;
 ok $out.starts-with("Welcome to irak, the rak shell.\n"), 'irak banner comes first';
-ok !$where || $out.contains("\n$where\n"),               'banner names the repository and HEAD';
+ok !$where || $out.contains("$where\n"),                 'banner names the repository and HEAD';
+ok !$version || $out.contains("\nrak v$version"),         'banner names the rak version';
 nok $out.contains('Rakudo'),                              'no Rakudo banner in irak';
 nok $out.contains('Linenoise'),                           'no generic line-editor advice in irak';
 if $editor {

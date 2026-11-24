@@ -577,14 +577,16 @@ do {
             so %*ENV<RAKUDO_RAK_FRONTEND> && %*ENV<RAKU_RAK_MODE>
         }
 
-        # The irak banner: the rak repository and HEAD come from the build
-        # config (tools/build/gen-rak-build-info.pl).
+        # The irak banner: the rak version, repository and HEAD come from
+        # the build config (tools/build/gen-rak-build-info.pl).
         sub irak-banner(--> Str:D) {
             my $config := nqp::gethllsym('default', 'SysConfig').rakudo-build-config;
+            my str $version = nqp::ifnull(nqp::atkey($config, 'rak-version'), '');
             my str $url  = nqp::ifnull(nqp::atkey($config, 'rak-repo-url'), '');
             my str $head = nqp::ifnull(nqp::atkey($config, 'rak-head'), '');
             my $where = ($url, $head).grep(*.chars).join(' @ ');
-            "Welcome to irak, the rak shell." ~ ($where ?? "\n$where" !! '')
+            my $line  = ($version ?? "rak v$version" !! '', $where).grep(*.chars).join(', ');
+            "Welcome to irak, the rak shell." ~ ($line ?? "\n$line" !! '')
         }
 
         # irak: the source of submission n when $line is exactly `!n`
