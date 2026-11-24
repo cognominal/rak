@@ -19,14 +19,23 @@ here, because they go stale.
 | URL targets: GET loads, POST output redirection, `X::Rak::HTTP` | [URL targets](features/url-targets.md), ADR 0005 | `t/14-redirection/rak/013-*`, `014-*` |
 | Bare hosts: `<api.github.com/…` loads https | [URL targets](features/url-targets.md) | `t/14-redirection/rak/015-*` |
 | irak: the topic, the banner | [irak](features/irak.md) | `t/02-rakudo/rak/010-*`, `012-*` |
+| Commands: routines and external commands, `$?`, `cd`, `type` | [commands](features/commands.md) | `t/15-commands/rak/` |
 | Pipelines: commands and rak stages, `$?` pipefail, `@?` | [pipelines](features/pipelines.md) | `t/16-pipelines/rak/` |
 | The formatter, a lone `.` | [formatter](features/formatter.md) | `t/16-pipelines/rak/006-*`, `007-*` |
+| irak history: `!n` re-runs, `!!n` recalls a value | [irak history](features/irak-history.md) | `t/02-rakudo/rak/020-*` |
+| irak shows a non-zero exit status | [irak](features/irak.md) | `t/02-rakudo/rak/021-*` |
 | irak paging, `!p` | [paging](features/paging.md) | `t/02-rakudo/rak/022-*` |
 | irak shows JSON loads as `.` does | [formatter](features/formatter.md) | `t/02-rakudo/rak/024-*` |
 | irak's web log, `@*IWEB` | [URL targets](features/url-targets.md) | `t/02-rakudo/rak/025-*` |
 | irak `- ` keeps the topic | [irak](features/irak.md) | `t/02-rakudo/rak/023-*` |
 | irak highlights the input line, a terminal cheat sheet | [highlight](highlight.md) | `t/02-rakudo/rak/026-*`, `027-*` |
+| irak OSC 133 prompt marks | [irak](features/irak.md#shell-integration-osc-133-marks) | `t/02-rakudo/rak/028-*` |
+| irak's line editor bundled, core modules compile under the rak frontend | [AUR](build/AUR.md#the-line-editor-is-part-of-the-package) | `t/02-rakudo/rak/018-*`, `019-*` |
+| The `rak-git` AUR package (not submitted) | [AUR](build/AUR.md) | — |
 | One-pass CORE setting, `#COMPILER::` directives | [one-pass compilation](build/onepass-compile.md) | the build itself |
+
+How rak differs from Rakudo, and its dependencies, are in
+[architectural-note.md](architectural-note.md).
 
 Known gaps, marked `todo` in the sigil tests: `has ~.x` / `has #.x` attributes, and
 autoboxing for `~s.WHAT` / `#n.WHAT`. `where` and `state` do not work on `~` and `#`
