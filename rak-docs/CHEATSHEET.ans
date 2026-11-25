@@ -1,5 +1,7 @@
 [1;4mrak cheat sheet (for Raku programmers)[0m
 
+irak is the REPL using rak syntax.
+
 rak is Raku with a shellish surface syntax.
 It supports raku sigils.
 It includes features inspired by nushell and jq.
