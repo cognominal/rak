@@ -47,9 +47,8 @@ defined there. The decision and its alternatives are in
 
 ## Out of scope
 
-- Aliases themselves, and [builtins](../../GLOSSARY.md#builtin) written in rak and read
-  from the install tree. Both wait on the lookup order of names, still open in
-  [unsettled.md](../unsettled.md).
+- [Builtins](../../GLOSSARY.md#builtin) written in rak and read from the install tree.
+  [Aliases](aliases.md) are done, and a startup file is where they are declared.
 - Data and cache folders (`$XDG_DATA_HOME/rak/`, `$XDG_CACHE_HOME/rak/`), until something
   needs them.
 

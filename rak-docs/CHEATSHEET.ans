@@ -343,6 +343,15 @@ Builtins:
 | [1;32mcd[0m -        | go back to the previous directory                  |
 | [1;32mtype[0m name   | list every meaning of [1mname[0m, marking the one that wins   |
 
+Aliases name a command and its first words. They are declarations, seen to the end of
+their block; put yours in [34m~/.config/rak/init.rak[0m. A word in command position is a
+keyword, then an alias, a rak routine, a builtin, then a [3m$PATH[0m program.
+
+    alias ll=ls -l                 [2m# ll src runs ls -l src[0m
+    alias g='git log "--format=%an %s"'   [2m# quoted: unquoted once, quotes group words[0m
+    alias ls=ls --color            [2m# the inner ls is not expanded again[0m
+    alias                          [2m# list them; alias ll shows one; type ll too[0m
+
 A non-zero exit status fails a [1m.rak[0m file; irak shows it.
 
 [1;4mPipelines[0m
@@ -401,7 +410,7 @@ Each stage gets the whole input, not one value at a time: use [1mmap[0m for th
 
 [1;4mPlanned, not implemented[0m
 
-Planned in [1mrak-plans/[0m, not available yet: [1malias[0m,
+Planned in [1mrak-plans/[0m, not available yet:
 globbing, indentation in place of braces, sigilless
 one-letter variables ([1mi[0m, [1ms[0m, …), a [1m^[0m sigil for native [1mnum[0m (unsettled), YAML and myaml data
 pattern matching, [1mhas ~.x[0m / [1mhas #.x[0m attributes, and [1m#n.WHAT[0m autoboxing.

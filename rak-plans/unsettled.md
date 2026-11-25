@@ -8,8 +8,8 @@ this list.
 
 ## Language shape
 
-- **Name resolution.** One lookup order for aliases, routines, builtins and `$PATH`
-  commands, and whether a routine needs `(…)` in the shell strategy.
+- **Calling a routine as a command.** Whether a routine needs `(…)` in the shell
+  strategy. The lookup order of names is settled in [aliases](features/aliases.md).
   [strategies](features/strategies.md#open-questions)
 - **Precedence by spacing or by column.** An old draft let spacing set precedence within
   a line; tree expressions make a line's operators equal and use columns instead. Choose

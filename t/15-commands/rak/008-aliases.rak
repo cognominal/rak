@@ -1,0 +1,47 @@
+use Test;
+
+plan 16;
+
+# Aliases: a name for a command and its leading arguments
+# (rak-plans/features/aliases.md).
+
+alias ll=echo a b;
+is (ll c), "a b c\n", 'an alias runs its command, its words first';
+is (ll), "a b\n", 'an alias alone';
+
+alias q1='echo "x  y"';
+is (q1), "x  y\n", 'a quoted text is unquoted, and its quotes group words';
+
+alias e2=^echo q;
+is (e2 r), "q r\n", '^ in an alias forces the external command';
+
+alias a1=b1 x;
+alias b1=echo y;
+is (a1 z), "y x z\n", 'aliases chain, the later words first';
+
+{
+    alias echo=echo E;
+    is (echo z), "E z\n", 'an alias is not expanded again within itself';
+}
+is (echo z), "z\n", 'an alias ends with its block';
+
+sub join2(*@a) { @a.join('-') }
+alias j=join2 a;
+is (j b c), 'a-b-c', 'an alias for a rak routine calls it, with strings';
+is (^echo z), "z\n", '^name ignores aliases';
+
+my @t = (type ll);
+is @t[0], "ll is aliased to `echo a b'", 'type: an alias comes first';
+
+is-deeply (alias ll nope), ["alias ll='echo a b'", 'alias: nope: not found'],
+  'alias name shows that alias';
+ok (alias).grep("alias j='join2 a'"), 'alias alone lists the aliases in scope';
+
+throws-like { EVAL q[alias x=] }, Exception, message => /'needs a command'/,
+  'alias name= needs a command';
+throws-like { EVAL q[alias x=ls; alias x=ls -l] }, X::Redeclaration,
+  'an alias cannot be declared twice in one scope';
+throws-like { EVAL q[alias x='ls] }, Exception, message => /'unclosed quote'/,
+  'an unclosed quote is an error';
+throws-like { EVAL q[alias s=say a; s b >out] }, Exception,
+  message => /'cannot be redirected'/, 'an alias for a routine cannot be redirected';

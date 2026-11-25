@@ -1096,10 +1096,11 @@ sub RAK-CD(*@args) is implementation-detail {
 }
 
 # `type name`: every meaning of each name, rak first, in bash's wording.
-sub RAK-TYPE(@names, @known, $capture) is implementation-detail {
+sub RAK-TYPE(@names, @known, $capture, @aliases = ()) is implementation-detail {
     my @lines;
     for @names.kv -> $i, $name {
         my $before = +@lines;
+        @lines.push: "$name is aliased to `@aliases[$i]'" if @aliases[$i];
         @lines.push: "$name is a rak routine" if @known[$i];
         @lines.push: "$name is a shell builtin" if $name eq 'cd' | 'type';
         for $*SPEC.path -> $dir {
@@ -1108,6 +1109,35 @@ sub RAK-TYPE(@names, @known, $capture) is implementation-detail {
         }
         @lines.push: "type: $name: not found" if +@lines == $before;
     }
+    unless $capture { .say for @lines }
+    @lines
+}
+
+# Aliases (rak-plans/features/aliases.md). An alias is the lexical constant
+# `RAK-ALIAS name`: its text, then its words, joined by NULs. Declaring one
+# shows nothing.
+sub RAK-ALIAS-DECLARED(Mu $) is implementation-detail { Empty }
+
+# `alias` alone lists the aliases seen from the caller, `alias name …` some
+# of them, in bash's wording.
+sub RAK-ALIASES($capture, *@names) is implementation-detail {
+    my %text;
+    my $ctx := nqp::ctxcaller(nqp::ctx());
+    until nqp::isnull($ctx) {
+        my $pad  := nqp::ctxlexpad($ctx);
+        my $iter := nqp::iterator($pad);
+        while $iter {
+            my str $key = nqp::iterkey_s(nqp::shift($iter));
+            if nqp::eqat($key, 'RAK-ALIAS ', 0) {
+                my str $name = nqp::substr($key, 10);
+                %text{$name} //= nqp::atkey($pad, $key).split("\0").head;
+            }
+        }
+        $ctx := nqp::ctxouter($ctx);
+    }
+    my @lines = @names
+      ?? @names.map({ %text{$_}:exists ?? "alias $_='%text{$_}'" !! "alias: $_: not found" })
+      !! %text.keys.sort.map({ "alias $_='%text{$_}'" });
     unless $capture { .say for @lines }
     @lines
 }

@@ -8,8 +8,9 @@ Running [commands](../../GLOSSARY.md#command) in rak and irak, through the
 
 ## What runs
 
-A command is a rak routine, a builtin, or an
-[external command](../../GLOSSARY.md#external-command) found on `$PATH`.
+A command is an [alias](aliases.md), a rak routine, a builtin, or an
+[external command](../../GLOSSARY.md#external-command) found on `$PATH`, looked up in
+that order.
 
 ```rak
 say hello world      # rak routine, two arguments
@@ -67,14 +68,14 @@ A spaced `>` after a command is a compile error that suggests `>target`.
 
 ## Builtins
 
-- `type name` lists every meaning of `name`, rak first, in bash's wording (`ls is
+- `type name` lists every meaning of `name`, its alias and rak first, in bash's wording (`ls is
   /usr/bin/ls`, `say is a rak routine`), marking the one that wins. It returns that list.
 - `cd dir` changes `$*CWD` and the process directory; `cd` alone goes to `$*HOME`, `cd -`
   to the previous directory. It is not scoped.
 
 ## Out of scope for now
 
-Aliases, globbing, environment assignments (`FOO=1 cmd`), `pushd` and `popd`.
+Globbing, environment assignments (`FOO=1 cmd`), `pushd` and `popd`.
 
 ## Implementation notes
 

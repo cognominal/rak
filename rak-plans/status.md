@@ -20,6 +20,7 @@ here, because they go stale.
 | Bare hosts: `<api.github.com/…` loads https | [URL targets](features/url-targets.md) | `t/14-redirection/rak/015-*` |
 | irak: the topic, the banner | [irak](features/irak.md) | `t/02-rakudo/rak/010-*`, `012-*` |
 | Commands: routines and external commands, `$?`, `cd`, `type` | [commands](features/commands.md) | `t/15-commands/rak/` |
+| Aliases, `alias` and `type`, lookup order | [aliases](features/aliases.md), ADR 0007 | `t/15-commands/rak/008-*`, `009-*` |
 | Pipelines: commands and rak stages, `$?` pipefail, `@?` | [pipelines](features/pipelines.md) | `t/16-pipelines/rak/` |
 | The formatter, a lone `.` | [formatter](features/formatter.md) | `t/16-pipelines/rak/006-*`, `007-*` |
 | irak history: `!n` re-runs, `!!n` recalls a value | [irak history](features/irak-history.md) | `t/02-rakudo/rak/020-*` |
@@ -45,8 +46,6 @@ variables.
 
 ## Planned
 
-- The shell strategy: `alias`
-  ([strategies](features/strategies.md)).
 - Naked-string escapes, interpolation and globbing.
 - [Indentation](features/indentation.md) in place of braces, and
   [tree expressions](features/tree-exprs.md).

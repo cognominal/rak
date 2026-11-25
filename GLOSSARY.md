@@ -44,6 +44,12 @@ Whether it is written in Raku or in rak does not matter; what a user defines is 
 builtin.
 _Avoid_: shell builtin, user builtin, rak builtin (for a user's own definition).
 
+<a id="alias"></a>**alias**:
+A name that stands for a command and its leading arguments, declared with
+`alias name=…` and seen only in command position. It is looked up before rak routines,
+builtins and `$PATH`.
+_Avoid_: abbreviation, shortcut, macro.
+
 <a id="startup-file"></a>**startup file**:
 The user's own rak source that the [irak prompt](#irak-prompt) runs before the first
 submission: their aliases, routines and settings. It lives in the user's rak config

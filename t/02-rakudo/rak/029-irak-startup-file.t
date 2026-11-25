@@ -11,7 +11,7 @@ use Test;
 my $script = run(<sh -c>, 'command -v script', :out, :err).out.slurp(:close).trim;
 plan :skip-all('script(1) is needed to give the REPL a tty') unless $script;
 
-plan 16;
+plan 18;
 
 my $root = $*TMPDIR.add("irak-startup-$*PID");
 my $n    = 0;
@@ -49,14 +49,18 @@ sub session(%xdg, *@lines, :$args = '') {
         say "init ran";
         sub greet { "hi" }
         my $answer = 42;
+        alias hey=echo hey
         "last value"
         RAK
-    my $out = session(%xdg, 'say $_ === Any', 'greet()', '$answer', '!0', 'exit');
+    my $out = session(%xdg, 'say $_ === Any', 'greet()', '$answer', '!0',
+      'hey you', 'type hey', 'exit');
     like $out, /'init ran' \n '[0] >'/,            'the startup file runs before the first prompt';
     like $out, /'[0] > say $_ === Any' \n 'True'/, 'it leaves $_ alone and takes no number';
     like $out, /'greet()' \n 'hi'/,                'its routines are seen by submissions';
     like $out, /'$answer' \n '42'/,                'so are its variables';
     like $out, /'!0' \n 'greet()' \n 'hi'/,        '!n counts submissions only';
+    like $out, /'hey you' \n 'hey you'/,          'its aliases are seen by submissions';
+    like $out, /'hey is aliased to `echo hey' "'"/, '... and by type';
     ok %xdg<state>.add('rak').d,                   'the state folder is made';
 
     $out = session(%xdg, 'greet()', 'exit', :args<--no-init>);

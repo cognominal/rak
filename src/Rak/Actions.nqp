@@ -1127,6 +1127,10 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             $statement := Nodify('Statement::Expression').new(
               :expression($<rak-command>.ast));
         }
+        elsif $<rak-alias> {
+            $statement := Nodify('Statement::Expression').new(
+              :expression($<rak-alias>.ast));
+        }
         elsif $<rak-pipeline> {
             $statement := Nodify('Statement::Expression').new(
               :expression($<rak-pipeline>.ast));
@@ -2026,42 +2030,155 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
           Nodify('IntLiteral').new($*RAK-CAPTURE)).to-begin-time($*R, $*CU.context);
     }
 
+    # `[a, b, …]` from a list of ASTs.
+    sub rak-array(@operands) {
+        Nodify('Circumfix::ArrayComposer').new(Nodify('SemiList').new(
+          Nodify('Statement::Expression').new(:expression(
+            Nodify('ApplyListInfix').new(
+              :infix(Nodify('Infix').new(',')), :operands(@operands))))))
+    }
+
     # The call for a command; @extra are named arguments a pipeline adds.
     method rak-command-ast($/, $capture, *@extra) {
         my $name    := ~$<identifier>;
+        my $forced  := $<forced> ?? 1 !! 0;
+
+        # Expand aliases (rak-plans/features/aliases.md): each alias at most
+        # once, the words of a later one going before those of the earlier.
+        my @prefix;
+        my %expanded;
+        until $forced || nqp::existskey(%expanded, $name)
+          || !nqp::isconcrete(my $words := $/.rak-alias-words($name)) {
+            %expanded{$name} := 1;
+            my @words := nqp::clone($words);
+            nqp::shift(@words);                       # the alias's text
+            $name := nqp::shift(@words);
+            if nqp::eqat($name, '^', 0) {
+                $name   := nqp::substr($name, 1);
+                $forced := 1;
+            }
+            nqp::push(@words, $_) for @prefix;
+            @prefix := @words;
+        }
+
         my @args;
         my @redirs;
-        for $<rak-arg> -> $a { nqp::push(@args, $a.ast) }
+        my @words;
+        for @prefix -> $w {
+            nqp::push(@args, Nodify('StrLiteral').new($w));
+            nqp::push(@words, $w);
+        }
+        for $<rak-arg> -> $a {
+            nqp::push(@args, $a.ast);
+            nqp::push(@words, ~$a);
+        }
         for $<rak-redir> -> $r { nqp::push(@redirs, $r.ast) }
         my $ast;
-        if !$<forced> && $name eq 'cd' {
+        if !$forced && nqp::elems(%expanded) && $*R.is-identifier-known($name) {
+            # An alias for a rak routine calls it, its words as strings.
+            $/.panic("The alias for the rak routine $name cannot be redirected")
+              if nqp::elems(@redirs);
+            $/.panic("The alias for the rak routine $name cannot be a pipeline stage")
+              if nqp::elems(@extra);
+            $ast := rak-call($name, |@args);
+        }
+        elsif !$forced && $name eq 'cd' {
             $ast := rak-call('RAK-CD', |@args);
         }
-        elsif !$<forced> && $name eq 'type' {
+        elsif !$forced && $name eq 'type' {
             my @names;
             my @known;
-            for $<rak-arg> -> $a {
-                my $n := ~$a;
+            my @aliases;
+            for @words -> $n {
+                my $alias := $/.rak-alias-words($n);
                 nqp::push(@names, Nodify('StrLiteral').new($n));
                 nqp::push(@known, Nodify('IntLiteral').new(
                   $*R.is-identifier-known($n) ?? 1 !! 0));
+                nqp::push(@aliases, Nodify('StrLiteral').new(
+                  nqp::isconcrete($alias) ?? $alias[0] !! ''));
             }
-            $ast := rak-call('RAK-TYPE',
-              Nodify('Circumfix::ArrayComposer').new(Nodify('SemiList').new(
-                Nodify('Statement::Expression').new(:expression(
-                  Nodify('ApplyListInfix').new(
-                    :infix(Nodify('Infix').new(',')), :operands(@names)))))),
-              Nodify('Circumfix::ArrayComposer').new(Nodify('SemiList').new(
-                Nodify('Statement::Expression').new(:expression(
-                  Nodify('ApplyListInfix').new(
-                    :infix(Nodify('Infix').new(',')), :operands(@known)))))),
-              $capture);
+            $ast := rak-call('RAK-TYPE', rak-array(@names), rak-array(@known),
+              $capture, rak-array(@aliases));
         }
         else {
             $ast := rak-call('RAK-RUN-COMMAND',
               Nodify('StrLiteral').new($name), $capture, |@args, |@redirs, |@extra);
         }
         $ast
+    }
+
+    # `alias name=words` declares the lexical constant `RAK-ALIAS name`,
+    # whose value is the alias's text then its words, joined by NULs.
+    # `alias` alone, or `alias name …`, shows aliases.
+    method rak-alias($/) {
+        if $<assign> {
+            my $name := ~$<name>;
+            $/.panic("alias $name= needs a command after the =") unless $<body>;
+            my $text := ~$<body>;
+            my $first := nqp::substr($text, 0, 1);
+            if ($first eq "'" || $first eq '"')
+              && nqp::chars($text) > 1
+              && nqp::eqat($text, $first, nqp::chars($text) - 1)
+              && nqp::index(nqp::substr($text, 1, nqp::chars($text) - 2), $first) < 0 {
+                $text := nqp::substr($text, 1, nqp::chars($text) - 2);
+            }
+            my @words := rak-alias-split($/, $text);
+            $/.panic("alias $name= needs a command after the =") unless nqp::elems(@words);
+            $/.panic("An alias's text has no NUL") if nqp::index($text, "\0") >= 0;
+            nqp::unshift(@words, $text);
+            my $decl := Nodify('VarDeclaration::Constant').new(
+              :name('RAK-ALIAS ' ~ $name), :scope('my'),
+              :initializer(Nodify('Initializer::Assign').new(
+                Nodify('StrLiteral').new(nqp::join("\0", @words)))));
+            $/.typed-panic('X::Redeclaration', :symbol("alias $name"))
+              if $*R.declare-lexical($decl);
+            self.SET-NODE-ORIGIN($/, $decl);
+            $decl.to-begin-time($*R, $*CU.context);
+            self.attach: $/, rak-call('RAK-ALIAS-DECLARED', $decl);
+        }
+        else {
+            my @names;
+            nqp::push(@names, Nodify('StrLiteral').new(~$_)) for $<names>;
+            self.attach: $/, rak-call('RAK-ALIASES',
+              Nodify('IntLiteral').new($*RAK-CAPTURE), |@names);
+        }
+    }
+
+    # An alias's text as words: whitespace separates them, quotes group and
+    # are dropped. Nothing interpolates.
+    sub rak-alias-split($/, str $text) {
+        my @words;
+        my str $word := '';
+        my int $in-word := 0;
+        my str $quote := '';
+        my int $i := 0;
+        my int $n := nqp::chars($text);
+        while $i < $n {
+            my str $c := nqp::substr($text, $i, 1);
+            if $quote ne '' {
+                if $c eq $quote { $quote := '' }
+                else            { $word := $word ~ $c }
+            }
+            elsif $c eq "'" || $c eq '"' {
+                $quote   := $c;
+                $in-word := 1;
+            }
+            elsif $c eq ' ' || $c eq "\t" {
+                if $in-word {
+                    nqp::push(@words, $word);
+                    $word    := '';
+                    $in-word := 0;
+                }
+            }
+            else {
+                $word    := $word ~ $c;
+                $in-word := 1;
+            }
+            ++$i;
+        }
+        $/.panic("An alias's text has an unclosed $quote") if $quote ne '';
+        nqp::push(@words, $word) if $in-word;
+        @words
     }
 
     # Pipelines (.rak syntax), see rak-plans/features/pipelines.md. Each stage
@@ -3207,11 +3324,12 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
 # Circumfix operators
 
     method circumfix:sym<( )>($/) {
-        self.attach: $/, $<rak-command>
+        my $command := $<rak-command> || $<rak-alias>;
+        self.attach: $/, $command
           ?? Nodify('Circumfix::Parentheses').new(
                Nodify('SemiList').new(
                  Nodify('Statement::Expression').new(
-                   :expression($<rak-command>.ast))))
+                   :expression($command.ast))))
           !! Nodify('Circumfix::Parentheses').new($<semilist>.ast)
     }
 

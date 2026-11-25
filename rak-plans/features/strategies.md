@@ -14,7 +14,7 @@ slot that Raku reports as the error "two terms in a row", so no valid Raku progr
 meaning.
 
 Status: WIP, NEEDSPEC — the standard strategy is implemented, and so are
-[commands](commands.md) and [pipelines](pipelines.md). `alias` is planned; the open
+[commands](commands.md), [pipelines](pipelines.md) and [aliases](aliases.md); the open
 questions below remain.
 
 ## Running commands
@@ -97,10 +97,9 @@ rak's `type` also reports rak routines, builtins and methods.
 
 ## Open questions
 
-- **Name resolution.** When `sort` is both a Raku routine and `/usr/bin/sort`, which one
-  wins? Aliases, routines, builtins and `$PATH` commands need one documented lookup order,
-  made visible by `type`. Whether rak's own builtins are Raku routines or something else
-  is part of this question.
+- **Name resolution.** Settled in [aliases](aliases.md): keyword, alias, rak routine,
+  builtin, `$PATH`, as `type` shows. Whether rak's own builtins are Raku routines or
+  something else is still open.
 - **Choosing the strategy, and quoting.** scsh, psh, xonsh, Oil/YSH, PowerShell and
   Nushell all ran into these two problems. rak chooses between the strategies per
   statement or parenthesized group, with explicit escapes (`\(`). This is the area to

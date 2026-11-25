@@ -1519,7 +1519,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         <!!{ nqp::rebless($/, self.slang_grammar('MAIN')); 1 }>
 
         [
-        || <?{ $*RAK-SEMANTICS }> :my $*RAK-CAPTURE := nqp::ifnull(nqp::getlexdyn('$*RAK-IN-PAREN'), 0); :my $*RAK-IN-PAREN := 0; [ <rak-pipeline> || <rak-command> ] [ <?before \h* \v> <.end-statement> ]?
+        || <?{ $*RAK-SEMANTICS }> :my $*RAK-CAPTURE := nqp::ifnull(nqp::getlexdyn('$*RAK-IN-PAREN'), 0); :my $*RAK-IN-PAREN := 0; [ <rak-alias> || <rak-pipeline> || <rak-command> ] [ <?before \h* \v> <.end-statement> ]?
         || [
           | <label> <statement>
           | <statement-control>
@@ -2361,11 +2361,47 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         || <EXPR>
     }
 
+    # What a word in command position names, in rak's lookup order: a
+    # keyword, an alias, a rak routine, a builtin, then $PATH
+    # (rak-plans/features/aliases.md). A rak routine is no command: it is
+    # called in the standard strategy.
     method rak-is-command($name) {
-        return 1 if $name eq 'cd' || $name eq 'type';
         return 0 if nqp::existskey(self.rak-keywords, $name);
+        return 1 if nqp::isconcrete(self.rak-alias-words($name));
         return 0 if $*R.is-identifier-known($name);
+        return 1 if $name eq 'cd' || $name eq 'type';
         self.rak-on-path($name)
+    }
+
+    # Aliases (.rak syntax), see rak-plans/features/aliases.md. `alias
+    # name=words` declares one, `alias` lists those in scope, `alias name …`
+    # shows some. The words after `=` are the alias's text, unquoted when it
+    # is a single quoted string.
+    token rak-alias {
+        'alias' <!before <[\w\-'(]>>
+        [
+        || \h+ <name=.identifier> $<assign>='='
+           [ $<body>=[ <.rak-alias-word>+ % \h+ ] ]?
+           [ <?before \h* <['"]>> <.panic("An alias's text has an unclosed quote")> ]?
+        || [ \h+ <names=.identifier> <!before '='> ]*
+        ]
+        \h*
+        <?before ';' | '}' | ')' | \v | $ | '#'>
+    }
+
+    token rak-alias-word {
+        [ \' <-[']>* \' | \" <-["]>* \" | <-[\s;{}()'"#]>+ ]+
+    }
+
+    # The alias $name seen from here, as a list: its text, then its words.
+    # An alias is the lexical constant `RAK-ALIAS name`.
+    method rak-alias-words($name) {
+        my $decl := $*R.resolve-lexical('RAK-ALIAS ' ~ $name);
+        return NQPMu unless nqp::isconcrete($decl);
+        my $value := nqp::can($decl, 'maybe-compile-time-value')
+          ?? $decl.maybe-compile-time-value
+          !! $decl.compile-time-value;
+        nqp::isconcrete($value) ?? nqp::split("\0", nqp::unbox_s($value)) !! NQPMu
     }
 
     method rak-keywords() {
@@ -3769,7 +3805,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         :my $*RAK-PIPE := 0;
         :my $for-source := self.MARKED('for-source') ?? 1 !! 0;
         :dba('parenthesized expression')
-        '(' ~ ')' [ <?{ $*RAK-SEMANTICS }> \s* <rak-command> \s* <?before ')'>
+        '(' ~ ')' [ <?{ $*RAK-SEMANTICS }> \s* [ <rak-command> || <rak-alias> ] \s* <?before ')'>
                 || <semilist> { $/.vet-c-style-for(self.pos, $<semilist>) if $for-source } ]
     }
 

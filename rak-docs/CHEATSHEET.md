@@ -375,6 +375,17 @@ Builtins:
 | `cd -`      | go back to the previous directory                  |
 | `type name` | list every meaning of `name`, marking the one that wins |
 
+Aliases name a command and its first words. They are declarations, seen to the end of
+their block; put yours in `~/.config/rak/init.rak`. A word in command position is a
+keyword, then an alias, a rak routine, a builtin, then a `$PATH` program.
+
+```rak
+alias ll=ls -l                 # ll src runs ls -l src
+alias g='git log "--format=%an %s"'   # quoted: unquoted once, quotes group words
+alias ls=ls --color            # the inner ls is not expanded again
+alias                          # list them; alias ll shows one; type ll too
+```
+
 A non-zero exit status fails a `.rak` file; irak shows it.
 
 ## Pipelines
@@ -435,7 +446,7 @@ Each stage gets the whole input, not one value at a time: use `map` for that.
 
 ## Planned, not implemented
 
-Planned in `rak-plans/`, not available yet: `alias`,
+Planned in `rak-plans/`, not available yet:
 globbing, indentation in place of braces, sigilless
 one-letter variables (`i`, `s`, …), a `^` sigil for native `num` (unsettled), YAML and myaml data
 pattern matching, `has ~.x` / `has #.x` attributes, and `#n.WHAT` autoboxing.
