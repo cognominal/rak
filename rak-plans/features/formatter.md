@@ -1,5 +1,7 @@
 # The formatter
 
+Status: WIP, NEEDSPEC — the formatter is implemented; the key order on load is open.
+
 A lone `.` is the [formatter](../../GLOSSARY.md#formatter): a pipeline stage that shows
 its input as indented JSON, as `jq .` does. Until now a lone `.` was a syntax error
 ("Malformed postfix call"), so the spelling takes nothing away from rak.

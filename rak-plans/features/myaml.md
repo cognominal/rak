@@ -5,7 +5,7 @@ structures: read a file or a [URL](url-targets.md) in a data format, then patter
 the structure. The pattern language is **myaml** ("matcher YAML"), an extension of YAML,
 which is itself a superset of JSON.
 
-Status: planned. The matching semantics below are a sketch.
+Status: PLANNED 0.3, NEEDSPEC — the matching semantics below are a sketch.
 
 ## YAML literals
 

@@ -1,5 +1,8 @@
 # irak: the interactive session
 
+Status: WIP, NEEDSPEC — the topic, banner, line editor and OSC 133 are implemented; TAB /
+SHIFT-TAB navigation is not (see § Navigating data with TAB and SHIFT-TAB).
+
 [irak](../../GLOSSARY.md#irak) is rak with no source file: the REPL, `-e` and standard input.
 The `./rak` wrapper with no arguments starts it. Usage is in the
 [cheat sheet](../../rak-docs/CHEATSHEET.md#irak-the-repl); this document covers the design, and the

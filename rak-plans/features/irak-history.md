@@ -1,6 +1,6 @@
 # irak: recalling submissions
 
-Status: DONE (tested by `t/02-rakudo/rak/020-irak-bang.t`, except TAB).
+Status: WIP — tested by `t/02-rakudo/rak/020-irak-bang.t`, except TAB.
 
 ## Spec
 

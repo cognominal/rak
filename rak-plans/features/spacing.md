@@ -6,7 +6,7 @@ Brackets around blocks are handled by [indentation](indentation.md); this docume
 spacing inside a line. The [cheat sheet](../../rak-docs/CHEATSHEET.md#spacing-is-syntax) shows the
 rule in use.
 
-Status: implemented for `>`, `>>` and `<`.
+Status: WIP — implemented for `>`, `>>` and `<`.
 
 ## Binary operators are written with spaces
 

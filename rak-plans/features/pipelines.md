@@ -1,5 +1,7 @@
 # Pipelines
 
+Status: WIP.
+
 [Pipelines](../../GLOSSARY.md#pipeline) in rak and irak: Unix pipes between
 [commands](commands.md), and pipes à la jq between rak stages, mixed freely. The
 background is in [strategies](strategies.md#pipes-a-stage-can-still-be-a-command).

@@ -7,9 +7,10 @@ A `<…>` at the start of a statement, closed on the same line by a `>` that tou
 last word and is not followed by a filename, stays a word list: `[<a b>]`,
 `<x y>->map(…)`.
 
-Status: implemented for `STMT >file`, `STMT >>file`, `<file STMT`, the
+Status: WIP, NEEDSPEC — implemented for `STMT >file`, `STMT >>file`, `<file STMT`, the
 [load](../../GLOSSARY.md#load) `LVALUE <file`, and the `.json` and `.jsonl`
-[formats](../../GLOSSARY.md#format). Usage is in the
+[formats](../../GLOSSARY.md#format). The planned targets and operators are directions,
+not a complete spec. Usage is in the
 [cheat sheet](../../rak-docs/CHEATSHEET.md#redirection). The design decisions are recorded in:
 
 - [ADR 0002](../../docs/adr/0002-redirection-binds-the-statement-stream.md): a

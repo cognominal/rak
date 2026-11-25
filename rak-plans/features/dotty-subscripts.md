@@ -1,11 +1,11 @@
 # Dotty subscripts
 
+Status: WIP — implemented, including quoted keys (`.'k'`, `."k"`) and the indirect method
+call `->$var` / `->&f`.
+
 A [dotty subscript](../../GLOSSARY.md#dotty-subscript) spells a subscript without brackets:
 `@a.1.toto.~str.#int` is `@a[1]<toto>{~str}[#int]`. The full list of forms is in the
 [cheat sheet](../../rak-docs/CHEATSHEET.md#dotty-subscripts); this document explains the design.
-
-Status: implemented, including quoted keys (`.'k'`, `."k"`) and the indirect method call
-`->$var` / `->&f`.
 
 Raku's `.[]` postcircumfix is not overloaded to reach hashes: `.` decides between `[…]`
 and `{…}` from what follows it, at parse time, so the subscript stays as unambiguous as

@@ -13,8 +13,9 @@ both. Naked strings, globbing and redirection work in both. The shell strategy t
 slot that Raku reports as the error "two terms in a row", so no valid Raku program changes
 meaning.
 
-Status: the standard strategy is implemented, and so are [commands](commands.md) and
-[pipelines](pipelines.md). `alias` is planned.
+Status: WIP, NEEDSPEC — the standard strategy is implemented, and so are
+[commands](commands.md) and [pipelines](pipelines.md). `alias` is planned; the open
+questions below remain.
 
 ## Running commands
 

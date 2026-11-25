@@ -6,9 +6,10 @@ native `int`. How to use them is in the
 explains why they exist, what they cost, and what comes next. Their main purpose is to
 drive [dotty subscripts](dotty-subscripts.md).
 
-Status: `~` and `#` are implemented. A `^` sigil for native `num` is unsettled: whether
-to add it, and how it subscripts, are both [open](../unsettled.md). One-letter variables
-without a sigil are planned, but their letter-to-type table is unsettled too.
+Status: WIP, NEEDSPEC — `~` and `#` are implemented. A `^` sigil for native `num` is
+unsettled: whether to add it, and how it subscripts, are both
+[open](../unsettled.md). One-letter variables without a sigil are planned, but their
+letter-to-type table is unsettled too.
 
 ## Boxing, Scalars, and why rak sigils skip them
 

@@ -1,5 +1,7 @@
 # Commands
 
+Status: WIP.
+
 Running [commands](../../GLOSSARY.md#command) in rak and irak, through the
 [shell strategy](../../GLOSSARY.md#shell-strategy). Commands joined by pipes are
 [pipelines](pipelines.md).

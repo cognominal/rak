@@ -7,9 +7,9 @@ depending on its context and on what is declared before it
 compiler will make, so a word that does not mean what the writer meant stands out
 before anything runs.
 
-Status: the convention is **implemented** in irak (cognominal/rak#1, branch
+Status: WIP, NEEDSPEC — the convention is implemented in irak (cognominal/rak#1, branch
 `irak-feedback`) and in the terminal cheat sheet. The irak command that shows the
-cheat sheet is **planned**.
+cheat sheet is planned, and the open questions at the end remain.
 
 ## The classes
 

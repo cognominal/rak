@@ -1,7 +1,7 @@
 # Tree Expressions — Detailed Specification
 
-**Version:** 0.1 (proposal for Rak shell/language)  
-**Status:** Draft  
+**Spec version:** 0.1  
+**Status:** TBD, NEEDSPEC — draft; no rak version assigned.  
 **Applies to:** `.rak` files and interactive Rak shell sessions
 
 ---

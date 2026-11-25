@@ -5,7 +5,8 @@ literal. The glossary gives the exact rule and the
 [cheat sheet](../../rak-docs/CHEATSHEET.md#words-routine-calls-and-naked-strings) shows it in use.
 Naked strings work in both the standard and the shell strategy.
 
-Status: implemented for words. Escapes, interpolation and globbing are planned.
+Status: WIP, NEEDSPEC — implemented for words; escapes, interpolation and globbing are
+planned, and the interpolation rule is open.
 
 ## Naked strings without Perl's trap
 

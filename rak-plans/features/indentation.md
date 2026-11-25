@@ -3,7 +3,7 @@
 In rak, a block that spans several lines is delimited by indentation, not braces. A block
 on a single line keeps its braces.
 
-Status: planned.
+Status: PLANNED 0.4, NEEDSPEC.
 
 ```rak
 if 1

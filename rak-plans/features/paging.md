@@ -1,5 +1,7 @@
 # Paging
 
+Status: WIP.
+
 irak [pages](../../GLOSSARY.md#paging) long output: instead of scrolling it past, irak
 hands it to a pager, and once the pager quits leaves a two-line summary at the prompt.
 
