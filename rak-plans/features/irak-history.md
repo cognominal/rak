@@ -7,6 +7,8 @@ Status: WIP — tested by `t/02-rakudo/rak/020-irak-bang.t`, except TAB.
 - `!n` ENTER re-runs the source of [submission](../../GLOSSARY.md#irak-submission) n.
 - `!!n` sets `$_` to the value of submission n.
 - Submissions are stored per session, capped at 1000.
+- ↑/↓ history is kept in `$XDG_STATE_HOME/rak/history` (default
+  `~/.local/state/rak/history`), see [the startup file](startup-file.md).
 - `!n` TAB puts submission n's source into the edit buffer.
 - ↑/↓ history does not wrap.
 - `!n` and `!!n` are directives only when they are the entire line (surrounding

@@ -101,7 +101,8 @@ nqp#882 and MoarVM#2087).
   - the formatter, a lone `.` ([formatter](features/formatter.md)).
 - **`src/core.c/REPL.rakumod`** gets irak:
   - the topic and `- ` to keep it ([irak](features/irak.md));
-  - the banner and the history file `~/.raku/irak-history`;
+  - the banner, the history file `$XDG_STATE_HOME/rak/history` and the startup file
+    `$XDG_CONFIG_HOME/rak/init.rak` ([startup file](features/startup-file.md));
   - `!n` / `!!n` recall ([irak history](features/irak-history.md));
   - paging ([paging](features/paging.md));
   - input-line highlighting ([highlight](highlight.md));

@@ -683,7 +683,7 @@ my class Rakudo::Internals::RakHTTP is implementation-detail {
     }
 
     method config-file() {
-        (%*ENV<XDG_CONFIG_HOME> || "$*HOME/.config").IO.add('rak/http-headers.json')
+        RAK-XDG-DIR('config').add('http-headers.json')
     }
 
     # The headers for a URL: rak's user agent, then those the config file
@@ -993,6 +993,21 @@ sub RAK-LOAD(Str() $target, Str:D $sigil, Str:D $name) is raw is implementation-
 # statement level is its Proc, which is not an error when sunk.
 my class Rakudo::Internals::RakProc is Proc {
     method sink(--> Nil) { }
+}
+
+# A folder of rak's per-user files, following XDG on every platform
+# (docs/adr/0006): `config` is $XDG_CONFIG_HOME/rak, `state` is
+# $XDG_STATE_HOME/rak. An unset, empty or relative variable gives the XDG
+# default, ~/.config or ~/.local/state.
+sub RAK-XDG-DIR(Str:D $kind --> IO::Path:D) is implementation-detail {
+    my ($var, $default) = $kind eq 'state'
+      ?? ('XDG_STATE_HOME', '.local/state')
+      !! ('XDG_CONFIG_HOME', '.config');
+    my $dir := %*ENV{$var};
+    ($dir && $dir.IO.is-absolute
+      ?? $dir.IO
+      !! ($*HOME || $*TMPDIR).add($default)
+    ).add('rak')
 }
 
 my $RAK-STATUS;                   # last exit status, process-global

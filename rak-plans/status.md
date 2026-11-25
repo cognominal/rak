@@ -29,6 +29,7 @@ here, because they go stale.
 | irak's web log, `@*IWEB` | [URL targets](features/url-targets.md) | `t/02-rakudo/rak/025-*` |
 | irak `- ` keeps the topic | [irak](features/irak.md) | `t/02-rakudo/rak/023-*` |
 | irak highlights the input line, a terminal cheat sheet | [highlight](highlight.md) | `t/02-rakudo/rak/026-*`, `027-*` |
+| irak's startup file `init.rak`, XDG folders, `--no-init` | [startup file](features/startup-file.md), ADR 0006 | `t/02-rakudo/rak/029-*` |
 | irak OSC 133 prompt marks | [irak](features/irak.md#shell-integration-osc-133-marks) | `t/02-rakudo/rak/028-*` |
 | irak's line editor bundled, core modules compile under the rak frontend | [AUR](build/AUR.md#the-line-editor-is-part-of-the-package) | `t/02-rakudo/rak/018-*`, `019-*` |
 | The `rak-git` AUR package (not submitted) | [AUR](build/AUR.md) | — |

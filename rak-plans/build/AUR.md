@@ -83,8 +83,9 @@ not submitted to japhb/Terminal-LineEditor yet. Rakudo Star ships Terminal::Line
 0.0.23 unpatched, and not Terminal-API, Terminal::Capabilities or Text::MiscUtils (see
 the [architectural note](../architectural-note.md#dependencies)).
 
-irak keeps its own history file, `~/.raku/irak-history`, since rak lines aren't valid
-Raku. `RAKUDO_HIST` still overrides it.
+irak keeps its own history file, `$XDG_STATE_HOME/rak/history`, since rak lines aren't
+valid Raku; `RAKUDO_HIST` doesn't move it. The package creates no per-user folder: the
+irak prompt makes its folders at startup ([startup file](../features/startup-file.md)).
 
 ## Building offline
 

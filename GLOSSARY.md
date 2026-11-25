@@ -38,6 +38,18 @@ external command even when a rak name hides it. At statement level its output go
 straight to the terminal; when its value is used, its output is captured.
 _Avoid_: binary, executable.
 
+<a id="builtin"></a>**builtin**:
+A command that ships with rak and is the same for every user, such as `cd` or `type`.
+Whether it is written in Raku or in rak does not matter; what a user defines is never a
+builtin.
+_Avoid_: shell builtin, user builtin, rak builtin (for a user's own definition).
+
+<a id="startup-file"></a>**startup file**:
+The user's own rak source that the [irak prompt](#irak-prompt) runs before the first
+submission: their aliases, routines and settings. It lives in the user's rak config
+directory, which follows the XDG conventions on every platform.
+_Avoid_: rc file, profile, user builtins, dotfile.
+
 <a id="exit-status"></a>**exit status**:
 How an external command ended: its exit code, or the signal that killed it. `$?` holds
 the last one in the current routine; a rak routine run as a command leaves it
@@ -50,6 +62,11 @@ An interactive rak session: the execution context in which rak evaluates stateme
 no source file (REPL, `-e`, standard input). An execution context, not a mode: its
 statements still parse in the standard or shell strategy. Pronounced "eye-rak".
 _Avoid_: interactive mode, irak mode, REPL mode.
+
+<a id="irak-prompt"></a>**irak prompt**:
+irak reading its submissions from a person at a terminal, as opposed to `-e` or piped
+standard input. Only the irak prompt runs the startup file and keeps history.
+_Avoid_: REPL, interactive irak, interactive mode.
 
 <a id="irak-submission"></a>**irak submission**:
 The text entered at the irak prompt and evaluated as a unit: one line, or several when

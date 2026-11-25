@@ -463,6 +463,13 @@ The following environment variables are respected:
 
 ♥); # end of usage statement
 
+        # rak's own options (rak-plans/features/startup-file.md).
+        $print-func(q♥rak options:
+
+  --no-init            start irak without running the startup file,
+                       $XDG_CONFIG_HOME/rak/init.rak (default ~/.config)
+♥) if +nqp::getenvhash()<RAKUDO_RAK_FRONTEND>;
+
         nqp::exit(0);
 
         # TODO: create and install a man page for Raku; then add the following

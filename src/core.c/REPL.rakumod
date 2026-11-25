@@ -527,6 +527,8 @@ do {
         # irak: the last submission's output and its format, for `!p`.
         has $!irak-output;
         my constant IRAK-KEEP = 1000;
+        # irak: rak's config and state folders were looked at this session.
+        has Bool $!irak-dirs-made;
 
         # irak OSC 133 shell integration (semantic prompt marks): A before
         # the prompt, B after it, C before a submission's output, D;<status>
@@ -1238,6 +1240,8 @@ do {
             if irak() {
                 RAK-WEB-ON();
                 PROCESS::<@IWEB> := [];
+                self!irak-make-dirs;
+                self!irak-startup-file(%adverbs) unless %adverbs<no-init>;
             }
 
             $!osc133 = irak()
@@ -1528,31 +1532,107 @@ do {
             }
         }
 
+        # irak: make rak's config and state folders when they are missing,
+        # once a session. A folder that cannot be made costs one warning
+        # (docs/adr/0006).
+        method !irak-make-dirs(--> Nil) {
+            unless $!irak-dirs-made {
+                $!irak-dirs-made = True;
+                for <config state> -> $kind {
+                    my $dir := RAK-XDG-DIR($kind);
+                    without mkdir $dir {
+                        note $kind eq 'state'
+                          ?? "irak: cannot create $dir; history will not be saved"
+                          !! "irak: cannot create $dir";
+                    }
+                }
+            }
+        }
+
+        # irak: run the startup file, $XDG_CONFIG_HOME/rak/init.rak, before
+        # the first submission. It is not a submission: it has no number and
+        # leaves $_ alone. What it defines is seen by every submission. An
+        # error is shown, and irak starts anyway with what ran before it.
+        method !irak-startup-file(%adverbs --> Nil) {
+            my $file := RAK-XDG-DIR('config').add('init.rak');
+            return unless $file.f;
+            my $source := try $file.slurp;
+            without $source {
+                note "irak: cannot read $file";
+                return;
+            }
+
+            my $*CTXSAVE := self;
+            my $*MAIN_CTX;
+            my $exception;
+            my $output := try self.new-repl-eval(
+              $source,
+              $exception,
+              (),
+              :outer_ctx($!save_ctx),
+              :language_version(
+                Rakudo::Internals.LANGUAGE-VERSION-OF-CONTEXT($!save_ctx)
+              ),
+              |%adverbs,
+              :source-name(~$file)
+            );
+            $exception = $! if $! && !$exception.DEFINITE;
+            $!save_ctx := $*MAIN_CTX if $*MAIN_CTX;
+
+            if $exception.DEFINITE {
+                # A compile error knows only its line: name the file too.
+                my @comp = nqp::istype($exception, X::Comp::Group)
+                  ?? ($exception.panic, |$exception.sorrows, |$exception.worries)
+                  !! ($exception,);
+                for @comp.grep(X::Comp) {
+                    .SET_FILE_LINE(~$file, .line)
+                      if !.filename || .filename eq '<unknown file>';
+                }
+                self.repl-print($exception);
+            }
+            elsif self.input-incomplete($output) {
+                say "irak: $file ends in the middle of a statement";
+            }
+            elsif self.input-toplevel-control($output) {
+                say "irak: control flow commands not allowed in $file";
+            }
+            elsif nqp::istype($output, Failure) && !$output.handled {
+                self.repl-print($output);
+            }
+        }
+
         method history-file(--> Str:D) {
             without $!history-file {
-                if %*ENV<RAKUDO_HIST> -> $history-file {
-                    $!history-file = $history-file.IO;
+                if irak() {
+                    # irak lines are rak, not Raku: rak's history follows
+                    # XDG and ignores RAKUDO_HIST (docs/adr/0006).
+                    self!irak-make-dirs;
+                    $!history-file = RAK-XDG-DIR('state').add('history');
                 }
                 else {
-                    my $dir := $*HOME || $*TMPDIR;
-                    my $old := $dir.add('.perl6/rakudo-history');
-                    # irak lines are rak, not Raku: keep them apart.
-                    my $new := $dir.add(irak() ?? '.raku/irak-history' !! '.raku/rakudo-history');
-                    if !irak() && $old.e && !$new.e {  # migrate old hist to new location
-                        $new.spurt($old.slurp);
-                        $old.unlink;
+                    if %*ENV<RAKUDO_HIST> -> $history-file {
+                        $!history-file = $history-file.IO;
                     }
-                    $!history-file = $new;
-                }
+                    else {
+                        my $dir := $*HOME || $*TMPDIR;
+                        my $old := $dir.add('.perl6/rakudo-history');
+                        my $new := $dir.add('.raku/rakudo-history');
+                        if $old.e && !$new.e {  # migrate old hist to new location
+                            $new.spurt($old.slurp);
+                            $old.unlink;
+                        }
+                        $!history-file = $new;
+                    }
 
-                without mkdir $!history-file.parent {
-                    note "I ran into a problem trying to set up history: {.exception.message}";
-                    note 'Sorry, but history will not be saved at the end of your session';
+                    without mkdir $!history-file.parent {
+                        note "I ran into a problem trying to set up history: {.exception.message}";
+                        note 'Sorry, but history will not be saved at the end of your session';
+                    }
                 }
             }
 
             # make sure there is a history file
-            $!history-file.open(:a).close unless $!history-file.e;
+            try $!history-file.open(:a).close unless $!history-file.e;
 
             $!history-file.absolute
         }

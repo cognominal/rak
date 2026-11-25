@@ -203,11 +203,14 @@ MOAR        = @nfpq(@moar::bindir@/moar@moar::exe@)@
 
 # Run the rak-specific tests: every `t/*/rak/` folder. `.rak` and `.t` files
 # go through the ./rak wrapper (rak frontend); `.raku` gating tests run against
-# the plain RakuAST frontend, whose EVALs must not inherit rak mode.
+# the plain RakuAST frontend, whose EVALs must not inherit rak mode. The XDG
+# folders point into gen/, so no irak prompt runs the user's startup file or
+# writes to their history.
 @bpv(RAK_WRAPPER)@ = @nfp(@base_dir@/rak)@
 
 @backend_prefix@-rak-test: @backend_prefix@-all
 	@fail=0; \
+	export XDG_CONFIG_HOME=@nfp(@base_dir@/gen/rak-test-xdg/config)@ XDG_STATE_HOME=@nfp(@base_dir@/gen/rak-test-xdg/state)@; \
 	for f in @nfp(t)@/*/rak/*.rak @nfp(t)@/*/rak/*.t; do \
 	    echo "$$f"; \
 	    @bpm(RAK_WRAPPER)@ -Ilib "$$f" || fail=1; \

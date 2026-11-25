@@ -64,6 +64,10 @@ my @clo := $comp.commandline_options();
 @clo.push('M=s');
 @clo.push('rakudo-home=s');
 @clo.push('disable-rakudo-opt');
+# rak: start irak without its startup file (rak-plans/features/startup-file.md)
+if $rak-frontend {
+    @clo.push('no-init');
+}
 
 # Make the selected grammar / actions visible to HLL
 if $rak-frontend {

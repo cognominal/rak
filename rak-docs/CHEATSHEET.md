@@ -343,6 +343,11 @@ Output longer than 5 lines (or the terminal) goes to a pager, `less -R` unless
 When the pager quits, a summary stays: format, lines and size, then the start of
 the first line. Errors, `$*ERR` and external commands are never paged.
 
+Before the first prompt, irak runs your startup file, `~/.config/rak/init.rak`: its
+routines and variables are seen by every submission. `./rak --no-init` skips it. The
+↑ / ↓ history is in `~/.local/state/rak/history`. `XDG_CONFIG_HOME` and
+`XDG_STATE_HOME` move them, on every platform; irak creates both folders when missing.
+
 ## Commands
 
 A statement whose first word is followed by more words runs a command; so does a

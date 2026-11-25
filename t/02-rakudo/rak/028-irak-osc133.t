@@ -49,7 +49,10 @@ sub session(Str:D $line, :&until!, :$editor = True, :$disable, :$enter = "\r\r",
     %env<RAKUDO_RAK_FRONTEND> = 1;
     %env<RAKU_RAK_MODE>       = 1;
     %env<RAKUDO_NO_VERSION>   = 1;
-    %env<RAKUDO_HIST>         = $*TMPDIR.add("irak-osc133-hist-$*PID").absolute;
+    # irak's history is $XDG_STATE_HOME/rak/history: keep it out of $HOME.
+    my $state = $*TMPDIR.add("irak-osc133-state-$*PID");
+    %env<XDG_STATE_HOME>      = $state.absolute;
+    %env<XDG_CONFIG_HOME>     = $state.add('config').absolute;
     %env<RAKUDO_DISABLE_OSC133>:delete;
     %env<RAKUDO_DISABLE_OSC133> = 1 if $disable;
     %env<RAKUDO_LINE_EDITOR>    = $editor ?? 'LineEditor' !! 'none';
@@ -84,7 +87,8 @@ sub session(Str:D $line, :&until!, :$editor = True, :$disable, :$enter = "\r\r",
     await Promise.anyof($done, $met, Promise.in(30));
     $proc.kill(SIGKILL) unless $done;
     await Promise.anyof($done, Promise.in(5));   # reap; a killed Proc would throw if sunk
-    %env<RAKUDO_HIST>.IO.unlink;
+    $state.add('rak/history').unlink;
+    .rmdir  for $state.add('rak'), $state.add('config/rak'), $state.add('config'), $state;
     plain($out)
 }
 
