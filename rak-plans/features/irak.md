@@ -1,7 +1,8 @@
 # irak: the interactive session
 
-Status: WIP, NEEDSPEC — the topic, banner, line editor and OSC 133 are implemented; TAB /
-SHIFT-TAB navigation is not (see § Navigating data with TAB and SHIFT-TAB).
+Status: WIP, NEEDSPEC — the topic, `- `, banner, line editor and OSC 133 are
+implemented; pinning the topic (lone `-`, `! `) and TAB / SHIFT-TAB navigation are not
+(see § Pinning the topic and § Navigating data with TAB and SHIFT-TAB).
 
 [irak](../../GLOSSARY.md#irak) is rak with no source file: the REPL, `-e` and standard input.
 The `./rak` wrapper with no arguments starts it. Usage is in the
@@ -15,17 +16,81 @@ submission](../../GLOSSARY.md#irak-submission), so each submission works on the 
 This is the interactive habit of growing a pipeline one stage at a time,
 but the values passed between stages stay structured.
 
-A [topic-keeping submission](../../GLOSSARY.md#topic-keeping-submission) starts with
-`- `: the prefix is stripped, the rest runs as usual and its value is shown, but `$_`
-is not updated, so one value can be explored without being replaced.
+### When a submission updates the topic
 
-- Only `- ` (a dash and a space) at the start of a fresh submission counts; a
-  continuation line is not checked. The prefix is kept in the submission's source, so
-  `!n` replays it with the topic kept, and `!n` TAB shows it.
-- The value is still recorded, so `!!n` can make it the topic later.
-- Only the automatic update is skipped: `- $_ = 3` still assigns.
-- Raku's prefix minus followed by a space (`- 5`) loses its meaning at the start of an
-  irak submission; write `-5`.
+A submission updates the topic when the topic is unpinned and its value is shown: its
+value becomes `$_`. Loading with `<file` (nothing on its left) also counts.
+
+A submission whose output comes from commands updates the topic too: the
+[external commands](../../GLOSSARY.md#external-command) it runs at statement level
+write to the terminal as before, and what they wrote to standard output, as one `Str`
+with its final newline removed, becomes `$_`. `ls` then `.lines.elems` counts the
+files. Its `Proc` is not shown and is not the topic.
+
+- Standard error is shown but not kept.
+- The exit status does not matter: `grep` that exits 1 after printing lines still sets
+  the topic. A command that writes nothing to standard output leaves `$_` alone.
+- When several commands write, their outputs are joined in the order they ran.
+- When Raku code in the same submission also prints (`say`), the output is not all
+  from commands and `$_` is left alone.
+
+A submission leaves `$_` alone when:
+
+- it fails, or its value is `Nil`;
+- Raku code in it prints output itself (`say`, `print`), so its value is not shown;
+- it is the formatter `.`, which shows JSON;
+- it is a [topic-keeping submission](../../GLOSSARY.md#topic-keeping-submission);
+- the topic is [pinned](../../GLOSSARY.md#pinned-topic) and the submission is not a
+  [topic-setting submission](../../GLOSSARY.md#topic-setting-submission).
+
+In every case the value is still recorded, so `!!n` can make it the topic later; for a
+submission of commands, the value recorded is their output.
+
+Open: keeping a command's output means irak sits between the command and the terminal.
+The command must still see a terminal, or `ls` stops using columns and colors and
+full-screen programs (`vim`, `less`, `top`) break, so irak would run it on a
+pseudo-terminal and copy its output through. What a full-screen program writes is
+screen drawing, not output: irak should not keep it, for instance when the program
+switches to the alternate screen. Whether to cap the size of the kept output is
+also open.
+
+### Pinning the topic
+
+A lone `-` on the line of a fresh submission is not a submission: it toggles the pin.
+It pins the topic when it is unpinned and unpins it when it is pinned. It gets no
+number, runs nothing, and `!n` cannot recall it; irak answers `irak: topic pinned` or
+`irak: topic unpinned`.
+
+While the topic is pinned, submissions run and show their values as usual, but `$_`
+stays the value it had when it was pinned, so one value can be explored at length
+without `- ` on every line. Two things still change it:
+
+- a topic-setting submission, `! ` before the submission (see below);
+- `!!n`, which sets `$_` to the value of submission `n`. The pin stays on, now
+  holding that value.
+
+A session starts unpinned. The pin is not saved between sessions.
+
+### Prefixes for one submission
+
+Two prefixes act on one submission. Each counts only at the start of a fresh
+submission, not on a continuation line; it is stripped before the submission runs and
+kept in its recorded source, so `!n` replays it with the same effect and `!n` TAB
+shows it.
+
+- `- ` makes a topic-keeping submission: its value does not become `$_`, pinned or not.
+  `- ls` shows the listing and keeps the topic.
+- `! ` makes a topic-setting submission: its value becomes `$_` even while the topic is
+  pinned. The pin stays on, now holding the new value. Unpinned, `! ` changes nothing.
+  The other rules still apply: a failure, `Nil`, or a submission that prints its own
+  output leaves `$_` alone even with `! `.
+
+Only the automatic update depends on these: `- $_ = 3` and an assignment to `$_` while
+pinned still assign.
+
+Two Raku spellings lose their meaning at the start of an irak submission: prefix minus
+followed by a space (`- 5`, write `-5`) and prefix negation followed by a space
+(`! $x`, write `!$x`). A lone `-` was a syntax error, so the toggle takes nothing away.
 
 
 ## Line editing

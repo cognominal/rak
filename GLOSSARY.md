@@ -76,14 +76,30 @@ _Avoid_: line, statement, command, cell.
 
 <a id="irak-topic"></a>**irak topic**:
 At the start of an irak submission, `$_` holds the value of the previous submission, so a
-leading dotty subscript reaches into it. A submission that fails, returns `Nil`, or
-prints output instead of a value leaves `$_` unchanged, and so does a
-[topic-keeping submission](#topic-keeping-submission).
+leading dotty subscript reaches into it. When the submission's output comes from
+external commands, `$_` is what they wrote to standard output, as a string. A submission
+that fails, returns `Nil`, or prints output from Raku code (`say`) leaves `$_`
+unchanged, and so does a
+[topic-keeping submission](#topic-keeping-submission), or any submission but a
+[topic-setting submission](#topic-setting-submission) while the topic is
+[pinned](#pinned-topic).
+
+<a id="pinned-topic"></a>**pinned topic**:
+The [irak topic](#irak-topic) while submissions do not update it. A lone `-` on the
+line of a fresh submission pins the topic, or unpins it if it was pinned; it is not
+itself a submission. While pinned, only a topic-setting submission or `!!n` changes `$_`.
+_Avoid_: frozen topic, locked topic.
 
 <a id="topic-keeping-submission"></a>**topic-keeping submission**:
 An irak submission written with a leading `- `: the prefix is dropped, the rest runs and
 its value is shown, but `$_` stays the same, so `- .a`, `- .b` explore one value in turn.
 _Avoid_: peek, dry run.
+
+<a id="topic-setting-submission"></a>**topic-setting submission**:
+An irak submission written with a leading `! `: the prefix is dropped, and its value
+becomes `$_` even while the topic is [pinned](#pinned-topic), which stays pinned on the
+new value.
+_Avoid_: forced submission, override.
 
 <a id="paging"></a>**paging**:
 irak showing an irak submission's output in a pager when it is longer than 5 lines or the
