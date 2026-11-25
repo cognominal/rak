@@ -195,6 +195,7 @@ except for a load: `$a <5` loads the file `5` and warns at compile time. Write
 | `<file STMT` | **Input redirection**: bind `$*IN` to `file` for this statement only. |
 | `LVALUE <file` | **Load**: decode `file` and assign it to the left-hand side. |
 | `<file` (on its own) | Load into `$_`. |
+| `LVALUE <src >dst` | Load, then write the loaded value to `dst`; `<src >dst` alone too. |
 
 ```rak
 say foo >out.txt              # "foo\n"
@@ -247,6 +248,7 @@ my @l <f.txt         # plain text: lines
 my $s <f.txt         # plain text: the whole string
 my @r <r.jsonl       # array of records ($ gives the same array)
 <data.json; say .users.1.name
+my %r <api.github.com/repos/cognominal/rak >rak.json   # load, and save a copy
 ```
 
 **Errors** (all are `X::Rak::Format`):

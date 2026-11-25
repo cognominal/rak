@@ -1199,6 +1199,14 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
                 )
               ).to-begin-time($*R, $*CU.context))
             );
+            # `<src >dst`: the loaded value goes to the output redirection.
+            if $<statement-mod-redir> {
+                $statement := self.output-redirected-statement(
+                    $statement,
+                    $<statement-mod-redir>.ast,
+                    ~$<statement-mod-redir><op> eq '>>' ?? 'a' !! 'w'
+                );
+            }
         }
 
         # Handle input redirection (.rak syntax): `<file STMT` binds $*IN for
@@ -1963,19 +1971,62 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
     # write the printed text or the encoded value
     # (docs/adr/0004-format-targets-write-the-value-when-nothing-is-printed.md).
     method output-redirected-statement($statement, $filename-ast, str $mode) {
+        # A declaration must stay in the enclosing scope, or a later
+        # reference to it fails: `my %h = X >f` and the load `my %h <src >f`
+        # leave `my %h` outside the thunk and put the assignment inside it.
+        my $decl := self.hoist-declaration($statement);
         my $thunk := Nodify('Block').new(
             :body(Nodify('Blockoid').new(Nodify('StatementList').new($statement)))
         ).to-begin-time($*R, $*CU.context);
+        my $args := Nodify('ArgList').new(
+            $filename-ast,
+            Nodify('StrLiteral').new($mode),
+            $thunk
+        );
+        $args.push($decl) if nqp::isconcrete($decl);
         Nodify('Statement::Expression').new(
             :expression(Nodify('Call::Name').new(
                 name => Nodify('Name').from-identifier('RAK-REDIRECT-OUT'),
-                args => Nodify('ArgList').new(
-                    $filename-ast,
-                    Nodify('StrLiteral').new($mode),
-                    $thunk
-                )
+                args => $args
             ))
         )
+    }
+
+    # If $statement is `my VAR = X` or `my VAR <src` (an assignment whose
+    # left side declares VAR), turn it into `VAR = X` and return the
+    # declaration, without its initializer; otherwise return nothing.
+    method hoist-declaration($statement) {
+        return Nodify('VarDeclaration::Simple')
+          unless nqp::istype($statement, Nodify('Statement::Expression'))
+            && !$statement.condition-modifier && !$statement.loop-modifier;
+        my $expr := $statement.expression;
+        my $decl;
+        my $value;
+        my $infix;
+        if nqp::istype($expr, Nodify('VarDeclaration::Simple'))
+          && nqp::istype($expr.initializer, Nodify('Initializer::Assign')) {
+            $decl  := $expr;
+            $value := $expr.initializer.expression;
+            $infix := Nodify('Assignment').new(
+              :item(!($decl.sigil eq '@' || $decl.sigil eq '%')));
+        }
+        elsif nqp::istype($expr, Nodify('ApplyInfix'))
+          && nqp::istype($expr.left, Nodify('VarDeclaration::Simple'))
+          && !nqp::isconcrete($expr.left.initializer) {
+            $decl  := $expr.left;
+            $value := $expr.right;
+            $infix := $expr.infix;
+        }
+        return Nodify('VarDeclaration::Simple')
+          unless nqp::isconcrete($decl)
+            && ($decl.scope eq 'my' || $decl.scope eq 'our')
+            && !$decl.twigil;
+        $decl.set-initializer(Nodify('Initializer'));
+        my $var := Nodify('Var::Lexical').new($decl.name);
+        $var.to-begin-time($*R, $*CU.context);
+        $statement.set-expression(Nodify('ApplyInfix').new(
+          :$infix, :left($var), :right($value)));
+        $decl
     }
 
     # Load: `LVALUE <target` becomes `LVALUE = RAK-LOAD(target, sigil, name)`.

@@ -1529,10 +1529,12 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           | <?{ $*RAK-SEMANTICS }>
             <!before '<' <-[<>\n]>*? <-[<>\s]> '>' <![a..zA..Z_/'$]> >
             :my $*RAK-LOAD := 1; '<' <?{ !self.after-ws($/) }> <redir-filename> <.ws>
-            # A bare `<target` (nothing after it) loads into the topic; with a
-            # statement after it, it is input redirection.
+            # A bare `<target` (nothing after it, or only an output
+            # redirection, `<src >dst`) loads into the topic; with a statement
+            # after it, it is input redirection.
             [
             || <?before ';' | '}' | $ > $<load-topic>=<?>
+            || <statement-mod-redir> <.ws> <?before ';' | '}' | $ > $<load-topic>=<?>
             || <?{ $<redir-filename><redir-url> }>
                { $/.panic("Input redirection from a URL is not supported: load it instead, my \$x <" ~ ~$<redir-filename>) }
             || <statement>
@@ -1540,7 +1542,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           | <EXPR>
             :dba('statement end')
             [
-              || <?{ $*RAK-SEMANTICS }> <statement-mod-load>
+              || <?{ $*RAK-SEMANTICS }> <statement-mod-load> <statement-mod-redir>?
               || <?{ $*RAK-SEMANTICS }> <statement-mod-redir>
               || <?MARKED('end-statement')>
               || :dba('statement modifier')

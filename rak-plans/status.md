@@ -51,7 +51,7 @@ variables.
 - [Indentation](features/indentation.md) in place of braces, and
   [tree expressions](features/tree-exprs.md).
 - One-letter variables without a sigil.
-- More redirection operators (`2>`, `&>`, here-documents) and stacking; a load followed by `>file` is specified in [redirection](features/redirection.md#a-load-followed-by-output-redirection).
+- More redirection operators (`2>`, `&>`, here-documents) and stacking; a load followed by `>file` is done ([redirection](features/redirection.md#a-load-followed-by-output-redirection)).
 - The [GitHub demo](demos/github.md); PATCH, PUT, DELETE and pagination for
   [URL targets](features/url-targets.md).
 - YAML, TOML and [myaml](features/myaml.md).

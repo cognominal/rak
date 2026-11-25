@@ -1,0 +1,68 @@
+use Test;
+use lib 't/packages/RakHTTPFixture/lib';
+use RakHTTPFixture;
+
+plan 10;
+
+# ---------------------------------------------------------------------------
+# A load followed by output redirection (rak-plans/features/redirection.md,
+# § A load followed by output redirection): `LVALUE <src >dst` and `<src >dst`
+# load, then write the loaded value to dst in value mode.
+# ---------------------------------------------------------------------------
+
+my $srv = RakHTTPFixture.new(routes => {
+    'GET /obj' => (200, 'application/json', '{"name": "rak", "tags": ["a", "b"]}'),
+});
+my $port = $srv->port;
+%*ENV<XDG_CONFIG_HOME> = ~$*TMPDIR->add("rak-load-redir-none-$*PID");
+
+'lr_src.json'->IO->spurt('{"name": "rak"}');
+my @files = 'lr_src.json', 'lr_a.json', 'lr_b.json', 'lr_c.json', 'lr_d.jsonl', 'lr_e.json', 'lr_f.json';
+unlink @files[1..*];
+END { unlink @files }
+
+# 1-2. LVALUE <file >file
+{
+    my %h <lr_src.json >lr_a.json;
+    is %h<name>, 'rak', '1: my %h <src >dst assigns the loaded value';
+    is-deeply load('lr_a.json'), { name => 'rak' }, '2: and writes it to dst';
+}
+
+# 3-4. <file >file loads into the topic.
+{
+    <lr_src.json >lr_b.json;
+    is .name, 'rak', '3: <src >dst loads into $_';
+    is-deeply load('lr_b.json'), { name => 'rak' }, '4: and writes it to dst';
+}
+
+# 5-6. A URL source, into a variable and into the topic.
+{
+    my $x <http://127.0.0.1:$port/obj >lr_c.json;
+    is $x<tags>[1], 'b', '5: my $x <url >dst assigns the response';
+    is-deeply load('lr_c.json'), { name => 'rak', tags => ['a', 'b'] },
+      '5: and writes it to dst';
+}
+{
+    <http://127.0.0.1:$port/obj >lr_e.json;
+    is-deeply load('lr_e.json'), { name => 'rak', tags => ['a', 'b'] },
+      '6: <url >dst writes the response to dst';
+}
+
+# 7. >> appends to a .jsonl target.
+{
+    my %h <lr_src.json >>lr_d.jsonl;
+    my %g <lr_src.json >>lr_d.jsonl;
+    is 'lr_d.jsonl'->IO->lines->elems, 2, '7: <src >>dst.jsonl appends a record each time';
+}
+
+# 8-9. A declaration under any output redirection stays visible after it.
+{
+    my %h = name => 'rak' >lr_f.json;
+    is %h<name>, 'rak', '8: my %h = X >dst declares %h in the enclosing scope';
+    is-deeply load('lr_f.json'), { name => 'rak' }, '9: and writes it to dst';
+}
+
+$srv->stop;
+
+sub load($f) { my %r <$f; %r }
+done-testing();

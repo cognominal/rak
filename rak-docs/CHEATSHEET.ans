@@ -181,6 +181,7 @@ except for a load: [3m$a[0m <5 loads the file [1m5[0m and warns at compile t
 | <[34mfile[0m STMT | [1mInput redirection[0m: bind [3m$*IN[0m to [1mfile[0m for this statement only. |
 | LVALUE <[34mfile[0m | [1mLoad[0m: decode [1mfile[0m and assign it to the left-hand side. |
 | [1m<file[0m (on its own) | Load into [3m$_[0m. |
+| LVALUE <[34msrc[0m >[34mdst[0m | Load, then write the loaded value to [1mdst[0m; <[34msrc[0m >[34mdst[0m alone too. |
 
     [36msay[0m [33mfoo[0m >[34mout.txt[0m              [2m# "foo\n"[0m
     [36mprint[0m [33mfoo[0m >[34mout.txt[0m            [2m# "foo": the routine keeps its own behaviour[0m
@@ -226,6 +227,7 @@ commas) is accepted.
     [1;35mmy[0m [3m$s[0m <[34mf.txt[0m         [2m# plain text: the whole string[0m
     [1;35mmy[0m [3m@r[0m <[34mr.jsonl[0m       [2m# array of records ($ gives the same array)[0m
     <[34mdata.json[0m; [36msay[0m .users.1.name
+    [1;35mmy[0m [3m%r[0m <[34mapi.github.com/repos/cognominal/rak[0m >[34mrak.json[0m   [2m# load, and save a copy[0m
 
 [1mErrors[0m (all are [1mX::Rak::Format[0m):
 

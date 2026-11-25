@@ -874,7 +874,9 @@ my class Rakudo::Internals::RakHTTP is implementation-detail {
 # statement with $*OUT bound to the target for that statement alone. A target
 # with a format is written whole, from the printed text or, if nothing was
 # printed, from the encoded value.
-sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code) is implementation-detail {
+sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code, $?) is implementation-detail {
+    # The optional last argument is a declaration hoisted out of the
+    # statement (Rak::Actions.hoist-declaration); only its effect matters.
     # A URL target: the statement's output is POSTed as JSON, and its value
     # is the response (docs/adr/0005-a-url-target-gives-the-response-as-the-statement-value.md).
     if Rakudo::Internals::RakHTTP.is-url($target) {

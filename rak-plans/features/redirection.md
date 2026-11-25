@@ -8,7 +8,7 @@ last word and is not followed by a filename, stays a word list: `[<a b>]`,
 `<x y>->map(…)`.
 
 Status: WIP, NEEDSPEC — implemented for `STMT >file`, `STMT >>file`, `<file STMT`, the
-[load](../../GLOSSARY.md#load) `LVALUE <file`, and the `.json` and `.jsonl`
+[load](../../GLOSSARY.md#load) `LVALUE <file`, a load followed by `>file`, and the `.json` and `.jsonl`
 [formats](../../GLOSSARY.md#format). The planned targets and operators are directions,
 not a complete spec. Usage is in the
 [cheat sheet](../../rak-docs/CHEATSHEET.md#redirection). The design decisions are recorded in:
@@ -66,9 +66,7 @@ then `2>&1` and `&>`.
 
 ### A load followed by output redirection
 
-Status: SPEC, not implemented. Today `<url >file` dies with "Input redirection from a
-URL is not supported", and `my $x <src >file` does not parse; write
-`my $x <src; $x >file` instead.
+Status: implemented, tested in `t/14-redirection/rak/016-load-redir.rak`.
 
 ```rak
 my $x <api.github.com/repos/cognominal/rak >rak.json   # GET, assign $x, write rak.json
