@@ -29,6 +29,7 @@ here, because they go stale.
 | irak shows JSON loads as `.` does | [formatter](features/formatter.md) | `t/02-rakudo/rak/024-*` |
 | irak's web log, `@*IWEB` | [URL targets](features/url-targets.md) | `t/02-rakudo/rak/025-*` |
 | irak `- ` keeps the topic | [irak](features/irak.md) | `t/02-rakudo/rak/023-*` |
+| irak: pin the topic, `! ` | [irak](features/irak.md) | `t/02-rakudo/rak/030-*` |
 | irak highlights the input line, a terminal cheat sheet | [highlight](highlight.md) | `t/02-rakudo/rak/026-*`, `027-*` |
 | irak's startup file `init.rak`, XDG folders, `--no-init` | [startup file](features/startup-file.md), ADR 0006 | `t/02-rakudo/rak/029-*` |
 | irak OSC 133 prompt marks | [irak](features/irak.md#shell-integration-osc-133-marks) | `t/02-rakudo/rak/028-*` |

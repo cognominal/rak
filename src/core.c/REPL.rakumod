@@ -526,6 +526,9 @@ do {
         has %!irak-sources;
         # irak: the last submission's output and its format, for `!p`.
         has $!irak-output;
+        # irak: a pinned topic changes only on `! ` or `!!n`; a lone `-`
+        # toggles it.
+        has Bool $!irak-pinned = False;
         my constant IRAK-KEEP = 1000;
         # irak: rak's config and state folders were looked at this session.
         has Bool $!irak-dirs-made;
@@ -1191,7 +1194,10 @@ do {
             $result
         }
 
-        method interactive_prompt($index) { "[$index] > " }
+        # irak: a pinned topic suffixes the prompt with `-`.
+        method interactive_prompt($index) {
+            "[$index] >{ '-' if $!irak-pinned } "
+        }
 
         method get-effective-prompt($index, $code?) {
             my $prompt = %*ENV<PROMPT_INDICATOR>;
@@ -1228,11 +1234,24 @@ do {
 
             my $prompt;
             my $code;
-            # irak: a submission starting with `- ` leaves $_ alone.
-            my Bool $keep-topic;
+            my $newcode;
+            # irak: the topic prefix of the submission, `- ` (it leaves $_
+            # alone) or `! ` (it sets $_ even while the topic is pinned).
+            my Str $topic-prefix;
+            sub strip-topic-prefix(--> Nil) {
+                if $newcode.starts-with('- ') || $newcode.starts-with('! ') {
+                    $topic-prefix = $newcode.substr(0, 2);
+                    $newcode .= substr(2);
+                }
+            }
+            # whether the submission's value becomes $_
+            sub topic-moves(--> Bool) {
+                $topic-prefix ne '- '
+                  && (!$!irak-pinned || $topic-prefix eq '! ')
+            }
             sub reset(--> Nil) {
                 $code = '';
-                $keep-topic = False;
+                $topic-prefix = '';
                 $prompt = self.interactive_prompt($previous-evals.elems);
             }
             reset;
@@ -1263,7 +1282,7 @@ do {
                 }
                 $!irak-before = $code;
                 $!osc133-fresh = $code !~~ /\S/;
-                my $newcode = self.repl-read(~$prompt);
+                $newcode = self.repl-read(~$prompt);
                 last if $no-exit and $newcode and $newcode eq 'exit';
 
                 $stopped = 0;
@@ -1277,12 +1296,20 @@ do {
                     last;
                 }
 
-                # irak: `- ` before a fresh submission is stripped; the
-                # submission then runs without making its value the topic.
-                if irak() && $code eq '' && $newcode.starts-with('- ') {
-                    $newcode .= substr(2);
-                    $keep-topic = True;
+                # irak: a lone `-` on the line of a fresh submission is not
+                # a submission: it pins the topic, or unpins it.
+                if irak() && $code eq '' && $newcode ~~ /^ \s* '-' \s* $/ {
+                    $!irak-pinned = !$!irak-pinned;
+                    self!osc133-output;
+                    say "irak: topic { $!irak-pinned ?? 'pinned' !! 'unpinned' }";
+                    self!osc133-done(0);
+                    $prompt = self.interactive_prompt($previous-evals.elems);
+                    next;
                 }
+
+                # irak: `- ` or `! ` before a fresh submission is stripped;
+                # it decides whether the value becomes the topic.
+                strip-topic-prefix() if irak() && $code eq '';
 
                 # irak directives, only when they are the whole line of a
                 # fresh submission: `!n` re-runs submission n's source,
@@ -1304,7 +1331,7 @@ do {
                         say "irak: no output to page";
                         $status = 1;
                     }
-                    $keep-topic = False;
+                    $topic-prefix = '';
                     self!osc133-done($status);
                     next;
                 }
@@ -1322,17 +1349,14 @@ do {
                             say "irak: no value for submission $n";
                             self!osc133-done(1);
                         }
-                        $keep-topic = False;
+                        $topic-prefix = '';
                         next;
                     }
                     with %!irak-sources{$n} {
                         self!osc133-output;
                         say $_;
                         $newcode = $_;
-                        if $newcode.starts-with('- ') {
-                            $newcode .= substr(2);
-                            $keep-topic = True;
-                        }
+                        strip-topic-prefix();
                         # The echo is not output of the re-run code.
                         $initial_out_position = $*OUT.tell;
                         $!osc133-bytes = 0;
@@ -1340,7 +1364,7 @@ do {
                     else {
                         self!osc133-output;
                         say "irak: no submission $n";
-                        $keep-topic = False;
+                        $topic-prefix = '';
                         self!osc133-done(1);
                         next;
                     }
@@ -1404,7 +1428,7 @@ do {
                 $output.sink if nqp::istype($output,ParallelSequence);
                 if irak() {
                     my $n = $previous-evals.elems;
-                    %!irak-sources{$n} = ($keep-topic ?? '- ' !! '') ~ $code.chomp;
+                    %!irak-sources{$n} = $topic-prefix ~ $code.chomp;
                     %!irak-sources{$n - IRAK-KEEP}:delete;
                     self!log-web($n, %!irak-sources{$n}, $output, $exception);
                 }
@@ -1440,7 +1464,7 @@ do {
                           $output<>, :color(?(try $*OUT.t))) ~ "\n";
                     }
                     $previous-evals.push: $output<>;
-                    self!set-irak-topic($output<>) unless $keep-topic;
+                    self!set-irak-topic($output<>) if topic-moves();
                 }
                 elsif nqp::istype($output, Failure) and not $output.handled {
                     .end with $page;
@@ -1456,7 +1480,7 @@ do {
                     }
                     $previous-evals.push: $output<>;
                     self!set-irak-topic($output<>)
-                      if irak() && !$keep-topic
+                      if irak() && topic-moves()
                       && nqp::not_i(nqp::eqaddr($output<>, Nil));
                 }
                 with $page {

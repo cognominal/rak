@@ -297,6 +297,15 @@ prefix is dropped, the value shown, and [3m$_[0m kept, to look around in it.
     [2] > - .a.b        [2m# 42[0m
     [3] > .c            [2m# 7, and now $_ is 7[0m
 
+A lone [1m-[0m pins the topic, and a second one unpins it. While pinned, the prompt ends
+in [1m-[0m and submissions show their values but [3m$_[0m stays, except after [1m!!n[0m or a
+submission starting with [1m! [0m.
+
+    [0] > { a => { b => 42 }, c => 7 }
+    [1] > -             [2m# irak: topic pinned[0m
+    [1] >- .a           [2m# {b => 42}; $_ is still the hash[0m
+    [2] >- ! .a         [2m# {b => 42}, now $_, still pinned[0m
+
 Recalling submissions (only when the directive is the whole line; n is the
 prompt number, the last 1000 are kept):
 

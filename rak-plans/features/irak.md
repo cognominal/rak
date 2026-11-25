@@ -1,8 +1,9 @@
 # irak: the interactive session
 
-Status: WIP, NEEDSPEC — the topic, `- `, banner, line editor and OSC 133 are
-implemented; pinning the topic (lone `-`, `! `) and TAB / SHIFT-TAB navigation are not
-(see § Pinning the topic and § Navigating data with TAB and SHIFT-TAB).
+Status: WIP, NEEDSPEC — the topic, `- `, pinning the topic (lone `-`, `! `), banner,
+line editor and OSC 133 are implemented; a command's output as the topic and TAB /
+SHIFT-TAB navigation are not (see § When a submission updates the topic and
+§ Navigating data with TAB and SHIFT-TAB).
 
 [irak](../../GLOSSARY.md#irak) is rak with no source file: the REPL, `-e` and standard input.
 The `./rak` wrapper with no arguments starts it. Usage is in the
@@ -68,6 +69,8 @@ without `- ` on every line. Two things still change it:
 - a topic-setting submission, `! ` before the submission (see below);
 - `!!n`, which sets `$_` to the value of submission `n`. The pin stays on, now
   holding that value.
+
+While the topic is pinned, the prompt ends in `-`: `[3] >- `.
 
 A session starts unpinned. The pin is not saved between sessions.
 

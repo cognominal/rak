@@ -327,6 +327,17 @@ prefix is dropped, the value shown, and `$_` kept, to look around in it.
 [3] > .c            # 7, and now $_ is 7
 ```
 
+A lone `-` pins the topic, and a second one unpins it. While pinned, the prompt ends
+in `-` and submissions show their values but `$_` stays, except after `!!n` or a
+submission starting with `! `.
+
+```rak
+[0] > { a => { b => 42 }, c => 7 }
+[1] > -             # irak: topic pinned
+[1] >- .a           # {b => 42}; $_ is still the hash
+[2] >- ! .a         # {b => 42}, now $_, still pinned
+```
+
 Recalling submissions (only when the directive is the whole line; n is the
 prompt number, the last 1000 are kept):
 
