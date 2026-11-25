@@ -37,8 +37,9 @@ this list.
 
 ## Redirection and data
 
-- **Standard error and stacking.** File-descriptor prefixes (`2>file`, `2>&1`) or colon
-  pairs (`:err>file`). [redirection](features/redirection.md#stacking)
+- **Standard error.** File-descriptor prefixes (`2>file`, `2>&1`); stacking is settled
+  as repeated redirection tokens. A load to a plain-text target is open.
+  [redirection](features/redirection.md#stacking)
 - **HTTP beyond GET and POST.** How to spell PATCH, PUT and DELETE, overriding a URL
   target's format, and pagination. [URL targets](features/url-targets.md#open-questions)
 - **myaml matching.** What a match returns over lists, and whether `::=` and `:::=` are

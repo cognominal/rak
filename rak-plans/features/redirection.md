@@ -56,11 +56,41 @@ The shell operators below have no rak form yet. Each runs into an existing Raku 
 
 A shell command can carry several redirections: `cmd <in.txt >out.txt 2>err.txt`. rak
 accepts one redirection at the end of a statement and one at the start, so
-`<in.txt STMT >out.txt` is the only combination today. Options for more:
+`<in.txt STMT >out.txt` is the only combination today. rak takes the shell's way:
+**repeated redirection tokens, processed left to right**. Colon pairs
+(`STMT :out>out.txt :err>err.txt`) were considered: easier to parse and more Raku-like,
+but less shell-like, and they say again what the operator already says.
 
-- **Repeated redirection tokens** after the statement, processed in order. Closest to
-  the shell, and needs the `N>` form to say which stream.
-- **Colon pairs**: `STMT :out>out.txt :err>err.txt`. Easier to parse, more Raku-like,
-  less shell-like.
+Suggested order: a load followed by output redirection (below), then `2>` and `2>>`,
+then `2>&1` and `&>`.
 
-Suggested order: `<` with `>` together, then `2>` and `2>>`, then `2>&1` and `&>`.
+### A load followed by output redirection
+
+Status: SPEC, not implemented. Today `<url >file` dies with "Input redirection from a
+URL is not supported", and `my $x <src >file` does not parse; write
+`my $x <src; $x >file` instead.
+
+```rak
+my $x <api.github.com/repos/cognominal/rak >rak.json   # GET, assign $x, write rak.json
+<api.github.com/repos/cognominal/rak >rak.json         # the same, into the topic $_
+my @r <log.jsonl >>all.jsonl                           # load a file, append its records
+```
+
+- **Forms.** Both loads take one trailing output redirection: `LVALUE <src >dst` and
+  `<src >dst`. The source is any load target, file or URL, bare host included.
+- **Meaning.** The load runs first; the output redirection then gets the statement's
+  value, which is the loaded value. A load prints nothing, so this is
+  [value mode](../../GLOSSARY.md#value-mode) (ADR 0004): `>rak.json` writes the decoded
+  value encoded again as JSON, not the server's bytes. The raw response is still in
+  `@*IWEB[*-1].body` in irak. No `tee`-like byte copy is planned.
+- **Operators.** `>` and `>>` follow ADR 0004 (`>>` to `.json` is an error, to `.jsonl`
+  appends). `>url` POSTs the loaded value, as `STMT >url` does; the statement's value is
+  then the response (ADR 0005), and the left-hand side still holds the loaded value.
+- **Order.** Only `<src >dst`. `>dst <src` is a syntax error: the output side keeps
+  its place at the end, where `2>` will join it.
+- **Spacing.** Each operator touches its target; whitespace between the two
+  redirections is free.
+- **Plain-text target.** Open: with no format, value mode does not apply, and ADR 0002
+  leaves the file empty. `my $x <notes.txt >copy.txt` should probably write the text
+  loaded, which is a `Str`; a non-`Str` value (decoded JSON) to a plain-text target
+  should be an error rather than an empty file.
