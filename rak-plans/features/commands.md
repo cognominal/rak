@@ -24,6 +24,11 @@ A rak name wins over an external command of the same name; `^name` forces the ex
 one. Setting routines are rak names too, so `sort` and `run` are rak's unless written
 `^sort`, `^run`.
 
+A command that is neither a path to an executable nor found on `$PATH` throws
+`X::Rak::Command::NotFound` ("name: command not found") when it would run: `^nosuch`,
+or an alias whose target is missing. Unlike a non-zero exit, this is an error, as
+calling an undeclared routine is.
+
 ## Arguments
 
 Arguments parse like a Raku `<<…>>` list: whitespace separates words, quotes group, `$x`

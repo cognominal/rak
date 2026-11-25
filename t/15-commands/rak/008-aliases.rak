@@ -1,6 +1,6 @@
 use Test;
 
-plan 16;
+plan 19;
 
 # Aliases: a name for a command and its leading arguments
 # (rak-plans/features/aliases.md).
@@ -45,3 +45,9 @@ throws-like { EVAL q[alias x='ls] }, Exception, message => /'unclosed quote'/,
   'an unclosed quote is an error';
 throws-like { EVAL q[alias s=say a; s b >out] }, Exception,
   message => /'cannot be redirected'/, 'an alias for a routine cannot be redirected';
+throws-like { EVAL q[alias a=alias] }, Exception,
+  message => /'not the keyword alias'/, 'an alias cannot start with alias';
+throws-like { EVAL q[alias a=if x] }, Exception,
+  message => /'not the keyword if'/, 'an alias cannot start with a keyword';
+throws-like { EVAL q[alias m=rak-no-such-command; m] }, Exception,
+  message => /'command not found'/, 'a missing target is an error';

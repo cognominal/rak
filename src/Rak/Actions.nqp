@@ -2176,6 +2176,11 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             my @words := rak-alias-split($/, $text);
             $/.panic("alias $name= needs a command after the =") unless nqp::elems(@words);
             $/.panic("An alias's text has no NUL") if nqp::index($text, "\0") >= 0;
+            # An alias is a command and its leading words: a statement keyword,
+            # `alias` included, is no command.
+            my $target := @words[0];
+            $/.panic("alias $name= must start with a command, not the keyword $target")
+              if $target eq 'alias' || nqp::existskey($/.rak-keywords, $target);
             nqp::unshift(@words, $text);
             my $decl := Nodify('VarDeclaration::Constant').new(
               :name('RAK-ALIAS ' ~ $name), :scope('my'),

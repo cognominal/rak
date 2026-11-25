@@ -371,6 +371,7 @@ lone word naming a program on `$PATH`.
 ```rak
 ls -l @files "my file" {1+1}   # external command; @files gives one argument each
 ^sort data.txt                 # ^ forces the external command over rak's sort
+^nosuch                        # dies: nosuch: command not found
 my $out = ls                   # $out and $_ set to 'ls'
 my $out = (ls)                 # value used: standard output of ls command captured as a Str
 ~(pwd)                         # same, in a contextualizer

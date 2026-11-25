@@ -1,9 +1,12 @@
 use Test;
 
-plan 2;
+plan 3;
 
 # A rak name wins; ^name forces the external command.
 
 sub echo(*@a) { 'rak echo' }
 is (echo hi), 'rak echo', 'rak routine wins';
 is (^echo hi), "hi\n", '^name runs the external command';
+throws-like { ^rak-no-such-command }, Exception,
+  message => 'rak-no-such-command: command not found',
+  'a command found neither as a path nor on $PATH is an error';

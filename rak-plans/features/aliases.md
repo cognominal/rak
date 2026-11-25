@@ -33,7 +33,8 @@ type ll                     # ll is aliased to `ls -l', then ll's other meanings
 - **Where it applies.** A word in command position: the start of a statement, of a
   `(…)` group, or of a pipe stage. `name(…)`, `&name` and `^name` never see aliases.
 - **Lookup order** of such a word: keyword, alias, rak routine, builtin (`cd`, `type`),
-  `$PATH`. Keywords cannot be aliased; an alias hides a routine of the same name.
+  `$PATH`. Keywords cannot be aliased, nor be an alias's first word: `alias a=alias`
+  and `alias a=if x` are compile errors. An alias hides a routine of the same name.
 - **Expansion.** The alias's first word is looked up where the alias is used, by the
   same order, without that alias: `alias ls=ls -1` runs the routine or `$PATH` program
   `ls`. Aliases chain (`alias a=b x`, `alias b=echo y`: `a z` runs `echo y x z`); each
@@ -41,7 +42,8 @@ type ll                     # ll is aliased to `ls -l', then ll's other meanings
 - **A rak routine target** is called with the words as strings. Such an alias cannot be
   redirected or be a later pipe stage.
 - **Errors.** `alias ll=` with nothing after `=`, and an unclosed quote, are compile
-  errors. A missing target is an unknown command, as `^name` is.
+  errors. A missing target throws "name: command not found" when the alias runs, as
+  `^name` does.
 - No `unalias`: an alias ends with its scope.
 - `alias` is rak's: a routine named `alias` is not reachable by a statement starting with
   `alias`.
@@ -50,8 +52,6 @@ type ll                     # ll is aliased to `ls -l', then ll's other meanings
 
 - `alias` alone lists every alias of the enclosing scopes, including those declared
   later in the same block.
-- A missing target fails silently with exit code -1, as `^nosuchcmd` does; that is a
-  gap of [commands](commands.md), not of aliases.
 
 ## Implementation notes
 

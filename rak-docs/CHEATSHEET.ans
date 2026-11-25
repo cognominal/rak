@@ -338,6 +338,7 @@ lone word naming a program on [3m$PATH[0m.
 
     [1;32mls[0m -l [3m@files[0m "my file" {1+1}   [2m# external command; @files gives one argument each[0m
     [1;32m^sort[0m data.txt                 [2m# ^ forces the external command over rak's sort[0m
+    [1;32m^nosuch[0m                        [2m# dies: nosuch: command not found[0m
     [1;35mmy[0m [3m$out[0m = [33mls[0m                   [2m# $out and $_ set to 'ls'[0m
     [1;35mmy[0m [3m$out[0m = ([1;32mls[0m)                 [2m# value used: standard output of ls command captured as a Str[0m
     ~([1;32mpwd[0m)                         [2m# same, in a contextualizer[0m

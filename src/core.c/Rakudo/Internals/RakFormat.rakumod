@@ -1021,12 +1021,25 @@ my $RAK-OLDPWD;                   # for `cd -`
 sub RAK-STATUS() is implementation-detail { $RAK-STATUS }
 sub RAK-STATUSES() is implementation-detail { $RAK-STATUSES<> }
 
+# A command that is neither a path to an executable nor found on $PATH. It
+# is an error, not an exit status: spawning it would only give exit code -1.
+my class X::Rak::Command::NotFound is Exception {
+    has Str $.name;
+    method message() { "$!name: command not found" }
+}
+sub RAK-COMMAND-EXISTS(Str:D $name --> Bool:D) {
+    my &runnable = { .x && .f };
+    return runnable($name.IO) if $name.contains('/');
+    (%*ENV<PATH> // '').split(':').first({ runnable(($_ || '.').IO.add($name)) }).defined
+}
+
 # Runs an external command. The redirection targets come as named
 # arguments. With $capture, standard output is captured and returned as a Str.
 sub RAK-RUN-COMMAND(Str:D $name, $capture is copy, *@args,
   :$out is copy, :$append, :$in is copy, :$err is copy, :$merge,
   Mu :$stdin is raw = Rakudo::Internals::RakNoStdin, :$piped
 ) is implementation-detail {
+    X::Rak::Command::NotFound.new(:$name).throw unless RAK-COMMAND-EXISTS($name);
     # In a pipeline (see rak-plans/features/pipelines.md), :stdin is the previous
     # stage's value, and a :piped command is not waited for: its Proc is the
     # value, and RAK-PIPE-END waits for it.
