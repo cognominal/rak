@@ -11,6 +11,7 @@ open questions are in [rak-plans](../rak-plans/README.md).
   highlighted for a terminal: `less -R rak-docs/CHEATSHEET.ans`.
 - [irak tutorial](irak-tutorial.md), also in [French](irak-tutorial.fr.md) and
   [Russian](irak-tutorial.ru.md).
+- [Demo recordings](demos/README.md): GIFs of irak, rebuilt with `make rak-demos`.
 
 ## Releases
 

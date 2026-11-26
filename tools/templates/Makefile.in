@@ -33,6 +33,12 @@ rak-test:   @for_backends(@backend_prefix@-rak-test )@
 rak-cheatsheet: all
 	RAKUDO_LINE_EDITOR=none ./rak tools/rak-cheatsheet.raku rak-docs/CHEATSHEET.md > rak-docs/CHEATSHEET.ans
 
+# The demo GIFs (rak-docs/demos/README.md), each rendered by vhs from its
+# rak-docs/demos/*.tape script. Needs vhs (charmbracelet) and fzf.
+rak-demos: all
+	@command -v vhs >/dev/null || { echo "rak-demos: vhs not found (https://github.com/charmbracelet/vhs)"; exit 1; }
+	@for t in rak-docs/demos/*.tape; do echo "$$t"; vhs "$$t" >/dev/null || exit 1; done
+
 @if(platform==windows
 win-runner.exe-tmpl: src/runner/runner.c src/runner/whereami.c src/runner/whereami.h
 	$(NOECHO)$(MKPATH) @nfpq(gen/win-runner)@

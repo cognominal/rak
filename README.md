@@ -9,6 +9,15 @@ See [ROADMAP](./ROADMAP.md) for the planned versions.
 From now on, I will try to stick to Matt Pokock [skills](https://github.com/mattpocock/skills).
 The design documents of `rak` are under [rak-plans/](rak-plans/README.md).
 User-facing docs are under [rak-docs/](rak-docs/README.md).
+
+A tour of irak ([how these are made](rak-docs/demos/README.md)):
+
+![irak showcase](rak-docs/demos/showcase.gif)
+
+Pipes and the web:
+
+![irak web](rak-docs/demos/web.gif)
+
 Below is the original README.md. It should be mostly relevant for rak.
 
 # Rakudo

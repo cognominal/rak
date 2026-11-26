@@ -1,0 +1,5 @@
+{
+  "name": "rak",
+  "frontends": ["Raku", "Rak"],
+  "deps": { "fzf": "required", "atuin": "optional" }
+}
