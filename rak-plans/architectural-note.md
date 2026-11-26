@@ -139,8 +139,8 @@ nqp#882 and MoarVM#2087).
 
 ### Raku modules
 
-irak needs a line editor: it gives history and editing, and TAB navigation will
-build on it. irak prefers Terminal::LineEditor. The build installs it and its
+irak needs a line editor: it gives history and editing, and TAB
+[completion](features/completion.md) will build on it. irak prefers Terminal::LineEditor. The build installs it and its
 dependencies into the `vendor` repository, from tarballs pinned by SHA-256 in
 `tools/build/rak-line-editor-dists` and downloaded from the zef CDN:
 
@@ -186,7 +186,11 @@ and have no dependency chosen yet.
 
 ### External programs
 
-None of these is needed to build or to run plain rak code. Each one turns on a
+irak requires [fzf](https://github.com/junegunn/fzf): TAB completion shows its
+candidates in fzf, with a preview of each value
+([ADR 0008](../docs/adr/0008-completion-menus-use-fzf.md)).
+
+None of the others is needed to build or to run plain rak code. Each one turns on a
 feature:
 
 | Program | Used for |

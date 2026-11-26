@@ -47,11 +47,6 @@ this list.
 - **Key order on load.** Whether loading a `.json` target keeps the file's key order.
   [formatter](features/formatter.md#open-questions)
 
-## Interactive use
-
-- **irak navigation.** Where indices appear in mixed YAML previews, and what TAB offers
-  after `->`. [irak](features/irak.md#5-open-questions-and-design-decisions)
-
 ## Implementation
 
 - **Does a `.rak` file compiled by the plain RakuAST frontend stay rak?** Settling this

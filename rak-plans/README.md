@@ -29,7 +29,8 @@ The per-feature status and one-line definitions are in
 - [Redirection](features/redirection.md): planned operators, targets and stacking.
 - [URL targets](features/url-targets.md): HTTP GET and POST as redirections.
 - [myaml](features/myaml.md): YAML literals and pattern matching on data.
-- [irak](features/irak.md): the interactive session, and TAB / SHIFT-TAB navigation.
+- [irak](features/irak.md): the interactive session.
+- [Completion](features/completion.md): TAB completes through fzf, previewing values.
 - [irak history](features/irak-history.md): `!n` / `!!n` recall of submissions.
 - [atuin](features/atuin.md): record irak submissions in atuin, and import its history.
 - [Highlighting](highlight.md): coloring rak code by what each word denotes, in irak

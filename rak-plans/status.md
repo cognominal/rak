@@ -55,7 +55,7 @@ variables.
 - The [GitHub demo](demos/github.md); PATCH, PUT, DELETE and pagination for
   [URL targets](features/url-targets.md).
 - YAML, TOML and [myaml](features/myaml.md).
-- TAB / SHIFT-TAB data navigation in irak.
+- TAB [completion](features/completion.md) in irak, through fzf.
 
 Open design questions, such as a `^` sigil for native `num`, are in
 [unsettled.md](unsettled.md).

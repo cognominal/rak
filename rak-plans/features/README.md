@@ -20,13 +20,14 @@ and its status line says which.
 |---|---|---|
 | [atuin](atuin.md) | Record irak submissions in atuin, and import its history. | WIP |
 | [Aliases](aliases.md) | `alias ll=ls -l`: a name for a command and its first words. | WIP |
+| [Completion](completion.md) | TAB completes through fzf, previewing values. | PLANNED |
 | [Commands](commands.md) | Running routines and external commands: `$?`, `cd`, `type`. | WIP |
 | [Dotty subscripts](dotty-subscripts.md) | Subscripts without brackets: `%h.users.1.name`, `->meth`. | WIP |
 | [The formatter](formatter.md) | A lone `.` shows its input as JSON. | WIP, NEEDSPEC |
 | [Highlighting](../highlight.md) | Coloring rak code by what each word denotes, in irak and the terminal cheat sheet. | WIP, NEEDSPEC |
 | [Indentation](indentation.md) | Indentation in place of braces. | PLANNED 0.4, NEEDSPEC |
 | [irak history](irak-history.md) | `!n` and `!!n` re-run a submission and recall its value. | WIP |
-| [irak](irak.md) | The interactive session, its topic `$_`, and TAB / SHIFT-TAB navigation. | WIP, NEEDSPEC |
+| [irak](irak.md) | The interactive session and its topic `$_`. | WIP, NEEDSPEC |
 | [myaml](myaml.md) | YAML literals and pattern matching on data structures. | PLANNED 0.3, NEEDSPEC |
 | [Naked strings](naked-strings.md) | Unquoted words as strings. | WIP, NEEDSPEC |
 | [Paging](paging.md) | irak pages long output, then leaves a summary. | WIP |

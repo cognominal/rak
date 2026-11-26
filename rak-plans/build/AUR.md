@@ -50,7 +50,7 @@ coexists with `rakudo`, `rakudo-bin`, `nqp` and `moarvm` and conflicts with none
 irak is a main point of rak, and history and editing are what make it usable for
 learning and trying rak. So the line editor is not optional. The REPL in irak mode tries
 [Terminal::LineEditor](https://github.com/japhb/Terminal-LineEditor) first, because the
-planned TAB / SHIFT-TAB navigation ([irak.md](../features/irak.md)) builds on it.
+planned TAB [completion](../features/completion.md) builds on it.
 
 rlwrap was ruled out as the line editor: it sits outside the process, so it can't
 complete from live Raku values, and it would take over TAB.

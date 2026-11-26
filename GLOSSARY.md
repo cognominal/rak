@@ -138,6 +138,12 @@ subscripts the topic `$_` (`.name` is `$_<name>`), and a leading `->name` calls 
 on `$_`.
 _Avoid_: dot syntax, method sugar.
 
+<a id="selector"></a>**selector**:
+The key or index that follows the `.` of a dotty subscript: `name` in `.name`, `1` in
+`.1`, `'foo bar'` in `.'foo bar'`, `~expr` in `.~expr`. A chain such as `%h.a.1.name`
+has one selector per dot.
+_Avoid_: subscript word, field, accessor.
+
 <a id="redirection"></a>**redirection**:
 A shellish operator attached to a single statement that sends that statement's output to
 a file or takes its input from one. The operator is written touching its target, so an
