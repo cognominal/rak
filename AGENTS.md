@@ -60,4 +60,12 @@ Five canonical triage roles, each label string equal to its name. See `docs/agen
 
 ### Domain docs
 
-Single-context: `GLOSSARY.md` at the root plus `docs/adr/`. See `docs/agents/domain.md`.
+Single-context: `GLOSSARY.md` at the root plus `docs/adr/`. See `docs/agents/domain.md`. i
+
+## A commits
+
+A model session has a purpose which is its name. Ask for a  name if the session is unamed. A commit should start with
+[purpose state]. State can be one or more of many SPEC WIP FIX
+
+If a commit is unrelated to the session's purpose, don't use the session's name: work
+out the purpose that fits the commit, and ask the user when it isn't clear.
