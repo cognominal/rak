@@ -60,3 +60,5 @@ date; the documents above supersede them.
 - [new-sigils design log](archive/new-sigils-design.md)
 - [new-sigils subscript operator log](archive/subscript-operator.md)
 - [redirection design log (RAKFILE)](archive/RAKFILE.md)
+- [Tables](features/tables.md): lists of hashes shown as grids, nushell's `ls`,
+  filesizes and topical commands.

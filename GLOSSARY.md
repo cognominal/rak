@@ -219,9 +219,38 @@ to a redirection target.
 _Avoid_: redirection, feed.
 
 <a id="formatter"></a>**formatter**:
-The pipeline stage spelled as a lone `.`, which shows its input as indented JSON. Used
-alone, with nothing piped into it, its input is the topic `$_`.
+The pipeline stage spelled as a lone `.`, which shows its input as indented JSON. It is a
+[topical command](#topical-command).
 _Avoid_: pretty-printer, json command, jq.
+
+<a id="topical-command"></a>**topical command**:
+A command whose input is the value piped into it or, used alone, the topic `$_`, such
+as `select`, `drop` and the formatter. Builtins and user routines alike become one by a
+trait on their declaration. Text from an external command reaches it as lines until a
+`from-json` stage decodes it.
+_Avoid_: jsoner, filter, data command.
+
+<a id="table"></a>**table**:
+A list of hashes, shown as a grid with one row per hash and one column per key. irak
+shows a submission whose value is a table this way, as nushell does.
+_Avoid_: record list, list of records, dataframe.
+
+<a id="cell"></a>**cell**:
+One value of a hash in a table: where a row meets a column. How a cell is shown
+depends on its type, so a file size shows as `1.2 MB` and a date as `10 months ago`.
+_Avoid_: field, record value.
+
+<a id="filesize"></a>**filesize**:
+A number of bytes that keeps its unit: it shows in metric units by default (`1.2 MB`)
+and mixes in arithmetic only with other filesizes and plain numbers as nushell
+allows, so `1kb + 1` is an error.
+_Avoid_: byte count, size (for the type).
+
+<a id="unit-literal"></a>**unit literal**:
+A number written touching a unit, as in nushell: `10mb` and `1kib` are filesizes,
+`90sec` and `2day` are durations. Plain Raku reports such a word as "two terms in a
+row", so the spelling is free in rak mode.
+_Avoid_: suffixed number, quantity.
 
 <a id="huff"></a>**huff**:
 To give a construct a spelling whose length fits how often it is used, after Huffman

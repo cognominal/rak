@@ -1,6 +1,7 @@
 # The formatter
 
-Status: WIP, NEEDSPEC — the formatter is implemented; the key order on load is open.
+Status: WIP — the formatter is implemented; keeping key order on load is decided
+([ADR 0009](../../docs/adr/0009-rak-hashes-keep-insertion-order.md)), not built.
 
 A lone `.` is the [formatter](../../GLOSSARY.md#formatter): a pipeline stage that shows
 its input as indented JSON, as `jq .` does. Until now a lone `.` was a syntax error
@@ -48,5 +49,6 @@ its input as indented JSON, as `jq .` does. Until now a lone `.` was a syntax er
 
 ## Open questions
 
-- **Key order on load.** `my %h <in.json` loses the file's key order, so writing it back
-  sorts the keys. Keeping the order needs an ordered hash on load.
+- **Key order on load.** Settled by
+  [ADR 0009](../../docs/adr/0009-rak-hashes-keep-insertion-order.md): loads produce
+  ordered hashes, so writing a file back keeps its key order. Not built yet.
