@@ -233,6 +233,193 @@ class REPL::Completions::Engine {
         my $m = $before ~~ / $<partial> = \w*  $ /;
         $m || Nil;
     }
+
+    # ---- irak: selectors and `->` methods (rak-plans/features/completion.md)
+    # These never compile or run code: the subject of a selector is found by
+    # walking the dotty chain left of it, from a variable or the topic.
+
+    # Is $s a selector that needs no quotes (`.name`)?
+    method is-dotty-identifier(Str:D $s --> Bool:D) {
+        so $s ~~ /^ <.alpha> \w* [ <[\-']> <.alpha> \w* ]* $/
+    }
+
+    # The selector text that subscripts by $key: `name` or `'foo bar'`
+    method selector-text(Str:D $key --> Str:D) {
+        self.is-dotty-identifier($key)
+          ?? $key
+          !! "'" ~ $key.trans(['\\', "'"] => ['\\\\', "\\'"]) ~ "'"
+    }
+
+    # The steps of the dotty chain that ends $left: a Map with
+    #   root   the variable the chain starts from ('$x', '@a', '%h'), or ''
+    #          for the topic
+    #   steps  Pairs, key => Str or index => Int, from the root on
+    # Nil when the chain starts with anything else (a call, a method, …).
+    method selector-chain(Str:D $left) {
+        my $rest = $left;
+        my @steps;
+        loop {
+            if $rest ~~ / '.' $<i>=[\d+] $ / && !$/.prematch.ends-with('.') {
+                @steps.unshift: (index => +$<i>);
+            }
+            elsif $rest ~~ / '.' $<k>=[<.alpha> \w* [ <[\-']> <.alpha> \w* ]*] $ / {
+                @steps.unshift: (key => ~$<k>);
+            }
+            elsif $rest ~~ / '.' "'" $<k>=[ [ <-['\\]> | '\\' . ]* ] "'" $ / {
+                my $m = $/;
+                @steps.unshift: (key => $<k>.Str.subst(/'\\' (.)/, { ~$0 }, :g));
+                $/ := $m;
+            }
+            elsif $rest ~~ / '.' '"' $<k>=[ <-["\\$@%&{]>* ] '"' $ / {
+                @steps.unshift: (key => ~$<k>);
+            }
+            else { last }
+            $rest = $/.prematch;
+        }
+        if $rest ~~ / $<v>=[ <[$@%]> <.alpha> \w* [ <[\-']> <.alpha> \w* ]* ] $ / {
+            my $pre = $/.prematch;
+            return Nil if $pre ne '' && $pre.substr(*-1) ~~ / <[\w.'"$@%&~#>-]> /
+              && $pre.substr(*-1) ne '>' || $pre.ends-with('->');
+            return Map.new: (root => ~$<v>, steps => @steps.List);
+        }
+        return Map.new: (root => '', steps => @steps.List)
+          if $rest eq '' || $rest.substr(*-1) ~~ / <[\s(\[{;,=|!?:<>+*\/]> /;
+        Nil
+    }
+
+    # The selector under the cursor: Nil, or a Map with
+    #   from, to  the range of $line that the chosen selector replaces,
+    #             starting after the dot and running past the cursor to
+    #             the selector's end
+    #   prefix    what is typed of it before the cursor, without quote
+    #   kind      'key' (letters, or inside quotes), 'index' (digits),
+    #             'any' (nothing typed)
+    #   root, steps  as for selector-chain
+    method selector-site(Str:D $line, Int:D $cursor) {
+        my $before = $line.substr(0, $cursor);
+        my $after  = $line.substr($cursor);
+        my ($dot, $prefix, $kind, $to);
+        if $before ~~ / '.' $<q>=<['"]> $<p>=[<-['"\\]>*] $ / {
+            $dot    = $/.from;
+            $prefix = ~$<p>;
+            $kind   = 'key';
+            my $q   = ~$<q>;
+            my $end = $after.index($q);
+            $to     = $cursor + ($end.defined ?? $end + 1 !! ($after ~~ /^ \S* /).chars);
+        }
+        elsif $before ~~ / '.' $<p>=[ <[\w\-']>* ] $ / {
+            $dot    = $/.from;
+            $prefix = ~$<p>;
+            $kind   = $prefix eq '' ?? 'any'
+              !! $prefix ~~ /^ \d+ $/ ?? 'index'
+              !! $prefix ~~ /^ <.alpha> / ?? 'key'
+              !! return Nil;
+            $to     = $cursor + ($after ~~ /^ <[\w\-']>* /).chars;
+        }
+        else { return Nil }
+        my $left = $line.substr(0, $dot);
+        return Nil if $left.ends-with('.') || $left.ends-with('-');
+        my $chain = self.selector-chain($left) // return Nil;
+        Map.new: (from => $dot + 1, :$to, :$prefix, :$kind,
+                  root => $chain<root>, steps => $chain<steps>)
+    }
+
+    # The `->` method name under the cursor: Nil, or a Map with from, to,
+    # prefix, root and steps, as for selector-site
+    method method-site(Str:D $line, Int:D $cursor) {
+        my $before = $line.substr(0, $cursor);
+        $before ~~ / '->' $<p>=[ [<.alpha> [\w | <[\-']> <?before <.alpha>>]*]? ] $ /
+          or return Nil;
+        my $arrow  = $/.from;
+        my $prefix = ~$<p>;
+        my $to     = $cursor + ($line.substr($cursor) ~~ /^ [\w | <[\-']>]* /).chars;
+        my $chain  = self.selector-chain($line.substr(0, $arrow)) // return Nil;
+        Map.new: (from => $arrow + 2, :$to, :$prefix,
+                  root => $chain<root>, steps => $chain<steps>)
+    }
+
+    # A value whose elements must not be enumerated: undefined, lazy, or a
+    # Seq that enumerating would use up
+    method opaque(Mu \v --> Bool:D) {
+        !v.DEFINITE || nqp::istype(v, Seq) || so try v.is-lazy
+    }
+
+    # The value $steps lead to from $root, without autovivifying anything;
+    # Nil when a step is missing or its subject can't be subscripted
+    method walk-selectors(Mu \root, @steps) {
+        my Mu $v := root<>;
+        for @steps -> $step {
+            return Nil if self.opaque($v);
+            if $step.key eq 'index' {
+                return Nil unless (nqp::istype($v, Positional) || nqp::istype($v, Capture))
+                  && $v.EXISTS-POS($step.value);
+                $v := $v.AT-POS($step.value)<>;
+            }
+            else {
+                return Nil unless (nqp::istype($v, Associative) || nqp::istype($v, Capture))
+                  && $v.EXISTS-KEY($step.value);
+                $v := $v.AT-KEY($step.value)<>;
+            }
+        }
+        $v
+    }
+
+    # The selectors that can follow $subject: a Map with
+    #   header  the subject's type and size, and how many are shown
+    #   items   Maps of text (the selector to insert) and value
+    # Nil when the subject has neither keys nor indices.
+    method selector-candidates(Mu \subject, Str:D $prefix, Str:D $kind,
+                               Int :$max = 200) {
+        my Mu $s := subject<>;
+        return Nil if self.opaque($s);
+        my $assoc = nqp::istype($s, Associative) || nqp::istype($s, Capture);
+        my $pos   = nqp::istype($s, Positional)  || nqp::istype($s, Capture);
+        return Nil unless $assoc || $pos;
+        my @keys = $assoc
+          ?? (nqp::istype($s, Capture) ?? $s.hash.keys !! $s.keys).map(*.Str).sort
+          !! ();
+        my $elems = $pos ?? (nqp::istype($s, Capture) ?? $s.list.elems !! $s.elems) !! 0;
+        my @items;
+        if $kind ne 'index' {
+            for @keys.grep(*.starts-with($prefix)) -> $key {
+                last if @items >= $max;
+                @items.push: Map.new: (text => self.selector-text($key),
+                                       value => $s.AT-KEY($key));
+            }
+        }
+        my $first-index = @items.elems;
+        if $kind ne 'key' {
+            for (^$elems).grep(*.Str.starts-with($prefix)) -> $i {
+                last if @items >= $max;
+                @items.push: Map.new: (text => ~$i, value => $s.AT-POS($i));
+            }
+        }
+        my @size;
+        @size.push: "{+@keys} key{'s' if @keys != 1}" if $assoc;
+        @size.push: ($elems ?? "0..{$elems - 1}" !! 'no elements') if $pos;
+        my $header = ($s.^name, |@size).join(' · ');
+        $header ~= " · showing {+@items}" if @items >= $max;
+        Map.new: (:$header, items => @items.List)
+    }
+
+    # The methods that `->` can call on $subject: Maps of text and preview,
+    # the method's signatures
+    method method-candidates(Mu \subject, Str:D $prefix, Int :$max = 200) {
+        my Mu $s := subject<>;
+        my %seen;
+        my @items;
+        for $s.^methods(:all) -> $m {
+            my $name = try $m.name;
+            next unless $name && $name.starts-with($prefix);
+            next if $name.starts-with('!') || $name ~~ /^ <:Lu+[-]>+ $/;
+            next if %seen{$name}++;
+            my @sigs = (try $m.candidates) // ($m,);
+            @items.push: Map.new: (text => $name,
+              preview => @sigs.map({ (try .signature.raku) // '' }).join("\n"));
+        }
+        @items = @items.sort(*<text>).head($max);
+        Map.new: (header => "{$s.^name} methods", items => @items.List)
+    }
 }
 
 # Advanced completions role — site-aware dispatch.

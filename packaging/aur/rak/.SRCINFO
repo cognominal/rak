@@ -10,6 +10,7 @@ pkgbase = rak
 	makedepends = perl
 	depends = glibc
 	depends = zstd
+	depends = fzf
 	conflicts = rak-git
 	options = !makeflags
 	options = !lto

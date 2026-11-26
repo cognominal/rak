@@ -11,6 +11,7 @@ pkgbase = rak-git
 	makedepends = perl
 	depends = glibc
 	depends = zstd
+	depends = fzf
 	provides = rak
 	conflicts = rak
 	noextract = Terminal-ANSIColor-0.14.tar.gz

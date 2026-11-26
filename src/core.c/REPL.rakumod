@@ -67,8 +67,11 @@ do {
         has $!cols;                     # the width after the last resize
         has Str $!prompt = '';
         has &.atuin-search is rw;       # the query to the chosen entry or Nil
+        has &.irak-tab is rw;           # line, cursor to the new line and cursor, or Nil
 
-        method special-actions() { set(|callsame.keys, 'resize', 'atuin-search') }
+        method special-actions() {
+            set(|callsame.keys, 'resize', 'atuin-search', 'irak-complete')
+        }
 
         method decoded() {
             Supply.merge: callsame, signal(SIGWINCH).map({ 'Resize' => $_ })
@@ -90,6 +93,7 @@ do {
         method do-edit($action, $insert?) {
             $action eq 'resize'       ?? self!resize
               !! $action eq 'atuin-search' ?? self!atuin-search
+              !! $action eq 'irak-complete' ?? self!irak-complete
               !! nextsame
         }
 
@@ -110,6 +114,19 @@ do {
             self.enter-raw-mode;
             my $content = $choice // $query;
             self!redraw($content, $content.chars);
+        }
+
+        # TAB (rak-plans/features/completion.md). fzf gets the terminal in
+        # cooked mode, as the atuin search does.
+        method !irak-complete(--> Nil) {
+            my $field   = self.input-field or return;
+            my &tab     = &!irak-tab       or return;
+            my $content = $field.buffer.contents;
+            my $pos     = $field.insert-cursor.pos;
+            self.leave-raw-mode(:!nl);
+            my $new = try tab($content, $pos);
+            self.enter-raw-mode;
+            $new ?? self!redraw($new[0], $new[1]) !! self!redraw($content, $pos);
         }
 
         # Draws the prompt and a new input field that holds $content, with
@@ -276,6 +293,8 @@ do {
                 $cli.bind-key('Resize', 'resize');
                 $cli.bind-key('Ctrl-R', 'atuin-search');
                 $cli.atuin-search = -> $query { self.irak-atuin-search($query) };
+                $cli.bind-key('Ctrl-I', 'irak-complete');
+                $cli.irak-tab = -> $line, $pos { self.irak-tab($line, $pos) };
             }
             $cli.load-history($.history-file);
         }
@@ -669,6 +688,113 @@ do {
             return Nil unless $proc.exitcode == 0;
             $choice .= subst(/^ '__atuin_accept__:'/, '');
             $choice || Nil
+        }
+
+        # irak TAB (rak-plans/features/completion.md): the new line and
+        # cursor position once the word under the cursor is completed, or
+        # Nil to leave the line as it is.
+        method irak-tab(Str:D $line, Int:D $pos) {
+            with self.irak-recall($line) { return ($_, .chars) }
+            my $c = self.irak-completion($line, $pos) or return Nil;
+            my @items = $c<items>.List or return Nil;
+            my $i = @items == 1 ?? 0 !! self.irak-fzf($c);
+            return Nil without $i;
+            my $text = @items[$i]<text>;
+            ($line.substr(0, $c<from>) ~ $text ~ $line.substr($c<to>),
+             $c<from> + $text.chars)
+        }
+
+        # What TAB completes at $pos: Nil, or a Map of
+        #   from, to  the range of $line that the chosen text replaces
+        #   prefix    the text typed before the cursor, fzf's query
+        #   header    fzf's header, or ''
+        #   items     Maps of text, and value (data, shown as YAML) or
+        #             preview (text) for fzf's preview pane
+        # Selectors and `->` methods are completed from the values that
+        # the dotty chain left of them leads to, never by running code.
+        method irak-completion(Str:D $line, Int:D $pos) {
+            my $engine := REPL::Completions::Engine.new;
+            with $engine.selector-site($line, $pos) -> $site {
+                my \subject = self!irak-chain($engine, $site);
+                return Nil if nqp::istype(subject, Nil);
+                my $c = $engine.selector-candidates(subject, $site<prefix>, $site<kind>)
+                  or return Nil;
+                return Map.new: (|$site, |$c);
+            }
+            with $engine.method-site($line, $pos) -> $site {
+                my \subject = self!irak-chain($engine, $site);
+                return Nil if nqp::istype(subject, Nil);
+                return Map.new: (|$site,
+                  |$engine.method-candidates(subject, $site<prefix>));
+            }
+            # Other positions: the words the REPL already knows, without a
+            # preview. In rak mode a word after `.` is a selector, never a
+            # method: a selector that selector-site rejected gets nothing.
+            my $site = $engine.parse-at-cursor($line, $pos);
+            return Nil if $site.kind eq any(
+              REPL::Completions::Engine::SITE-DOT-SUBSCRIPT,
+              REPL::Completions::Engine::SITE-DOT-METHOD,
+              REPL::Completions::Engine::SITE-COMMENT,
+              REPL::Completions::Engine::SITE-EOF,
+              REPL::Completions::Engine::SITE-UNKNOWN);
+            my $typed = $site.sigil ~ $site.twigil ~ $site.prefix;
+            my @words = self.completions-for-line($line, $pos).unique;
+            Map.new: (from => $pos - $typed.chars,
+                      to => $pos + ($line.substr($pos) ~~ /^ [\w | '-']* /).chars,
+                      prefix => $typed, header => '',
+                      items => @words.map({ Map.new: (text => ~$_,) }).List)
+        }
+
+        # The value the root and steps of $site lead to, or Nil
+        method !irak-chain($engine, $site) {
+            my $name = $site<root> || '$_';
+            my $ctx := $!save_ctx;
+            until nqp::isnull($ctx) || nqp::not_i(nqp::isconcrete($ctx)) {
+                my $pad := nqp::ctxlexpad($ctx);
+                return $engine.walk-selectors(nqp::atkey($pad, $name), $site<steps>)
+                  if nqp::existskey($pad, $name);
+                $ctx := nqp::ctxouterskipthunks($ctx);
+            }
+            Nil
+        }
+
+        # Lets the user choose among the items of completion $c in fzf.
+        # Returns the chosen item's index, or Nil.
+        has Str $!fzf;
+        method irak-fzf($c) {
+            $!fzf //= run(<sh -c>, 'command -v fzf', :out, :err).out.slurp(:close).trim;
+            unless $!fzf {
+                print "\nirak: fzf not found\n";
+                return Nil;
+            }
+            my @items = $c<items>.List;
+            my @opts  = '--height=40%', '--layout=reverse', '--select-1', '--exit-0',
+                        "--delimiter=\t", '--with-nth=2..', "--query=$c<prefix>";
+            @opts.push: "--header=$c<header>" if $c<header>;
+            # fzf runs its preview command in a shell, so the previews are
+            # files written before it starts.
+            my $dir;
+            if @items.first({ (.<value>:exists) || (.<preview>:exists) }) {
+                $dir = $*TMPDIR.add("irak-complete-$*PID-{(now * 1000).Int}");
+                $dir.mkdir;
+                my $inspector = REPL::DataInspector.new;
+                for @items.kv -> $i, $item {
+                    $dir.add(~$i).spurt: ($item<preview>:exists)
+                      ?? $item<preview> ~ "\n"
+                      !! (try $inspector.preview($item<value>, :max-depth(2)))
+                           // "<no preview>\n";
+                }
+                my $q = "'" ~ $dir.absolute.subst("'", "'\\''", :g) ~ "'";
+                @opts.push: '--preview-window=right,60%', "--preview=cat $q/\{1}";
+            }
+            LEAVE { if $dir { .unlink for $dir.dir; $dir.rmdir } }
+            my $proc = run $!fzf, @opts, :in, :out;
+            $proc.in.spurt: @items.kv.map(-> $i, $item {
+                "$i\t" ~ $item<text>.trans(["\t", "\n"] => ['\t', '\n']) ~ "\n"
+            }).join, :close;
+            my $choice = $proc.out.slurp(:close);
+            return Nil unless $proc.exitcode == 0;
+            $choice ~~ /^ (\d+) \t / ?? +$0 !! Nil
         }
 
         # irak: the REPL of the rak frontend (see GLOSSARY.md).

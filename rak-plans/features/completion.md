@@ -1,7 +1,7 @@
 # Completion: TAB in irak
 
-Status: PLANNED — not implemented. The selector completion comes first, then `->`
-methods, then every other position. Replaces the "Navigating data with TAB and
+Status: WIP — selectors and `->` methods are implemented; other positions still use
+the old word completion, through fzf. Replaces the "Navigating data with TAB and
 SHIFT-TAB" design formerly in [irak.md](irak.md).
 
 At the [irak prompt](../../GLOSSARY.md#irak-prompt), TAB completes the word under the
@@ -42,10 +42,10 @@ So a TAB never fetches a [URL target](../../GLOSSARY.md#url-target), runs an
   the indices that start with them, across the whole range.
 - **Both.** A subject with keys and indices (a `Match`) offers its keys after letters,
   its indices after digits, and both after a bare `.`.
-- **Quoting.** A key that is not a valid dotty identifier (`foo bar`, `1x`, `if`) is
+- **Quoting.** A key that is not a valid dotty identifier (`foo bar`, `1x`, `12`) is
   inserted as `.'foo bar'`. Inside `.'` or `."`, the prefix matches the raw key.
 - **Limit.** At most 200 candidates. fzf's header gives the real size, such as
-  `Hash 3 keys` or `Array 0..9999 · showing 0..199`.
+  `Hash · 3 keys` or `Array · 0..9999 · showing 200`.
 
 ### What TAB replaces
 
@@ -66,7 +66,7 @@ irak's `IrakEditor` role binds TAB to its own action, as it does for Ctrl-R.
   prompt with the new buffer. Esc in fzf leaves the buffer unchanged.
 - **Previews.** Before fzf starts, irak writes each candidate's value to a file in a
   temporary directory, as YAML from `REPL::DataInspector` at depth 2, and fzf shows
-  it with `--preview 'cat DIR/{n}'`. For an array, the preview of an index is its
+  it with `--preview 'cat DIR/{1}'`. For an array, the preview of an index is its
   element.
 - **Missing fzf.** TAB says `irak: fzf not found`. There is no cycling fallback.
 
@@ -95,7 +95,8 @@ Every TAB goes through fzf, one position at a time after selectors:
 
 ## Tests
 
-The line editor can't be driven under script(1) ([irak history](irak-history.md)), so
-`t/*/rak/` tests the engine directly: for a line and a cursor position, the subject
-chain, the candidates, the range replaced and the quoting. One smoke test runs fzf
-with `--filter` on the candidates and previews.
+`t/02-rakudo/rak/033-irak-complete.t` tests the engine directly: for a line and a
+cursor position, the subject chain, the candidates, the range replaced, the quoting
+and the YAML preview. Sessions under script(1) then press TAB with a fake `fzf` on
+`PATH`, which logs its arguments and previews and picks a candidate. A smoke test
+runs the real fzf with `--filter`.
