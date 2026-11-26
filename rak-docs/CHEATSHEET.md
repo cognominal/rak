@@ -331,7 +331,8 @@ prefix is dropped, the value shown, and `$_` kept, to look around in it.
 [3] > .c            # 7, and now $_ is 7
 ```
 
-A lone `-` pins the topic, and a second one unpins it. While pinned, the prompt ends
+A lone `-` pins the topic, and a second one unpins it. A comment may follow it
+(`- # pin`), but `- #n` shows the native int `#n`. While pinned, the prompt ends
 in `-` and submissions show their values but `$_` stays, except after `!!n` or a
 submission starting with `! `.
 
@@ -352,6 +353,34 @@ prompt number, the last 1000 are kept):
 | `!!n` | sets `$_` to submission n's value |
 | ↑ / ↓ | history, stops at both ends |
 | `!p` | pages the last output again |
+
+Keys of irak's line editor:
+
+| Key | Effect |
+|---|---|
+| ENTER | shows how irak reads the line |
+| ENTER ×2 | runs it (within a second) |
+| ↑ / ↓ | history |
+| Ctrl-R | atuin search |
+| TAB | complete through fzf |
+| Ctrl-A / E | start / end |
+| Ctrl-W | delete word back |
+| Ctrl-K / U | delete to end / start |
+| Ctrl-Y | yank |
+| Ctrl-_ | undo |
+| Ctrl-L | redraw |
+| Ctrl-D | exit on an empty line |
+| Ctrl-C | abort the line |
+
+- ↑ and ↓ (also Ctrl-P and Ctrl-N) walk irak's own history and stop at both ends.
+- Ctrl-R opens `atuin search` with the line as its query; the entry you pick
+  replaces the line, and ENTER runs it. It does nothing when atuin is not on
+  `PATH` or `RAKUDO_DISABLE_ATUIN` is set.
+- TAB completes the selector or `->` method under the cursor. One candidate is
+  inserted at once; several open fzf, which previews the value each one leads
+  to. Esc leaves the line as it was.
+- Alt-b and Alt-f move by word, Alt-d deletes a word forward. The other keys are
+  the usual shell ones.
 
 Output longer than 5 lines (or the terminal) goes to a pager, `less -R` unless
 `RAK_PAGER` or `PAGER` says otherwise; an empty `RAK_PAGER` turns paging off.

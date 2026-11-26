@@ -301,7 +301,8 @@ prefix is dropped, the value shown, and [3m$_[0m kept, to look around in it.
     [2] > - .a.b        [2m# 42[0m
     [3] > .c            [2m# 7, and now $_ is 7[0m
 
-A lone [1m-[0m pins the topic, and a second one unpins it. While pinned, the prompt ends
+A lone [1m-[0m pins the topic, and a second one unpins it. A comment may follow it
+([1m- # pin[0m), but - [3m#n[0m shows the native int [1m#n[0m. While pinned, the prompt ends
 in [1m-[0m and submissions show their values but [3m$_[0m stays, except after [1m!!n[0m or a
 submission starting with [1m! [0m.
 
@@ -320,6 +321,34 @@ prompt number, the last 1000 are kept):
 | [1m!!n[0m | sets [3m$_[0m to submission n's value |
 | ↑ / ↓ | history, stops at both ends |
 | [1m!p[0m | pages the last output again |
+
+Keys of irak's line editor:
+
+| Key | Effect |
+|---|---|
+| ENTER | shows how irak reads the line |
+| ENTER ×2 | runs it (within a second) |
+| ↑ / ↓ | history |
+| Ctrl-R | atuin search |
+| TAB | complete through fzf |
+| Ctrl-A / E | start / end |
+| Ctrl-W | delete word back |
+| Ctrl-K / U | delete to end / start |
+| Ctrl-Y | yank |
+| Ctrl-_ | undo |
+| Ctrl-L | redraw |
+| Ctrl-D | exit on an empty line |
+| Ctrl-C | abort the line |
+
+- ↑ and ↓ (also Ctrl-P and Ctrl-N) walk irak's own history and stop at both ends.
+- Ctrl-R opens [1;32matuin[0m search with the line as its query; the entry you pick
+  replaces the line, and ENTER runs it. It does nothing when atuin is not on
+  [1mPATH[0m or [1mRAKUDO_DISABLE_ATUIN[0m is set.
+- TAB completes the selector or [1m->[0m method under the cursor. One candidate is
+  inserted at once; several open fzf, which previews the value each one leads
+  to. Esc leaves the line as it was.
+- Alt-b and Alt-f move by word, Alt-d deletes a word forward. The other keys are
+  the usual shell ones.
 
 Output longer than 5 lines (or the terminal) goes to a pager, [1;32mless[0m -R unless
 [1mRAK_PAGER[0m or [1mPAGER[0m says otherwise; an empty [1mRAK_PAGER[0m turns paging off.
