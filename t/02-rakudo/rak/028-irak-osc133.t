@@ -10,10 +10,9 @@ use Test;
 # prompt (where the input field starts, then the terminal size); script(1)
 # never answers, so the test answers for it before typing each line.
 #
-# Each session drives one prompt only. Terminal::LineEditor 0.0.23, even as
-# rak patches it, leaves the thread that read the previous line blocked on
-# standard input, and the next prompt waits for it, in cooked mode, until a
-# newline comes. So the continuation case stops at the continuation prompt.
+# Each session drives one prompt only, so the continuation case stops at the
+# continuation prompt. The next prompt may already have sent its queries when
+# a session ends, so the tests do not expect the output to end with a prompt.
 # The editor gets the prompt without its last character, hence `*` for `* `.
 
 my $script = run(<sh -c>, 'command -v script', :out, :err).out.slurp(:close).trim;
@@ -95,7 +94,7 @@ sub session(Str:D $line, :&until!, :$editor = True, :$disable, :$enter = "\r\r",
 my $out = session('1 + 1', :until(*.contains($D0)));
 ok $out.contains($A ~ '[0] >' ~ $B), 'A and B wrap the prompt';
 like $out, / $B .*? $C 2 \n $D0 /, 'the value comes between C and D;0';
-ok $out.ends-with($A ~ '[1] >' ~ $B), 'the next prompt gets A and B';
+like $out, / $D0 $A '[1] >' $B /, 'the next prompt gets A and B';
 
 $out = session('die "boom"', :until(*.contains($D1)));
 like $out, / $C .*? boom .*? $D1 /, 'a thrown error ends with D;1';

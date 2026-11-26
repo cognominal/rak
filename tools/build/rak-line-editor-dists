@@ -8,8 +8,10 @@
 # tools/build/rak-line-editor-patches/<name>.patch, if any, is applied after
 # unpacking. The Makefile rule (tools/templates/Makefile-backend-common.in)
 # lists each patch, so that changing one reinstalls the line editor.
-#   Terminal-LineEditor-0.0.23.patch: &on-finish for irak's double Enter, and
-#   a time limit on terminal queries (japhb/Terminal-LineEditor, unsubmitted).
+#   Terminal-LineEditor-0.0.23.patch: &on-finish for irak's double Enter, a
+#   time limit on terminal queries, and an input parser that stops without
+#   taking the next reader's first byte (japhb/Terminal-LineEditor,
+#   unsubmitted).
 #
 # name                          sha256                                                            path under https://360.zef.pm/
 Terminal-ANSIColor-0.14         38a72b223a2f1b9fcd05a7a99bfefe0de5e8be88368414dc341712d60e729bea  T/ER/TERMINAL_ANSICOLOR/35a0b2ba99bee55aae932ed029af3a912422c249.tar.gz
