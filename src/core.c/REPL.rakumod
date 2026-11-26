@@ -77,6 +77,29 @@ do {
             Supply.merge: callsame, signal(SIGWINCH).map({ 'Resize' => $_ })
         }
 
+        # While a line is edited, the cursor is a steady bar left of its
+        # character, as in nvim's insert mode (DECSCUSR 6). Leaving raw mode,
+        # to run a submission, fzf or atuin, restores the terminal's default.
+        has Bool $!bar;
+
+        method enter-raw-mode(|) {
+            callsame;
+            if self.input.t && !$!bar {
+                $!bar = True;
+                self.output.print("\e[6 q");
+                self.output.flush;
+            }
+        }
+
+        method leave-raw-mode(|) {
+            if $!bar {
+                $!bar = False;
+                self.output.print("\e[0 q");
+                self.output.flush;
+            }
+            callsame
+        }
+
         method prompt(Str:D $prompt = '', |c) {
             $!prompt = $prompt;
             $!cols   = Nil;

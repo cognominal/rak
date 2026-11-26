@@ -4,7 +4,7 @@ use Test;
 # cursor, the dotty chain that leads to its subject, the candidates, the
 # YAML previews, and a session where a fake `fzf` makes the choice.
 
-plan 42;
+plan 43;
 
 my $e = REPL::Completions::Engine.new;
 
@@ -185,11 +185,13 @@ sub session(@typed, Str:D $pick, :&until!) {
 my $topic = '{ :key1(1), :key2(2), :foo(3) }' ~ "\r";
 
 SKIP: {
-    skip 'script(1) and Terminal::LineEditor are needed for a session', 6
+    skip 'script(1) and Terminal::LineEditor are needed for a session', 7
       unless $script && $editor;
 
     my $out = session([$topic, ".k\t"], 'key2', :until(*.&printed(2)));
     ok printed($out, 2), '`.k` TAB: fzf chooses key2, and the line runs as `.key2`';
+    ok $out ~~ / "\e[6 q" .*? '.k' .*? "\e[0 q" .*? FAKE\-FZF\-DONE /,
+      'the cursor is a bar while editing, and the default while fzf runs';
     my $args = $log.e ?? $log.slurp !! '';
     ok $args.contains("arg --query=k\n"), 'fzf gets the typed prefix as its query';
     ok $args.contains("arg --header=Hash · 3 keys\n"), '… the header';
