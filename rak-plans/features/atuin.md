@@ -1,8 +1,8 @@
 # atuin: one history across shells
 
-Status: WIP — recording is tested by `t/02-rakudo/rak/031-irak-atuin.t`. The importer
-lives on the `rak` branch of [cognominal/atuin](https://github.com/cognominal/atuin).
-Search is not implemented.
+Status: WIP — recording is tested by `t/02-rakudo/rak/031-irak-atuin.t`, and search by
+`t/02-rakudo/rak/032-irak-atuin-search.t` with a fake atuin. The importer lives on the
+`rak` branch of [cognominal/atuin](https://github.com/cognominal/atuin).
 
 [Atuin](https://atuin.sh) keeps shell history in a SQLite database, searches it with a
 TUI, and optionally syncs it end to end. irak keeps its own history in
@@ -61,18 +61,28 @@ recording on adds the session's submissions a second time.
 
 ## Search
 
-`atuin search` is a full-screen TUI. A key binding in irak's line editor would hand the
-terminal over, run `atuin search --interactive`, and insert the selection into the
-buffer. Terminal::LineEditor leaves `Ctrl-R` unbound, so atuin can take it.
+`Ctrl-R` in irak's line editor runs atuin's search TUI, which Terminal::LineEditor
+leaves unbound:
+
+- Search is on when recording is on. Otherwise `Ctrl-R` does nothing.
+- irak leaves raw mode and runs `atuin search --interactive` on the terminal, with the
+  buffer as `ATUIN_QUERY` and the session's `ATUIN_SESSION` and `ATUIN_SHELL=irak`.
+- atuin draws on stdout and writes the chosen entry to stderr, which irak reads
+  through a pipe. The zsh integration uses the same contract.
+- The chosen entry replaces the buffer, with the cursor at its end. When nothing is
+  chosen, the buffer keeps the query.
+- atuin marks the entry with `__atuin_accept__:` when the user asks to run it at once.
+  irak drops the mark and leaves the run to Enter, since a complete line runs on a
+  second Enter.
+- The search lists the entries of every shell, as atuin's search does in any shell.
 
 Terminal::LineEditor's input thread used to read stdin one byte at a time and check
 whether to stop only after each byte. After leaving raw mode, the thread stayed blocked
-in `read`, and it took the first byte meant for the next reader. For `atuin search`,
-that byte would be either the user's first key or the first byte of crossterm's
+in `read`, and it took the first byte meant for the next reader. That byte would have
+been the user's first key in the search, or the first byte of crossterm's
 cursor-position reply. rak's patch of Terminal::LineEditor
-(`tools/build/rak-line-editor-patches/`) now makes the thread wait with `poll(2)` in
-short slices, so a program run after leaving raw mode gets all of its input. The
-binding itself is not written yet.
+(`tools/build/rak-line-editor-patches/`) makes the thread wait with `poll(2)` in short
+slices, so the search gets all of its input.
 
 ## Decisions
 
@@ -91,5 +101,7 @@ binding itself is not written yet.
 ## Open questions
 
 - Should the parser fix in rak's Terminal::LineEditor patch go upstream?
+- Should `Ctrl-R` show only irak's entries? atuin's interactive search has no shell
+  filter, so this would need a change in atuin.
 - Should the importer accept `~/.raku/irak-history` when the XDG file is missing?
   ADR 0006 says no migration, but a fallback in atuin would ease the transition.

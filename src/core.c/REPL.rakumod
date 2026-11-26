@@ -52,15 +52,23 @@ do {
         @n == 2 && @n.all > 0 ?? (+@n[0], +@n[1]) !! (24, 80)
     }
 
-    # irak: Terminal::LineEditor measures the terminal once per prompt. This
-    # role, mixed into its CLIInput, turns SIGWINCH into a `Resize` key that
-    # redraws the line at the new width, and keeps that width for the fields
-    # the prompt builds afterwards (history up and down).
-    my role IrakResize {
+    # irak: the keys that irak adds to Terminal::LineEditor, in a role mixed
+    # into its CLIInput.
+    #
+    # Terminal::LineEditor measures the terminal once per prompt. SIGWINCH
+    # becomes a `Resize` key that redraws the line at the new width, and
+    # that width is kept for the fields the prompt builds afterwards
+    # (history up and down).
+    #
+    # Ctrl-R runs &.atuin-search with the buffer as its query, and the
+    # buffer gets the entry that the search returns (see
+    # rak-plans/features/atuin.md).
+    my role IrakEditor {
         has $!cols;                     # the width after the last resize
         has Str $!prompt = '';
+        has &.atuin-search is rw;       # the query to the chosen entry or Nil
 
-        method special-actions() { set(|callsame.keys, 'resize') }
+        method special-actions() { set(|callsame.keys, 'resize', 'atuin-search') }
 
         method decoded() {
             Supply.merge: callsame, signal(SIGWINCH).map({ 'Resize' => $_ })
@@ -80,14 +88,35 @@ do {
         }
 
         method do-edit($action, $insert?) {
-            $action eq 'resize' ?? self!resize !! nextsame
+            $action eq 'resize'       ?? self!resize
+              !! $action eq 'atuin-search' ?? self!atuin-search
+              !! nextsame
         }
 
         method !resize(--> Nil) {
             my $field = self.input-field or return;
+            self!redraw($field.buffer.contents, $field.insert-cursor.pos);
+        }
+
+        # The search program gets the terminal in cooked mode. Leaving raw
+        # mode stops the editor's input thread, so the program reads all
+        # of the keys that the user types.
+        method !atuin-search(--> Nil) {
+            my $field  = self.input-field or return;
+            my &search = &!atuin-search  or return;
+            my $query  = $field.buffer.contents;
+            self.leave-raw-mode(:!nl);
+            my $choice = try search($query);
+            self.enter-raw-mode;
+            my $content = $choice // $query;
+            self!redraw($content, $content.chars);
+        }
+
+        # Draws the prompt and a new input field that holds $content, with
+        # the cursor at $pos, on the cursor's line.
+        method !redraw(Str:D $content, Int:D $pos --> Nil) {
+            my $field = self.input-field or return;
             $!cols = terminal-size()[1];
-            my $content = $field.buffer.contents;
-            my $pos     = $field.insert-cursor.pos;
             # Redraw from the start of the line: the old field's own
             # clearing assumes the old width.
             self.clear-input-field;
@@ -239,11 +268,15 @@ do {
             # The role goes in before .new: the object starts its input
             # threads as it is built.
             my $irak  := so %*ENV<RAKUDO_RAK_FRONTEND> && %*ENV<RAKU_RAK_MODE>;
-            my $class := $irak ?? $cli-input.^mixin(IrakResize) !! $cli-input;
+            my $class := $irak ?? $cli-input.^mixin(IrakEditor) !! $cli-input;
             $cli = self.irak-on-finish
               ?? $class.new(:&get-completions, :input-class(irak-input-class(self)))
               !! $class.new(:&get-completions);
-            $cli.bind-key('Resize', 'resize') if $irak;
+            if $irak {
+                $cli.bind-key('Resize', 'resize');
+                $cli.bind-key('Ctrl-R', 'atuin-search');
+                $cli.atuin-search = -> $query { self.irak-atuin-search($query) };
+            }
             $cli.load-history($.history-file);
         }
 
@@ -619,6 +652,23 @@ do {
         # Give the pending records a few seconds to reach atuin.
         method !atuin-finish(--> Nil) {
             await Promise.anyof($_, Promise.in(5)) with $!atuin-done;
+        }
+
+        # irak: the search behind Ctrl-R. Runs `atuin search --interactive`
+        # on the terminal with $query as its query. Returns the entry that
+        # the user chose, or Nil when the user chose none or irak does not
+        # record in atuin.
+        method irak-atuin-search(Str:D $query) {
+            return Nil without $!atuin;
+            my %env = %*ENV, %!atuin-env, ATUIN_QUERY => $query, ATUIN_LOG => 'error';
+            # atuin draws on stdout. It writes the chosen entry to stderr,
+            # unescaped because stderr is a pipe. The `__atuin_accept__:`
+            # prefix asks to run the entry at once: irak leaves that to Enter.
+            my $proc   = run($!atuin, <search --interactive>, :err, :%env);
+            my $choice = $proc.err.slurp(:close).chomp;
+            return Nil unless $proc.exitcode == 0;
+            $choice .= subst(/^ '__atuin_accept__:'/, '');
+            $choice || Nil
         }
 
         # irak: the REPL of the rak frontend (see GLOSSARY.md).
