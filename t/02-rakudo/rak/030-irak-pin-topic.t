@@ -10,7 +10,7 @@ use Test;
 my $script = run(<sh -c>, 'command -v script', :out, :err).out.slurp(:close).trim;
 plan :skip-all('script(1) is needed to give the REPL a tty') unless $script;
 
-plan 15;
+plan 19;
 
 sub session(*@lines) {
     my %env = %*ENV;
@@ -61,3 +61,19 @@ like $out, /'replayed: 10'/, 'the replay sets the pinned topic';
 like $out, /'irak: topic unpinned'/, 'a second lone `-` unpins it';
 like $out, /'irak: topic unpinned' \n '[8] > $_ + 1'/, 'unpinned, the prompt loses its `-`';
 like $out, /'unpinned: 11'/, 'unpinned, a submission sets the topic again';
+
+# A comment may follow the lone `-`. `#` is also the native-int sigil, so
+# `- #n` stays a topic-keeping submission that shows `#n`.
+my $commented = session
+  '{ c => 7 }',                     # [0]
+  '-   # pin it',
+  'my #n = 3',                      # [1]
+  '- #n',                           # [2]
+  'say "kept: ", $_<c>',
+  '- #',
+  '$_';                             # [3]
+
+like $commented, /'-   # pin it' \n 'irak: topic pinned'/, 'a comment may follow the pinning `-`';
+like $commented, /'kept: 7'/, 'the topic commented `-` pinned stays';
+like $commented, /'- #n' \n '3' \n/, '`- #n` still shows the native int';
+like $commented, /'- #' \n 'irak: topic unpinned'/, 'an empty comment may follow the `-` too';

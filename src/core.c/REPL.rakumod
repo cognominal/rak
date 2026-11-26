@@ -1541,8 +1541,12 @@ do {
                 }
 
                 # irak: a lone `-` on the line of a fresh submission is not
-                # a submission: it pins the topic, or unpins it.
-                if irak() && $code eq '' && $newcode ~~ /^ \s* '-' \s* $/ {
+                # a submission: it pins the topic, or unpins it. A comment
+                # may follow it, but `#` is also the native-int sigil, so the
+                # comment's `#` comes before a space or the end: `- #n` is a
+                # topic-keeping submission.
+                if irak() && $code eq ''
+                  && $newcode ~~ /^ \s* '-' [ \s+ '#' [ \s \N* ]? ]? \s* $/ {
                     $!irak-pinned = !$!irak-pinned;
                     self!osc133-output;
                     say "irak: topic { $!irak-pinned ?? 'pinned' !! 'unpinned' }";

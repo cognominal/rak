@@ -59,7 +59,9 @@ also open.
 A lone `-` on the line of a fresh submission is not a submission: it toggles the pin.
 It pins the topic when it is unpinned and unpins it when it is pinned. It gets no
 number, runs nothing, and `!n` cannot recall it; irak answers `irak: topic pinned` or
-`irak: topic unpinned`.
+`irak: topic unpinned`. A comment may follow it, `-   # look around`. Since `#` is also
+the native-int sigil, the comment's `#` must come before a space or the end of the line:
+`- #n` is a topic-keeping submission that shows `#n`.
 
 While the topic is pinned, submissions run and show their values as usual, but `$_`
 stays the value it had when it was pinned, so one value can be explored at length
