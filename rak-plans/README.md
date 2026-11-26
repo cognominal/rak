@@ -31,6 +31,7 @@ The per-feature status and one-line definitions are in
 - [myaml](features/myaml.md): YAML literals and pattern matching on data.
 - [irak](features/irak.md): the interactive session, and TAB / SHIFT-TAB navigation.
 - [irak history](features/irak-history.md): `!n` / `!!n` recall of submissions.
+- [atuin](features/atuin.md): record irak submissions in atuin, and import its history.
 - [Highlighting](highlight.md): coloring rak code by what each word denotes, in irak
   and in the terminal cheat sheet.
 - [Commands](features/commands.md): running routines and external commands, `$?`, `cd`, `type`.

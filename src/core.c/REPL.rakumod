@@ -577,6 +577,50 @@ do {
             $!osc133-output = False;
         }
 
+        # irak records each finished submission in atuin's history when
+        # `atuin` is on PATH and stdin is a tty, unless RAKUDO_DISABLE_ATUIN
+        # is set. See rak-plans/features/atuin.md.
+        has Str     $!atuin;        # the atuin executable, when recording
+        has         %!atuin-env;    # ATUIN_SESSION and ATUIN_SHELL
+        has Promise $!atuin-done;   # the last record: records run in order
+
+        # Find atuin and start an atuin session for this irak session.
+        method !atuin-start(--> Nil) {
+            return if %*ENV<RAKUDO_DISABLE_ATUIN> || !$*IN.t;
+            my $atuin = $*SPEC.path.map(*.IO.add('atuin')).first({ .f && .x })
+              or return;
+            my $session = try run($atuin, 'uuid', :out, :err).out.slurp(:close).trim;
+            return unless $session;
+            $!atuin      = $atuin.absolute;
+            %!atuin-env  = ATUIN_SESSION => $session, ATUIN_SHELL => 'irak';
+            $!atuin-done = Promise.kept;
+        }
+
+        # Record a finished submission. $duration is the run time in
+        # nanoseconds. The record runs on another thread, so the next
+        # prompt does not wait for atuin, and atuin's errors are dropped.
+        method !atuin-record(Str:D $command, Int:D $exit, Int:D $duration --> Nil) {
+            return without $!atuin;
+            my $atuin = $!atuin;
+            my $cwd   = $*CWD;
+            my %env   = %*ENV, %!atuin-env;
+            $!atuin-done = $!atuin-done.then: {
+                try {
+                    my $id = run($atuin, <history start --hook -->, $command,
+                      :$cwd, :%env, :out, :err).out.slurp(:close).trim;
+                    run($atuin, <history end --hook --exit>, $exit,
+                      '--duration', $duration, '--', $id,
+                      :$cwd, :%env, :out, :err).out.slurp(:close)
+                      if $id;
+                }
+            }
+        }
+
+        # Give the pending records a few seconds to reach atuin.
+        method !atuin-finish(--> Nil) {
+            await Promise.anyof($_, Promise.in(5)) with $!atuin-done;
+        }
+
         # irak: the REPL of the rak frontend (see GLOSSARY.md).
         sub irak(--> Bool:D) {
             so %*ENV<RAKUDO_RAK_FRONTEND> && %*ENV<RAKU_RAK_MODE>
@@ -1261,6 +1305,7 @@ do {
                 PROCESS::<@IWEB> := [];
                 self!irak-make-dirs;
                 self!irak-startup-file(%adverbs) unless %adverbs<no-init>;
+                self!atuin-start;
             }
 
             $!osc133 = irak()
@@ -1384,6 +1429,9 @@ do {
                 my $tty  := $*OUT;
                 my $page := irak() ?? IrakPage.for($tty) !! Nil;
                 my $exception;
+                # atuin's duration is the run time of the submission's code:
+                # the last evaluation of a multi-line submission runs it.
+                my int $eval-start = nqp::time();
                 my $output is default(Nil) = do {
                     # an escaping exception is reported on the terminal
                     CATCH { default { $page.end if $page; .rethrow } }
@@ -1399,6 +1447,7 @@ do {
                       ),
                       |%adverbs)
                 }
+                my int $eval-ns = nqp::time() - $eval-start;
 
                 if self.input-incomplete($output) {
                     .end with $page;
@@ -1415,6 +1464,7 @@ do {
                     .end with $page;
                     say "Control flow commands not allowed in toplevel";
                     self!osc133-done(1);
+                    self!atuin-record($topic-prefix ~ $code.chomp, 1, $eval-ns);
                     reset;
                     next;
                 }
@@ -1507,10 +1557,13 @@ do {
 
                 # D's status: a failed command's exit status, else 1 when
                 # the submission threw or returned an unhandled Failure.
-                self!osc133-done($command-exit || ($failed ?? 1 !! 0));
+                my int $status = $command-exit || ($failed ?? 1 !! 0);
+                self!osc133-done($status);
+                self!atuin-record($topic-prefix ~ $code.chomp, $status, $eval-ns);
                 reset;
             }
 
+            self!atuin-finish;
             self.teardown;
         }
 

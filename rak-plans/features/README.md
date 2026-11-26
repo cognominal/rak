@@ -18,6 +18,7 @@ and its status line says which.
 
 | Feature | Definition | Status |
 |---|---|---|
+| [atuin](atuin.md) | Record irak submissions in atuin, and import its history. | WIP |
 | [Aliases](aliases.md) | `alias ll=ls -l`: a name for a command and its first words. | WIP |
 | [Commands](commands.md) | Running routines and external commands: `$?`, `cd`, `type`. | WIP |
 | [Dotty subscripts](dotty-subscripts.md) | Subscripts without brackets: `%h.users.1.name`, `->meth`. | WIP |
