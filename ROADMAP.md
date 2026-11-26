@@ -8,8 +8,9 @@ ten years.
 Rak terms link to the rak [glossary](GLOSSARY.md). For Raku terms, see the
 [Raku glossary](https://docs.raku.org/language/glossary).
 
-No version has been released yet, except [0.0.1](rak-docs/releases/0.0.1.md), a
-GitHub pre-release that previews the DONE items of 0.1 to try a packaged rak. I intend
+No version has been released yet, except [0.0.1](rak-docs/releases/0.0.1.md) and
+[0.0.2](rak-docs/releases/0.0.2.md), GitHub pre-releases that preview the DONE items
+of 0.1 to try a packaged rak. I intend
 to publish 0.1 and later versions on the [AUR](https://aur.archlinux.org/). Rakudo itself is not in the official
 [Arch](https://archlinux.org/) repositories; it is only in the AUR (`rakudo`,
 `rakudo-bin`). The current focus is [irak](GLOSSARY.md#irak), the interactive rak.
@@ -28,12 +29,11 @@ lists: DONE and TBD.
     [bare hosts](GLOSSARY.md#bare-host) (`<api.github.com/…`),
     [commands](GLOSSARY.md#command) and [pipelines](GLOSSARY.md#pipeline) (Unix and
     jq style, mixed; `$?` and `@?`), recalling submissions (`!n`, `!!n`, up and down
-    arrows), [topic-keeping submissions](GLOSSARY.md#topic-keeping-submission) (`- `), [paging](GLOSSARY.md#paging) long irak output, the
+    arrows), [topic-keeping submissions](GLOSSARY.md#topic-keeping-submission) (`- `), pinning the topic (a lone `-`), aliases, TAB completion of selectors through fzf, atuin history (Ctrl-R), a startup file `init.rak`, [paging](GLOSSARY.md#paging) long irak output, the
     [formatter](GLOSSARY.md#formatter) (a lone `.`), [OSC 133](rak-plans/features/irak.md#shell-integration-osc-133-marks)
     semantic prompt marks for terminals (`RAKUDO_DISABLE_OSC133` turns them off).
   - TBD:
       - irak usability, discoverability, onboarding feedback thru highlighting. first run of irak or `irak --fresh` should start with a tutorial history (work in branch irak-feedback)
-      - aliases
       - [globbing](https://en.wikipedia.org/wiki/Glob_(programming)),
       - the rest
     of HTTP (`http` for PATCH, PUT and DELETE; following pages), a parenthesized command

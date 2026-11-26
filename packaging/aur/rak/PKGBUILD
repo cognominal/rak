@@ -13,7 +13,7 @@
 # /usr/bin/rak on PATH, so it coexists with rakudo, rakudo-bin, nqp and moarvm.
 
 pkgname=rak
-pkgver=0.0.1
+pkgver=0.0.2
 pkgrel=1
 pkgdesc='Rakudo with the rak frontend: a shell-flavoured Raku, and irak, its REPL'
 arch=(x86_64 aarch64)

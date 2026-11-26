@@ -32,10 +32,12 @@ here, because they go stale.
 | irak: pin the topic, `! ` | [irak](features/irak.md) | `t/02-rakudo/rak/030-*` |
 | irak highlights the input line, a terminal cheat sheet | [highlight](highlight.md) | `t/02-rakudo/rak/026-*`, `027-*` |
 | irak's startup file `init.rak`, XDG folders, `--no-init` | [startup file](features/startup-file.md), ADR 0006 | `t/02-rakudo/rak/029-*` |
+| irak records in atuin, Ctrl-R searches it | [atuin](features/atuin.md) | `t/02-rakudo/rak/031-*`, `032-*` |
+| irak TAB completes selectors and `->` methods through fzf | [completion](features/completion.md), ADR 0008 | `t/02-rakudo/rak/033-*` |
 | irak OSC 133 prompt marks | [irak](features/irak.md#shell-integration-osc-133-marks) | `t/02-rakudo/rak/028-*` |
 | irak's line editor bundled, core modules compile under the rak frontend | [AUR](build/AUR.md#the-line-editor-is-part-of-the-package) | `t/02-rakudo/rak/018-*`, `019-*` |
 | The `rak-git` AUR package (not submitted) | [AUR](build/AUR.md) | — |
-| rak versions (`RAK_VERSION`, `v*` tags), release tarball, `rak` package (local) | [release](build/release.md) | `t/02-rakudo/rak/011-*`, `012-*` |
+| rak versions (`RAK_VERSION`, `v*` tags, 0.0.1 and 0.0.2), release tarball, `rak` package (local) | [release](build/release.md) | `t/02-rakudo/rak/011-*`, `012-*` |
 | One-pass CORE setting, `#COMPILER::` directives | [one-pass compilation](build/onepass-compile.md) | the build itself |
 
 How rak differs from Rakudo, and its dependencies, are in
@@ -55,7 +57,7 @@ variables.
 - The [GitHub demo](demos/github.md); PATCH, PUT, DELETE and pagination for
   [URL targets](features/url-targets.md).
 - YAML, TOML and [myaml](features/myaml.md).
-- TAB [completion](features/completion.md) in irak, through fzf.
+- TAB [completion](features/completion.md) in irak beyond selectors and `->` methods.
 
 Open design questions, such as a `^` sigil for native `num`, are in
 [unsettled.md](unsettled.md).
