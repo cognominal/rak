@@ -38,8 +38,10 @@ Raku's `.gist`; the `table` topical command returns the grid as a `Str`, so
   empty cell. Hashes keep their key order in rak mode
   ([ADR 0009](../../docs/adr/0009-rak-hashes-keep-insertion-order.md)).
 - A nested list shows as `[3 items]`, a nested hash as `{2 keys}`.
-- Wider than the terminal: long cells are cut with `…`, then the rightmost columns are
-  dropped and a `…` column added. With no terminal there is no width limit.
+- When `$*OUT` is a terminal, in irak or in a `.rak` file, the grid fits its width:
+  long cells are cut with `…`, then the rightmost columns are dropped and a `…` column
+  added. Redirected or piped, there is no width limit and no colour. `table -w 120`
+  sets the width, as in nushell. The width is measured when the grid is rendered.
 
 ### Cells
 
@@ -100,6 +102,9 @@ until `from-json` decodes it.
 | `sort-by a` | sorts rows by column `a`; `-r` reverses |
 | `get a` | the column `a` as a list |
 | `table` | the grid as a `Str` |
+| `into filesize` | converts, see [Converting](#converting) |
+| `into duration` | idem |
+| `into datetime` | idem |
 
 `where`, `first` and `last` wait: Raku already gives these names a meaning.
 
@@ -114,9 +119,62 @@ GNU ls.
 
 ## Settings
 
-The first slice is metric only. A `$*RAK-CONFIG` ordered hash, read like nushell's
-`$env.config` (`$*RAK-CONFIG.filesize.unit = 'binary'`), comes with the first option
-that needs it.
+`$*RAK-CONFIG` is an ordered hash holding nushell's `$env.config` names, filled with the
+defaults. The [startup file](startup-file.md) `init.rak` plays the part of nushell's
+`config.nu`; a `.rak` file gets the defaults and may set `$*RAK-CONFIG` itself, as a
+nushell script does not read `config.nu`.
+
+```rak
+$*RAK-CONFIG.table.mode = 'light';
+$*RAK-CONFIG.color_config.header = 'green_bold';
+$*RAK-CONFIG.filesize.unit = 'binary';
+```
+
+| Key | Default |
+|---|---|
+| `table.mode` | `rounded` |
+| `table.index_mode` | `always` |
+| `color_config.header` | `green_bold` |
+| `color_config.row_index` | `green_bold` |
+| `color_config.<type>` | none |
+| `filesize.unit` | `metric` |
+| `filesize.precision` | `1` |
+| `datetime_format.table` | humanized |
+| `datetime_format.normal` | humanized |
+
+- `table.mode` is `rounded`, `light`, `compact`, `ascii` or `none`;
+  `table.index_mode` is `always`, `never` or `auto`.
+- `filesize.unit` is `metric`, `binary` or a unit such as `kB` or `MiB`. A
+  `datetime_format` is a strftime format.
+
+- `<type>` is `filesize`, `duration`, `datetime`, `bool`, `int`, `float`, `string`
+  or `nothing`.
+- A colour is spelled as in nushell: `green_bold`, `light_cyan`, `{fg: '#ff0000',
+  attr: 'b'}`.
+- `table.index_mode` `auto` shows `#` unless the rows have an `index` key.
+- An unknown key is kept and ignored, so a copied nushell config does no harm.
+- A later `config` command may open `init.rak` in `$EDITOR`, as nushell's `config nu`.
+
+## Converting
+
+JSON has no filesize, duration or date, so `from-json` and `.json` loads keep strings as
+strings, as nushell's `from json` does. The `into` topical commands convert, a value or,
+given column names, those cells of a table:
+
+```rak
+<api.github.com/repos/rakudo/rakudo/releases | into datetime published_at created_at
+'1.2 MB' | into filesize                    # 1200000 bytes
+'1min 30sec' | into duration
+```
+
+- `into filesize` reads a number (bytes) or a unit literal, spaced or not: `1.2 MB`,
+  `1kib`.
+- `into duration` reads a number (nanoseconds, as nushell) or unit literals, spaced or
+  not: `1min 30sec`, `90sec`.
+- `into datetime` reads ISO 8601 / RFC 3339, or a number of seconds since the epoch.
+
+Encoding to JSON follows nushell's `to json`: a filesize is its number of bytes, a
+`Duration` its number of nanoseconds, a `DateTime` an RFC 3339 string.
 
 ## Out of scope for now
 
