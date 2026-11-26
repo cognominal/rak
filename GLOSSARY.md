@@ -9,8 +9,10 @@ Raku must not.
 [alias](#alias) ·
 [bare host](#bare-host) ·
 [builtin](#builtin) ·
+[capability](#capability) ·
 [cell](#cell) ·
 [command](#command) ·
+[command catalog](#command-catalog) ·
 [dotty subscript](#dotty-subscript) ·
 [dwim](#dwim) ·
 [exit status](#exit-status) ·
@@ -41,6 +43,7 @@ Raku must not.
 [standard strategy](#standard-strategy) ·
 [startup file](#startup-file) ·
 [table](#table) ·
+[tag](#tag) ·
 [text mode](#text-mode) ·
 [topic](#topic) ·
 [topic-keeping submission](#topic-keeping-submission) ·
@@ -236,6 +239,23 @@ extension, ignoring case (`.json`, `.jsonl`), or, for a URL target, from the med
 the server declares. A target whose extension has no format is plain text.
 _Avoid_: codec, file type, serializer.
 
+<a id="capability"></a>**capability**:
+That a command reads a format on its standard input, or emits one on its standard
+output: `jq` reads JSON, `yq` reads and emits YAML. A pipeline uses capabilities to pick
+how a value is encoded for the command it feeds.
+_Avoid_: format support, protocol.
+
+<a id="command-catalog"></a>**command catalog**:
+The record of external commands' capabilities: shipped defaults, merged with the
+user's own entries.
+_Avoid_: registry, command database.
+
+<a id="tag"></a>**tag**:
+The mark in a YAML file that says what type a value has: `!filesize 1500`,
+`!!timestamp 2026-01-02T03:04:05Z`. rak reads and writes nushell's tags and maps each to
+a Raku type; an untagged value gets its type from YAML's own rules.
+_Avoid_: annotation, type hint.
+
 <a id="text-mode"></a>**text mode**:
 How output redirection behaves when the statement prints: the printed text is what goes to
 the target. If the target has a format, that text must decode in it, and is re-encoded in
@@ -274,8 +294,9 @@ _Avoid_: pretty-printer, json command, jq.
 <a id="topical-command"></a>**topical command**:
 A command whose input is the value piped into it or, used alone, the topic `$_`, such
 as `select`, `drop` and the formatter. Builtins and user routines alike become one by a
-trait on their declaration. Text from an external command reaches it as lines until a
-`from-json` stage decodes it.
+trait on their declaration; inside it, `$_` is the input. Text from an external command
+reaches it as lines until a decode stage decodes it, unless the command declares a
+[capability](#capability) to read a format.
 _Avoid_: jsoner, filter, data command.
 
 <a id="table"></a>**table**:

@@ -90,9 +90,30 @@ nushell's rules, checked with nushell 0.117:
 ## Topical commands
 
 A [topical command](../../GLOSSARY.md#topical-command) takes the value piped into it,
-or `$_` when used alone. A routine becomes one with the `is topical` trait; its last
-positional parameter receives the input. Text from an external command arrives as lines
-until `from-json` decodes it.
+or `$_` when used alone. A routine becomes one with the `is topical` trait (planned):
+
+```rak
+sub top($n = 10) is topical { sort-by size -r | first $n }
+ls | top 5
+```
+
+- A call in command position passes the piped value, else the call site's `$_`. This
+  is decided at compile time: `$_` is not dynamic, so a routine cannot read its
+  caller's.
+  Inside a `for`, `given` or `map` that is the item; inside a plain `sub`, its own
+  `$_`. An undefined `$_` is an error naming the command:
+  `select: no input (nothing piped, and $_ is undefined)`.
+- The trait adds a hidden named parameter and binds the body's `$_` to it: the routine
+  needs no special signature, and topical commands inside its body get the input.
+- Called outside command position, the input is passed explicitly:
+  `top(5, :topic(@rows))`.
+- Text from an external command arrives as lines until a `from-…` stage decodes it,
+  unless the routine declares it reads a format: `is reads<yaml>`
+  ([command catalog](command-catalog.md#traits-for-rak-routines)) decodes YAML and
+  JSON.
+
+The builtins below are wired into the compiler today; with the trait they become
+routines of the setting declared `is topical`.
 
 | Command | Does |
 |---|---|

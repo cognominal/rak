@@ -21,6 +21,7 @@ and its status line says which.
 | [atuin](atuin.md) | Record irak submissions in atuin, and import its history. | WIP |
 | [Aliases](aliases.md) | `alias ll=ls -l`: a name for a command and its first words. | WIP |
 | [Completion](completion.md) | TAB completes through fzf, previewing values. | PLANNED |
+| [Command catalog](command-catalog.md) | What formats commands read and emit, for pipes. | PLANNED |
 | [Commands](commands.md) | Running routines and external commands: `$?`, `cd`, `type`. | WIP |
 | [Dotty subscripts](dotty-subscripts.md) | Subscripts without brackets: `%h.users.1.name`, `->meth`. | WIP |
 | [The formatter](formatter.md) | A lone `.` shows its input as JSON. | WIP, NEEDSPEC |
@@ -37,6 +38,7 @@ and its status line says which.
 | [Spacing](spacing.md) | Spacing tells operators from redirections. | WIP |
 | [The startup file](startup-file.md) | `init.rak`, and rak's XDG config and state folders. | WIP |
 | [Strategies](strategies.md) | The standard and shell strategies, and how a statement is read. | WIP, NEEDSPEC |
+| [YAML](yaml.md) | YAML loads and targets, with nushell's tags for typed values. | PLANNED |
 | [Tables](tables.md) | Lists of hashes shown as grids; `ls`, filesizes, `select`. | WIP |
 | [Tree expressions](tree-exprs.md) | A multi-line expression's layout is its tree. | TBD, NEEDSPEC |
 | [URL targets](url-targets.md) | HTTP GET and POST as redirections. | WIP, NEEDSPEC |

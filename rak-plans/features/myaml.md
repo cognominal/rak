@@ -31,7 +31,12 @@ END
 ```
 
 `q:to<END>` is Raku's here-document, which starts after the end of the statement.
-`:yaml` parses the string as YAML, and malformed YAML is a compile-time error.
+`:yaml` parses the string as YAML, and malformed YAML is a compile-time error. The
+parser is rak's [YAML](yaml.md) loader, so its tags and schema apply: under YAML 1.2,
+`dob: 1952/10/07` is a string, and `dob: !!timestamp 1952-10-07` a date.
+
+myaml itself is a special mode of that loader, to be specified: only in it do `$x` and
+`$$x` have a meaning.
 
 ## Patterns
 

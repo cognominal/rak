@@ -16,9 +16,24 @@ git log --format=%an | ->unique            # a command, then a rak method on its
 
 A statement is a pipeline when its first stage is a command, a
 [load](../../GLOSSARY.md#load) (`<file`) or a leading dotty subscript (`.users`, `.[]`),
-and a spaced `|` follows on the same line. Everywhere else `|` keeps its Raku meanings:
-`1 | 2` is the `any` junction and `|@a` a slip. A variable does not start a pipeline:
-`@names | ^sort` is a junction; write `$_ = @names; .[] | ^sort`.
+and a spaced `|` follows on the same line.
+
+Planned: a spaced `|` is also a pipe when the word after it can start a stage: a
+`^cmd`, an external command, `->meth`, a topical command, `from-…`/`to-…` or a block.
+So `@names | ^sort` pipes, while `1 | 2` stays the `any` junction, since `2` starts no
+stage. A junction with a command word on the right is written `$x | foo()` or
+`any($x, foo)`. Today a variable does not start a pipeline: write
+`$_ = @names; .[] | ^sort`. Everywhere else `|` keeps its Raku meanings, and `|@a` is
+a slip.
+
+Planned: a pipeline continues on the next line when the line ends with `|`, or when
+the next line starts with `|`:
+
+```rak
+ls
+  | sort-by size -r
+  | select name size
+```
 
 A pipeline also works inside parentheses, where its value is used:
 `my @u = (<data.json | .users)`.
@@ -46,7 +61,34 @@ Raku's `==>`, not one value at a time as in jq. Per-value work is explicit, thro
   removed. Decode it with a `from-json` or `from-jsonl` stage.
 - **Rak stage → command:** a `Str` or a number is written as one line; a list or a `Seq`
   one element per line; a hash, or a hash or list inside a list, as a JSON Lines record.
+  Planned: the [command catalog](command-catalog.md) picks the encoding instead, see
+  below.
 - **Command → command:** a real OS pipe; the commands run at the same time.
+
+## Encoding a value for a command (planned)
+
+Values pass between rak stages as values, and bytes between commands as bytes; only
+where the two meet is there an encoding to pick. For a rak stage feeding a command:
+
+- An explicit `to-yaml`, `to-json` or `to-jsonl` stage always wins.
+- A `Str`, a number or a flat list stays as lines, so `ls | get name | ^grep md` works.
+  A filesize in it is its number of bytes, a `Duration` its nanoseconds, a `DateTime`
+  RFC 3339.
+- A hash, or a list holding a hash or a list, is [YAML](yaml.md) with nushell's tags:
+  one document holding a block sequence, written item by item so a lazy `Seq` stays
+  lazy.
+- When the [command catalog](command-catalog.md) says the command does not read YAML,
+  rak picks the first format it does read among `jsonl` and `json`; `json` gets a
+  whole list as one array. `ls | ^jq .name` works this way.
+
+A table goes to a command as data, not as the grid nushell sends: `ls | table | ^less`
+pipes the grid's text.
+
+Text from a command stays lines until a `from-yaml`, `from-json` or `from-jsonl` stage
+decodes it, unless the catalog says the command emits a format: then the next rak stage
+gets the decoded value, and a `to-text` stage gives the raw text back. Rak
+never guesses a format from the text. The full rule is in the
+[catalog](command-catalog.md#choosing-a-format).
 
 ## Value and output
 
@@ -67,7 +109,6 @@ A command whose reader went away gets SIGPIPE, as in a shell: `yes | head -2` an
 
 - `Supply` stages for asynchronous streams (`tail -f`); lazy line reading covers most
   of it.
-- A pipeline continued on the next line.
 - A pipeline failure failing a `.rak` file; it follows commands'
   [ticket 02](../../.scratch/commands/issues/02-nonzero-exit-fails-file.md).
 
