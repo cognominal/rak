@@ -4,6 +4,54 @@ The `.rak` frontend of this Rakudo fork: Raku plus a shellish surface syntax. A 
 compiled in rak mode gets the extra spellings below; the same text compiled as ordinary
 Raku must not.
 
+## Contents
+
+[alias](#alias) ·
+[bare host](#bare-host) ·
+[builtin](#builtin) ·
+[cell](#cell) ·
+[command](#command) ·
+[dotty subscript](#dotty-subscript) ·
+[dwim](#dwim) ·
+[exit status](#exit-status) ·
+[external command](#external-command) ·
+[filesize](#filesize) ·
+[format](#format) ·
+[formatter](#formatter) ·
+[huff](#huff) ·
+[input redirection](#input-redirection) ·
+[irak](#irak) ·
+[irak prompt](#irak-prompt) ·
+[irak submission](#irak-submission) ·
+[irak topic](#irak-topic) ·
+[load](#load) ·
+[naked string](#naked-string) ·
+[new sigils](#new-sigils) ·
+[output redirection](#output-redirection) ·
+[paging](#paging) ·
+[pinned topic](#pinned-topic) ·
+[pipe](#pipe) ·
+[pipeline](#pipeline) ·
+[pipeline stage](#pipeline-stage) ·
+[rak mode](#rak-mode) ·
+[redirection](#redirection) ·
+[redirection target](#redirection-target) ·
+[selector](#selector) ·
+[shell strategy](#shell-strategy) ·
+[standard strategy](#standard-strategy) ·
+[startup file](#startup-file) ·
+[table](#table) ·
+[text mode](#text-mode) ·
+[topic](#topic) ·
+[topic-keeping submission](#topic-keeping-submission) ·
+[topic-setting submission](#topic-setting-submission) ·
+[topical command](#topical-command) ·
+[unhuff](#unhuff) ·
+[unit literal](#unit-literal) ·
+[URL target](#url-target) ·
+[value mode](#value-mode) ·
+[verb](#verb)
+
 ## Language
 
 <a id="rak-mode"></a>**rak mode**:
@@ -262,3 +310,25 @@ _Avoid_: huffmanize, abbreviate, sugar.
 <a id="unhuff"></a>**unhuff**:
 To give a rare construct a longer spelling, freeing its short one for a more frequent
 construct. In rak mode, `.5` means `$_[5]`, so the number is written `0.5`.
+
+<a id="dwim"></a>**dwim**:
+Do What I Mean: to read a construct the way its writer most likely meant it, rather than
+the way a strict rule would. One of Larry Wall's design principles for Perl and Raku. rak
+dwims where Raku reports an error: `say foo` prints `foo` instead of failing with an
+undeclared routine.
+_Avoid_: guess, magic, heuristic.
+
+<a id="verb"></a>**verb**:
+To use a noun as a verb, as English does freely (to table a motion, to google a name).
+This glossary verbs [huff](#huff) and [topic](#topic): one short verb replaces a phrase.
+_Avoid_: verbify, verbalize.
+
+<a id="topic"></a>**topic**:
+To make a value the topic `$_`, so the code that follows can leave it unsaid, as a
+speaker leaves the subject of a conversation unsaid once it is established. The verb
+[verbs](#verb) and [huffs](#huff) topicalization, a term of linguistics Larry Wall
+borrowed for Perl's `$_`. rak topics more than Raku: the
+[irak topic](#irak-topic) carries each submission's value to the next, a leading dotty
+subscript reaches into `$_`, and a [topical command](#topical-command) used alone works
+on `$_`.
+_Avoid_: topicalize, set the topic.

@@ -60,7 +60,11 @@ Five canonical triage roles, each label string equal to its name. See `docs/agen
 
 ### Domain docs
 
-Single-context: `GLOSSARY.md` at the root plus `docs/adr/`. See `docs/agents/domain.md`. i
+Single-context: `GLOSSARY.md` at the root plus `docs/adr/`. See `docs/agents/domain.md`.
+
+The `## Contents` section of `GLOSSARY.md` lists every term, sorted case-insensitively,
+as `[term](#anchor) ·` lines (the last without `·`). When you add, rename or remove an
+entry, update that list in the same change.
 
 ## A commits
 
