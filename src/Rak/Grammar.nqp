@@ -2370,9 +2370,35 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     method rak-is-command($name) {
         return 0 if nqp::existskey(self.rak-keywords, $name);
         return 1 if nqp::isconcrete(self.rak-alias-words($name));
+        if nqp::existskey(self.rak-table-builtins, $name) {
+            # A table builtin beats a setting routine of the same name
+            # (`get`), not one the program declares.
+            return 1 unless $*R.is-identifier-known($name)
+              && !self.rak-is-setting-routine($name);
+        }
         return 0 if $*R.is-identifier-known($name);
         return 1 if $name eq 'cd' || $name eq 'type';
         self.rak-on-path($name)
+    }
+
+    # `ls` and the topical commands (rak-plans/features/tables.md).
+    my %rak-table-builtins;
+    method rak-table-builtins() {
+        unless %rak-table-builtins {
+            %rak-table-builtins{$_} := 1
+              for <ls select reject drop sort-by get table into>;
+        }
+        %rak-table-builtins
+    }
+
+    # Whether &name here is the setting's own routine.
+    method rak-is-setting-routine($name) {
+        my $here := $*R.resolve-lexical('&' ~ $name);
+        my $core := $*R.resolve-lexical-constant-in-setting('&' ~ $name);
+        nqp::isconcrete($here) && nqp::isconcrete($core)
+          && nqp::can($here, 'compile-time-value')
+          && nqp::eqaddr($here.compile-time-value, $core.compile-time-value)
+          ?? 1 !! 0
     }
 
     # Aliases (.rak syntax), see rak-plans/features/aliases.md. `alias

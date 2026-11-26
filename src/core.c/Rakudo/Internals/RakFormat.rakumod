@@ -440,6 +440,16 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
         elsif nqp::istype(v, Int) {
             v.Str
         }
+        # nushell's `to json`: a duration in nanoseconds, a date in RFC 3339.
+        elsif nqp::istype(v, Duration) {
+            (v.Rat * 1_000_000_000).round.Str
+        }
+        elsif nqp::istype(v, DateTime) {
+            c('0;32', Rakudo::Internals::JSON.to-json(v.Str))
+        }
+        elsif nqp::istype(v, Instant) {
+            c('0;32', Rakudo::Internals::JSON.to-json(DateTime.new(v).Str))
+        }
         elsif nqp::istype(v, Rational) {
             self!rational(v, $target)
         }
@@ -447,7 +457,8 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
             self!num(v, $target)
         }
         elsif nqp::istype(v, Map) {
-            object(v.keys.sort.map({ $_ => v.AT-KEY($_) }))
+            object((nqp::istype(v, Hash::Ordered) ?? v.keys !! v.keys.sort)
+              .map({ $_ => v.AT-KEY($_) }))
         }
         elsif nqp::istype(v, List) || nqp::istype(v, Seq) || nqp::istype(v, Range) {
             my @items = v.list;

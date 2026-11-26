@@ -1,0 +1,25 @@
+use Test;
+
+plan 13;
+
+# Topical commands: alone they work on $_, in a pipeline on the piped value.
+
+$_ = [{n => 'a', s => 3, k => 1}, {n => 'b', s => 1, k => 2}, {n => 'c', s => 2}];
+
+is (select s n)[0]->keys, <s n>, 'select keeps the given order';
+is (reject s)[0]->keys, <k n>, 'reject';
+is (drop)->elems, 2, 'drop: one row';
+is (drop 2)->elems, 1, 'drop n';
+is (drop column 2)[0]->keys, <k>, 'drop column n';
+is (sort-by s | get n), <b c a>, 'sort-by, piped into get';
+is (sort-by s -r | get n), <a c b>, 'sort-by -r';
+is (sort-by k | get n), <a b c>, 'missing values last';
+is (get n), <a b c>, 'get';
+isa-ok (table), Str, 'table is a Str';
+ok !(table)->contains("\e["), 'table: plain when not a terminal';
+is (select n | drop 1 | get n), <a b>, 'a longer pipeline';
+
+{
+    sub get($x) { "mine $x" }
+    is (get n), 'mine n', 'a routine the program declares beats the builtin';
+}

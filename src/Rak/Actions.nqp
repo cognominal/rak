@@ -2136,6 +2136,17 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         elsif !$forced && $name eq 'cd' {
             $ast := rak-call('RAK-CD', |@args);
         }
+        elsif !$forced && $name eq 'ls' && !nqp::elems(@redirs) {
+            # Redirected, `ls` stays GNU ls: a table has no text form yet.
+            $ast := rak-call('RAK-LS', |@args);
+        }
+        elsif !$forced && $name ne 'ls' && nqp::existskey($/.rak-table-builtins, $name) {
+            # A topical command: the piped value, else $_.
+            $/.panic("$name cannot be redirected") if nqp::elems(@redirs);
+            $ast := rak-call('RAK-TOPICAL', Nodify('StrLiteral').new($name), |@args,
+              |@extra, Nodify('ColonPair::Value').new(:key('topic'),
+                :value(Nodify('Var::Lexical').new('$_'))));
+        }
         elsif !$forced && $name eq 'type' {
             my @names;
             my @known;

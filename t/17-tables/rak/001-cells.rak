@@ -1,0 +1,23 @@
+use Test;
+
+plan 14;
+
+# How values show in a table's cells and in irak (rak-plans/features/tables.md).
+
+my \T = Rakudo::Internals::RakTable;
+my \FS = Rakudo::Internals::RakFilesize;
+
+is T->filesize-text(FS->new(878)), '878 B', 'a filesize under 1 kB';
+is T->filesize-text(FS->new(1_234_567)), '1.2 MB', 'metric, one decimal';
+is FS->new(2000)->gist, '2.0 kB', 'a filesize says as metric';
+is FS->new(2000)->Int->WHAT, Int, '->Int is a plain Int';
+is T->duration-text(Duration->new(90)), '1min 30sec', 'a compound duration';
+is T->duration-text(Duration->new(100_000)), '1day 3hr 46min 40sec', 'days';
+is T->duration-text(Duration->new(0)), '0sec', 'zero';
+is T->humanize(3), 'now', 'now';
+is T->humanize(40), '40 seconds ago', 'seconds ago';
+is T->humanize(-2 * 3600), 'in 2 hours', 'the future';
+is T->humanize(300 * 86400), '10 months ago', 'months ago';
+is T->cell-text([1, 2, 3]), '[3 items]', 'a nested list';
+is T->cell-text({a => 1, b => 2}), '{2 keys}', 'a nested hash';
+is T->cell-text(True), 'true', 'a Bool';

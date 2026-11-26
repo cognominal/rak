@@ -38,6 +38,7 @@ here, because they go stale.
 | irak's line editor bundled, core modules compile under the rak frontend | [AUR](build/AUR.md#the-line-editor-is-part-of-the-package) | `t/02-rakudo/rak/018-*`, `019-*` |
 | The `rak-git` AUR package (not submitted) | [AUR](build/AUR.md) | — |
 | rak versions (`RAK_VERSION`, `v*` tags, 0.0.1 and 0.0.2), release tarball, `rak` package (local) | [release](build/release.md) | `t/02-rakudo/rak/011-*`, `012-*` |
+| Tables: grids, `ls`, topical commands, `into`, `$*RAK-CONFIG` | [tables](features/tables.md) | `t/17-tables/rak/` |
 | One-pass CORE setting, `#COMPILER::` directives | [one-pass compilation](build/onepass-compile.md) | the build itself |
 
 How rak differs from Rakudo, and its dependencies, are in
@@ -57,6 +58,8 @@ variables.
 - The [GitHub demo](demos/github.md); PATCH, PUT, DELETE and pagination for
   [URL targets](features/url-targets.md).
 - YAML, TOML and [myaml](features/myaml.md).
+- [Tables](features/tables.md): ordered hash literals, unit literals, `is topical`,
+  filesize arithmetic.
 - TAB [completion](features/completion.md) in irak beyond selectors and `->` methods.
 
 Open design questions, such as a `^` sigil for native `num`, are in

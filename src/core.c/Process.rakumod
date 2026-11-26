@@ -336,6 +336,10 @@ augment class Rakudo::Internals {
           PROCESS::<$REPO>
       },
 
+      '$*RAK-CONFIG', anon sub RAK-CONFIG() is raw {
+          PROCESS::<$RAK-CONFIG> := Rakudo::Internals::RakTable.default-config
+      },
+
       '$*SCHEDULER', anon sub SCHEDULER() is raw {
           PROCESS::<$SCHEDULER> := ThreadPoolScheduler.new
       },

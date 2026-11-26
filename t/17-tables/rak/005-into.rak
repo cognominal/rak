@@ -1,0 +1,33 @@
+use Test;
+
+plan 11;
+
+# `into`: strings from JSON into filesizes, durations and dates; and back.
+
+$_ = '1.2 MB';
+is (into filesize)->Int, 1_200_000, 'a spaced unit';
+$_ = '1kib';
+is (into filesize)->Int, 1024, 'a binary unit';
+$_ = '1min 30sec';
+is (into duration), Duration->new(90), 'compound';
+$_ = 1_500_000_000;
+is (into duration), Duration->new(1.5), 'a number is nanoseconds';
+$_ = '2026-01-02T03:04:05Z';
+is (into datetime)->year, 2026, 'RFC 3339';
+$_ = 0;
+is (into datetime)->year, 1970, 'epoch seconds';
+$_ = 'nope';
+dies-ok { into filesize }, 'not a filesize';
+
+my @t = {a => '1kb', b => '2kb'},;
+$_ = @t;
+my @c = (into filesize a);
+is @c[0]<a>->Int, 1000, 'given columns are converted';
+is @c[0]<b>, '2kb', 'others are not';
+
+my %h is Hash::Ordered = z => Duration->new(1.5), a => DateTime->new('2026-01-02T03:04:05Z');
+is Rakudo::Internals::RakFormat->format(%h, :!color),
+  qq[\{\n  "z": 1500000000,\n  "a": "2026-01-02T03:04:05Z"\n\}],
+  'JSON: nanoseconds, RFC 3339, key order';
+is Rakudo::Internals::RakFormat->format(Rakudo::Internals::RakFilesize->new(5)), '5',
+  'JSON: a filesize is its bytes';

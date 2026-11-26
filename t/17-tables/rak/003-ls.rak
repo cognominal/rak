@@ -1,0 +1,28 @@
+use Test;
+
+plan 9;
+
+# `ls`, a builtin that returns a table.
+
+my $dir = $*TMPDIR->add("rak-ls-$*PID");
+$dir->mkdir;
+$dir->add('b.txt')->spurt('hello');
+$dir->add('a.md')->spurt('x' x 1500);
+$dir->add('.hidden')->spurt('');
+$dir->add('sub')->mkdir;
+run 'ln', '-s', 'b.txt', ~$dir->add('lnk');
+cd $dir
+
+my @l = (ls);
+is @l->map(*<name>), <a.md b.txt lnk sub>, 'sorted by name, no dot files';
+is @l[0]->keys, <name type size modified>, 'the columns';
+is @l->map(*<type>), <file file symlink dir>, 'types';
+is @l[0]<size>->Int, 1500, 'size in bytes';
+is ~@l[0]<size>->gist, '1.5 kB', 'shown metric';
+isa-ok @l[0]<modified>, DateTime, 'modified is a DateTime';
+is (ls -a)->map(*<name>)->head, '.hidden', '-a keeps dot files';
+is (ls -l)[2]<target>, 'b.txt', '-l: a symlink target';
+is (ls '*.txt')->map(*<name>), <b.txt>, 'a glob';
+
+cd /
+run 'rm', '-rf', ~$dir;

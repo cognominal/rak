@@ -1,6 +1,7 @@
 # Tables
 
-Status: PLANNED, being built (first slice).
+Status: WIP. The grid, `ls`, the topical commands, `into`, the settings and
+the JSON encoding work; [Not built yet](#not-built-yet) lists the rest.
 
 Showing a list of hashes as a grid, as nushell does, and the typed values and commands
 that make a nushell-like `ls` possible. Terms: [table](../../GLOSSARY.md#table),
@@ -163,9 +164,12 @@ given column names, those cells of a table:
 
 ```rak
 <api.github.com/repos/rakudo/rakudo/releases | into datetime published_at created_at
-'1.2 MB' | into filesize                    # 1200000 bytes
-'1min 30sec' | into duration
+$_ = '1.2 MB'; into filesize                # 1200000 bytes
+$_ = '1min 30sec'; into duration
 ```
+
+A string literal cannot start a pipeline (only a command, a load or a leading dot can),
+so a lone value goes through `$_`.
 
 - `into filesize` reads a number (bytes) or a unit literal, spaced or not: `1.2 MB`,
   `1kib`.
@@ -175,6 +179,24 @@ given column names, those cells of a table:
 
 Encoding to JSON follows nushell's `to json`: a filesize is its number of bytes, a
 `Duration` its number of nanoseconds, a `DateTime` an RFC 3339 string.
+
+## Not built yet
+
+- Ordered hash literals and `%` variables
+  ([ADR 0009](../../docs/adr/0009-rak-hashes-keep-insertion-order.md)): only `ls`,
+  the topical commands and `$*RAK-CONFIG` make ordered hashes so far. A plain hash's
+  columns come sorted.
+- Unit literals (`10mb`, `90sec`), hence `say 1mb`.
+- The `is topical` trait: the topical commands are builtins only.
+- Filesize arithmetic (second slice).
+
+Notes on what is built:
+
+- A topical command or `ls` is a command only in command position: `say get name`
+  calls Raku's `get`; write `say (get name)`.
+- Redirected, `ls` runs GNU ls (`ls > out`): a table has no text form for files yet.
+- `ls` and the topical commands are found before setting routines of the same name
+  (`get`), but after routines the program declares.
 
 ## Out of scope for now
 

@@ -1,0 +1,35 @@
+use Test;
+
+plan 7;
+
+# The grid: columns, missing cells, alignment, width, modes.
+
+my \T = Rakudo::Internals::RakTable;
+
+my @rows = {a => 1, b => 'x'}, {a => 22, c => True};
+is T->render(@rows), q:to/END/->chomp, 'union of keys, empty cells, numbers right';
+    ╭───┬────┬───┬──────╮
+    │ # │ a  │ b │  c   │
+    ├───┼────┼───┼──────┤
+    │ 0 │  1 │ x │      │
+    │ 1 │ 22 │   │ true │
+    ╰───┴────┴───┴──────╯
+    END
+
+my %o is Hash::Ordered = z => 1, a => 2;
+like T->render([%o]), /'z' .* 'a'/, 'an ordered hash keeps its key order';
+
+my @wide = {name => 'a-rather-long-name', kind => 'file', size => 10},;
+my $text = T->render(@wide, :width(24));
+ok $text->lines->map(*->chars)->max <= 24, 'fits the width';
+ok $text->contains('…'), 'cut with …';
+
+ok !T->render(@rows, :!color)->contains("\e["), 'no colour unless asked';
+ok T->render(@rows, :color)->contains("\e[32;1m"), 'headers bold green';
+
+{
+    my $*RAK-CONFIG = T->default-config;
+    $*RAK-CONFIG.table.mode = 'ascii';
+    $*RAK-CONFIG.table.index_mode = 'never';
+    is T->render([{a => 1},]), "+---+\n| a |\n+---+\n| 1 |\n+---+", 'settings: ascii, no index';
+}

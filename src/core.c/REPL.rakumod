@@ -1705,6 +1705,38 @@ do {
                     my $*OUT = $page // $tty;
                     $output.show;
                 }
+                elsif irak() && nqp::istype($output, Rakudo::Internals::RakTableText) {
+                    # `table` shows its grid, fitted to the terminal
+                    $format = 'table';
+                    my $color = ?(try $tty.t);
+                    my $*OUT = $page // $tty;
+                    $output.show(:width($color ?? terminal-size()[1] !! Inf), :$color);
+                }
+                elsif irak() && $initial_out_position + $!osc133-bytes == $*OUT.tell
+                  && !($page && $page.wrote)
+                  && Rakudo::Internals::RakTable.is-table($output<>) {
+                    # a table shows as a grid (rak-plans/features/tables.md)
+                    $format = 'table';
+                    {
+                        my $color = ?(try $tty.t);
+                        my $*OUT = $page // $tty;
+                        print Rakudo::Internals::RakTable.render($output<>,
+                          :width($color ?? terminal-size()[1] !! Inf), :$color) ~ "\n";
+                    }
+                    $previous-evals.push: $output<>;
+                    self!set-irak-topic($output<>) if topic-moves();
+                }
+                elsif irak() && $initial_out_position + $!osc133-bytes == $*OUT.tell
+                  && !($page && $page.wrote)
+                  && (my $value-text := Rakudo::Internals::RakTable.value-text($output<>)).defined {
+                    # durations and dates as nushell shows them
+                    {
+                        my $*OUT = $page // $tty;
+                        say $value-text;
+                    }
+                    $previous-evals.push: $output<>;
+                    self!set-irak-topic($output<>) if topic-moves();
+                }
                 elsif irak() && $initial_out_position + $!osc133-bytes == $*OUT.tell
                   && !($page && $page.wrote)
                   && nqp::not_i(nqp::eqaddr(RAK-LOADED(), $loaded-before))
