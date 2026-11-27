@@ -1,0 +1,20 @@
+use Test;
+
+plan 10;
+
+# `|-`: the pipe after any expression, where the standard strategy keeps `|`
+# a junction.
+
+is ([ 'b', 'c' ] |- ->elems), 2, 'an array literal starts a pipeline';
+is (<a b c> |- ->elems), 3, 'a word list';
+is ((3, 1, 2) |- ->sort | ->head), 1, 'later pipes may be `|`';
+is (1 |- { $_ + 1 }), 2, 'a block stage';
+is (%(n => 3) |- .<n>), 3, 'a dotty stage';
+isa-ok (1 | 2 |- ->WHAT), Junction, 'in the first stage, a spaced `|` is a junction';
+is ((1, 2, 3)
+  |- ->map(* * 2)
+  |- ->sum), 12, 'a line starting with `|-` continues the pipeline';
+my @r = ((1, 2) |- ->elems);
+is-deeply @r, [2], 'a `|-` inside parentheses is that group\'s pipeline';
+is (^printf '' |- ->elems), 0, 'after a command, `|-` is `|`';
+is ((5 | -3) |- ->WHAT), Junction, '`| -3` is still a junction';

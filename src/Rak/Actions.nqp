@@ -2262,6 +2262,8 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
     # Pipelines (.rak syntax), see rak-plans/features/pipelines.md. Each stage
     # becomes an expression around the previous one; RAK-PIPE-END waits for
     # the commands and sets $?.
+    method rak-pipe-first($/) { make $<EXPR>.ast }
+
     method rak-pipeline($/) {
         my @stages := $<rak-stage>;
         my $last   := nqp::elems(@stages) - 1;

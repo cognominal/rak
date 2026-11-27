@@ -26,6 +26,18 @@ get name`, `@rows->head(3) | select name`. A junction with a command word on the
 right is written `$x | foo()` or `any($x, foo)`. Everywhere else `|` keeps its Raku
 meanings, and `|@a` is a slip.
 
+Any other expression starts a pipeline with `|-`, the pipe the standard strategy
+cannot spell `|`: `[ 'b', 'c' ] |- ->elems` is 2.
+
+- `|-` must have whitespace on both sides. It is the loosest operator: `say $x |-
+  ->elems` pipes the value of `say $x`.
+- In the first stage, a spaced `|` stays a junction: `1 | 2 |- ->WHAT` is
+  `(Junction)`. After it, `|` and `|-` are both the pipe.
+- A `|-` counts only outside brackets and quotes. One inside parentheses makes a
+  pipeline of that group: `my @r = ((1, 2) |- ->elems)`.
+- A line starting with `|-` continues the pipeline, as one starting with `|` does.
+- It takes `$x |- 3` from Raku, where it is `any($x, -3)`; write `$x | -3`.
+
 A pipeline continues on the next line when the line ends with `|`, or when the next
 line starts with `|`:
 
@@ -139,6 +151,10 @@ A command whose reader went away gets SIGPIPE, as in a shell: `yes | head -2` an
 - Grammar and actions in `src/Rak/*` only: `rak-pipeline` and `rak-stage`. While a
   pipeline is parsed, `$*RAK-PIPE` is set, and `infix:<|>` refuses a spaced `|` so that
   `EXPR` stages stop at the pipe. Blocks and parentheses reset it.
+- A `|-` pipeline: `rak-dash-pipe-ahead` scans the statement for a `|-` outside
+  brackets and quotes before the first stage is parsed, since that parse would
+  declare what it declares even if the pipeline then failed. `rak-pipe-first`
+  parses the stage with `$*RAK-PIPE` at 2, where `infix:<|>` refuses only `|-`.
 - Each stage becomes an expression around the previous one; `RAK-PIPE-END` wraps the
   whole and waits for the commands. Runtime in
   `src/core.c/Rakudo/Internals/RakFormat.rakumod`.

@@ -279,7 +279,8 @@ _Avoid_: filter, step, command (for a rak stage).
 <a id="pipe"></a>**pipe**:
 The operator joining two pipeline stages, spelled `|` in the shell strategy. In the
 standard strategy, `|` keeps its Raku meanings (the `any` junction infix, the slip
-prefix), so the strategy, not spacing, decides what `|` is. Values pass between
+prefix), so the strategy, not spacing, decides what `|` is; there the pipe is
+spelled `|-`. Values pass between
 rak stages unchanged; where an external command meets a rak stage, bytes become lines
 (or decoded values when a format is given) and values become text (or are encoded in a
 format). Unlike redirection, a pipe connects stages rather than attaching a statement

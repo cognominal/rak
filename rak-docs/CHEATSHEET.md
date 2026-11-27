@@ -441,7 +441,8 @@ A non-zero exit status fails a `.rak` file; irak shows it.
 
 A statement that starts with a command, a load (`<file`) or a leading dotty
 subscript is a pipeline when a spaced `|` follows. So is one that starts with a
-variable, when the word after `|` starts a stage. Commands and rak stages mix.
+variable, when the word after `|` starts a stage. Any other expression starts
+one with `|-`, the pipe where `|` would be a junction. Commands and rak stages mix.
 
 ```rak
 ^printf 'b\na\nb\n' | ^sort | ^uniq -c   # commands: a Unix pipe
@@ -452,6 +453,7 @@ curl -s $url | .                        # show as indented JSON, like jq .
 .users | ^wc -l                         # values to a command: one line each,
                                         #   hashes as YAML
 @rows | sort-by size | get name | say   # a variable starts it; | say is say(input)
+[ 'b', 'c' ] |- ->elems                 # any expression, before |-: 2
 ls                                      # a line starting or ending with |
   | sort-by size -r                     #   goes on with the pipeline
 say +$?, +@?                            # first failure (else last); every command
@@ -493,6 +495,8 @@ Each stage gets the whole input, not one value at a time: use `map` for that.
 - In a pipeline a spaced `|` is the pipe. For a junction there, write it
   unspaced (`1|2`) or in parentheses (`(1 | 2)`). `any(1, 2)` as a stage gets the
   input as its last argument.
+- `|-` followed by a space is always the pipe: `$x |- 3` no longer means
+  `any($x, -3)`. Write `$x | -3`.
 - `map .name` calls `.name` on `$_` right away. Write `map *.name` or
   `map { .name }`.
 - A pipeline ending in a rak stage needs its `;` at the end of the line, like any
