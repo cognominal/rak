@@ -1,0 +1,53 @@
+use Test;
+
+plan 12;
+
+# ---------------------------------------------------------------------------
+# Pipelines started by a variable, a routine name or `->meth` as a stage, and
+# pipelines over several lines (rak-plans/features/pipelines.md).
+# ---------------------------------------------------------------------------
+
+my @rows = ({ name => 'a', size => 1 }, { name => 'b', size => 2 });
+sub names is topical { $_->map(*<name>)->join(',') }
+
+# 1-4. A variable starts a pipeline when a stage-starting word follows.
+is (@rows | sort-by size -r | names), 'b,a', '1: @rows | topical command';
+my $data = { users => [{ name => 'x' }] };
+is ($data<users> | get name)->join, 'x', '2: a subscripted variable';
+is (@rows | ->elems), 2, '3: before ->meth';
+is (@rows | to-json | ^tr -d ' \n'), '[{"name":"a","size":1},{"name":"b","size":2}]',
+  '4: before to-json and a command';
+
+# 5-6. Otherwise | keeps its Raku meaning.
+my $x = 1; my $y = 2;
+isa-ok ($x | $y), Junction, '5: $x | $y is a junction';
+isa-ok (1 | 2), Junction, '6: so is 1 | 2';
+
+# 7-8. A routine name alone is a stage (ticket 01).
+sub twice(\v) { v ~ v }
+is (echo hi | ->head | twice), 'hihi', '7: | name is name(input)';
+my $out = $*TMPDIR->add("rak-say-$*PID.out");
+{
+    my $*OUT = $out->open(:w);
+    echo hi | say;
+    $*OUT->close;
+}
+is $out->slurp, "(hi)\n", '8: | say says the input';
+$out->unlink;
+
+# 9. ->meth before another stage (ticket 02).
+is (echo hi | ->elems | twice), '11', '9: ->meth then another stage';
+
+# 10-12. A pipeline over several lines.
+my $r = (@rows
+  | sort-by size -r
+  | names);
+is $r, 'b,a', '10: lines that start with |';
+$r = (@rows |
+  sort-by size -r |
+  names);
+is $r, 'b,a', '11: lines that end with |';
+$r = (echo a b |
+  ->words
+  | ->elems);
+is $r, 2, '12: both, after a command';

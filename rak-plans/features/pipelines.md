@@ -16,18 +16,18 @@ git log --format=%an | ->unique            # a command, then a rak method on its
 
 A statement is a pipeline when its first stage is a command, a
 [load](../../GLOSSARY.md#load) (`<file`) or a leading dotty subscript (`.users`, `.[]`),
-and a spaced `|` follows on the same line.
+and a spaced `|` follows.
 
-Planned: a spaced `|` is also a pipe when the word after it can start a stage: a
-`^cmd`, an external command, `->meth`, a topical command, `from-…`/`to-…` or a block.
-So `@names | ^sort` pipes, while `1 | 2` stays the `any` junction, since `2` starts no
-stage. A junction with a command word on the right is written `$x | foo()` or
-`any($x, foo)`. Today a variable does not start a pipeline: write
-`$_ = @names; .[] | ^sort`. Everywhere else `|` keeps its Raku meanings, and `|@a` is
-a slip.
+A variable starts a pipeline too when the word after the spaced `|` can start a stage:
+a `^cmd`, an external command, `->meth`, a topical command, `from-…`/`to-…` or a
+block. So `@names | ^sort` pipes, while `$a | $b` and `1 | 2` stay `any` junctions. The
+variable may be subscripted or call methods, written without spaces: `$data<users> |
+get name`, `@rows->head(3) | select name`. A junction with a command word on the
+right is written `$x | foo()` or `any($x, foo)`. Everywhere else `|` keeps its Raku
+meanings, and `|@a` is a slip.
 
-Planned: a pipeline continues on the next line when the line ends with `|`, or when
-the next line starts with `|`:
+A pipeline continues on the next line when the line ends with `|`, or when the next
+line starts with `|`:
 
 ```rak
 ls
@@ -59,6 +59,9 @@ Raku's `==>`, not one value at a time as in jq. Per-value work is explicit, thro
 | `to-jsonl`         | idem, as JSON Lines                             |
 | `to-text`          | a command's raw text; a value's `Str`           |
 | `.`                | shows the input as JSON ([formatter](formatter.md)) |
+
+- `name` alone is a stage too: `ls | get name | say` is `say(input)`.
+- `->meth` may be followed by another stage: `echo a b | ->words | ->elems`.
 
 ## Where commands meet rak stages
 

@@ -1021,6 +1021,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         $m.pos() >= nqp::chars(self.target())
           || nqp::ordat(self.target(), $m.pos()) == 32
           || nqp::ordat(self.target(), $m.pos()) == 9
+          || nqp::iscclass(nqp::const::CCLASS_NEWLINE, self.target(), $m.pos())
     }
 
     token constraint-where { where}
@@ -2337,8 +2338,8 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
           <?{ self.rak-is-command(~$<identifier>) }>
         ]
         <!before <[\w\-']>>
-        [ \h+ <!before '|' \h> [ <rak-redir> || <rak-arg> ] ]* \h*
-        <?before ';' | '}' | ')' | \v | $ | '#' | <?{ nqp::ifnull(nqp::getlexdyn('$*RAK-PIPE'), 0) }> '|' \h>
+        [ \h+ <!before '|' [ \h | \v ]> [ <rak-redir> || <rak-arg> ] ]* \h*
+        <?before ';' | '}' | ')' | \v | $ | '#' | <?{ nqp::ifnull(nqp::getlexdyn('$*RAK-PIPE'), 0) }> '|' [ \h | \v ]>
     }
 
     # Pipelines (.rak syntax), see rak-plans/features/pipelines.md. A statement is
@@ -2346,14 +2347,35 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     # subscript and has a spaced `|` on its line; `|` is then the pipe.
     token rak-pipeline {
         :my $*RAK-PIPE := 1;
-        <?before \N*? \h '|' \h>
+        <?before \N*? [ \h '|' [ \h | \v ] | \h* \v \h* '|' \h ]>
         [
         || :my $*RAK-LOAD := 1; '<' <?{ !self.after-ws($/) }> <load=.redir-filename>
         || <rak-command>
         || <?before '.' <-[.\s]> | '->' \w> <first=.EXPR>
+           # A variable, written without spaces, before a word that starts a
+           # stage: `@rows | top 1`, while `$a | $b` stays a junction.
+        || <?before <[$@%&]> <-[\s=]>+ <.rak-pipe-sep> <.rak-stage-start>> <first=.EXPR>
         ]
-        [ \h* '|' \h+ <rak-stage> ]+ \h*
+        [ <.rak-pipe-sep> <rak-stage> ]+ \h*
         <?before ';' | '}' | ')' | \v | $ | '#'>
+    }
+
+    # The pipe between stages. A pipeline goes on to the next line when a
+    # line ends with `|` or the next line starts with it.
+    token rak-pipe-sep {
+        || \h* '|' \h+ <!before \v>
+        || \h* '|' \h* \v \s*
+        || \h* \v \h* '|' \h+
+    }
+
+    # What can start a stage after a variable: a command (a topical
+    # routine among them), `->meth`, a decode or encode stage, a block.
+    token rak-stage-start {
+        || '^' <.identifier>
+        || '->' <.identifier>
+        || '{'
+        || [ 'from-' | 'to-' ] <[a..z]>
+        || <identifier> <!before <[\w\-'(]>> <?{ self.rak-is-command(~$<identifier>) }>
     }
 
     token rak-stage {
@@ -2362,6 +2384,10 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         || $<encode>=['to-jsonl' | 'to-json' | 'to-yaml' | 'to-text'] <!before <[\w\-']>>
         || '.' <?before <.rak-format-end>> $<format>=<?>
         || <rak-command>
+           # A routine name alone: `| say` is say(input).
+        || <routine=.identifier> <!before <[\w\-'(]>>
+           <?before \h* [ '|' \h | ';' | '}' | ')' | \v | $ | '#' ]>
+           <?{ self.rak-routine-can(~$<routine>, 'signature') }>
         || <EXPR>
     }
 
@@ -4380,7 +4406,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         '->'
         <?before <.identifier>>
         <!before <.identifier> [ '::' <.identifier> ]* \s*
-          [ <[$@%&~\{|*\\:]> | '#' <!before \s> ]>
+          [ <[$@%&~\{*\\:]> | '|' <!before \h> | '#' <!before \s> ]>
         <methodop(Mu)>
     }
 

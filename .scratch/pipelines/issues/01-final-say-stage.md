@@ -1,6 +1,6 @@
 # 01: A final `| say` stage
 
-Status: ready-for-agent
+Status: done
 
 **Spec:** `rak-plans/features/pipelines.md`, Stages: `name args` is `name(args, input)`,
 so `echo hi | say` is `say(input)`.
@@ -18,3 +18,5 @@ Argument to "say" seems to be malformed
 
 **Done when:** a routine name alone, with no arguments, is a valid stage, last or not,
 with a test in `t/16-pipelines/rak/`.
+
+**Done:** tested in `t/16-pipelines/rak/011-starts-and-lines.rak`.

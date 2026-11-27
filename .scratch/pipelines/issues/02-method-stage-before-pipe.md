@@ -1,6 +1,6 @@
 # 02: A `->meth` stage followed by another stage
 
-Status: ready-for-agent
+Status: done
 
 **Spec:** `rak-plans/features/pipelines.md`, Stages: `->meth args` is
 `input.meth(args)`, at any place in the pipeline.
@@ -16,3 +16,5 @@ echo hi | ->elems | ^cat
 
 **Done when:** `->meth` is a method stage wherever it starts a stage, with a test in
 `t/16-pipelines/rak/`.
+
+**Done:** tested in `t/16-pipelines/rak/011-starts-and-lines.rak`.

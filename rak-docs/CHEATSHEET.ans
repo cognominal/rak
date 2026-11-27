@@ -400,7 +400,8 @@ A non-zero exit status fails a [1m.rak[0m file; irak shows it.
 [1;4mPipelines[0m
 
 A statement that starts with a command, a load ([1m<file[0m) or a leading dotty
-subscript is a pipeline when a spaced [1m|[0m follows. Commands and rak stages mix.
+subscript is a pipeline when a spaced [1m|[0m follows. So is one that starts with a
+variable, when the word after [1m|[0m starts a stage. Commands and rak stages mix.
 
     [1;32m^printf[0m 'b\na\nb\n' | [1;32m^sort[0m | [1;32m^uniq[0m -c   [2m# commands: a Unix pipe[0m
     [1;32mgit[0m log --format=%an | ->unique         [2m# a command's output is a Seq of lines[0m
@@ -408,7 +409,10 @@ subscript is a pipeline when a spaced [1m|[0m follows. Commands and rak stages
     [1;32mcurl[0m -s [3m$url[0m | from-json | .items;      [2m# decode: from-json, from-jsonl[0m
     [1;32mcurl[0m -s [3m$url[0m | .                        [2m# show as indented JSON, like jq .[0m
     .users | [1;32m^wc[0m -l                         [2m# values to a command: one line each,[0m
-                                            [2m#   hashes as JSON Lines[0m
+                                            [2m#   hashes as YAML[0m
+    [3m@rows[0m | [1;32msort-by[0m size | [1;32mget[0m name | say   [2m# a variable starts it; | say is say(input)[0m
+    [1;32mls[0m                                      [2m# a line starting or ending with |[0m
+      | [33msort-by[0m [33msize[0m -[33mr[0m                     [2m#   goes on with the pipeline[0m
     [36msay[0m +$?, +@?                            [2m# first failure (else last); every command[0m
 
 | Stage | Gets the input as |
@@ -441,8 +445,9 @@ Each stage gets the whole input, not one value at a time: use [1mmap[0m for th
   [1m->meth[0m.
 - [1m.$meth[0m and [1m.&f[0m are errors. When porting Raku, change them to [1m->$meth[0m and
   [1m->&f[0m.
-- [3m@names[0m | ^[36msort[0m is a junction, not a pipeline: only a command, a load or a
-  leading dotty starts one. Write [3m$_[0m = [3m@names[0m; .[] | [1;32m^sort[0m.
+- [3m@names[0m | [1;32m^sort[0m is a pipeline, [3m$a[0m | [3m$b[0m a junction: a variable starts a
+  pipeline only before [1m^cmd[0m, a command, [1m->meth[0m, [1mfrom-…[0m/[1mto-…[0m or a block.
+  Write the variable without spaces: [3m@rows[0m->head(3) | [1;32mselect[0m name.
 - In a pipeline a spaced [1m|[0m is the pipe. For a junction there, write it
   unspaced ([1m1|2[0m) or in parentheses ([1m(1 | 2)[0m). [1many(1, 2)[0m as a stage gets the
   input as its last argument.

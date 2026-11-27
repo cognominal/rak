@@ -2315,7 +2315,11 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
                            ?? 'RAK-FROM-JSON' !! 'RAK-FROM-JSONL', $input);
                 }
                 else {
-                    my $ast := $stage<EXPR>.ast;
+                    my $ast := $stage<routine>
+                      ?? Nodify('Call::Name').new(
+                           name => Nodify('Name').from-identifier(~$stage<routine>),
+                           args => Nodify('ArgList').new())
+                      !! $stage<EXPR>.ast;
                     if nqp::istype($ast, Nodify('Call::Name')) {
                         # A routine `is reads<…>` decodes a command's lines.
                         my $callee := $ast.name.canonicalize;
