@@ -1,7 +1,7 @@
 # The command catalog
 
 Status: WIP. The shipped entries, `commands.yaml`, flags, choosing a format and
-decoding a command's output work. Not built yet: the `is reads<yaml>` trait.
+decoding a command's output and the `is reads<…>` trait work.
 
 The [command catalog](../../GLOSSARY.md#command-catalog) records what formats
 [external commands](../../GLOSSARY.md#external-command) read and emit, so a
@@ -80,8 +80,21 @@ jq:
 
 A rak routine returns values, so it declares only what it reads: `is reads<yaml>`
 decodes text piped into it, and other values pass untouched. The builtin table
-commands are `is reads<yaml>`, so `cat f.yaml | select name` works. A routine that gets
-text in a format decodes it and returns the value; there is no *emits* trait.
+commands that need rows read YAML, so `^curl -s url/f.yaml | select name` works. A
+routine that gets text in a format decodes it and returns the value; there is no
+*emits* trait.
+
+```rak
+sub names is topical is reads<yaml> { $_->map(*<name>) }
+^cat a.yaml | names              # decoded
+sub count(\rows) is reads<json> { rows->elems }
+^curl -s api/rows | count        # a plain routine as a stage, too
+```
+
+- The formats are those of [Capabilities](#capabilities); the first of `yaml`,
+  `json` and `jsonl` it lists decodes. Another name is an error.
+- Only a command that emits `lines` is decoded: one the catalog says emits JSON is
+  decoded as such, and `cat f.yaml` by its extension.
 
 ## Choosing a format
 

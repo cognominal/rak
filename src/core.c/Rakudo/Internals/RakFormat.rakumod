@@ -1237,11 +1237,17 @@ sub RAK-CAT-FORMAT(Mu \v) is implementation-detail {
 # A rak stage's input: a piped command's output becomes its lines, unless it
 # is `cat f.yaml` (or another format); `:raw` keeps the lines for a decode
 # stage.
-sub RAK-PIPE-VALUE(Mu \v, :$raw) is raw is implementation-detail {
+# With :reads, a stage that reads a format (`is reads<yaml>`) decodes a
+# command that emits lines in the first of them it can decode.
+sub RAK-PIPE-VALUE(Mu \v, :$raw, :$reads) is raw is implementation-detail {
     if nqp::istype(v, Rakudo::Internals::RakProc) {
         %RAK-PIPE-READ{v.WHICH} = True;
         return v.out.lines if $raw;
         my $cat := RAK-CAT-FORMAT(v);
+        if !$cat && $reads && v.emits eq 'lines'
+          && $reads.first({ $_ eq 'yaml' || $_ eq 'json' || $_ eq 'jsonl' }) -> $format {
+            v.emits = $format;
+        }
         $cat
           ?? Rakudo::Internals::RakFormat.decode($cat,
                v.out.slurp(:close), v.command[1].Str)

@@ -90,11 +90,13 @@ nushell's rules, checked with nushell 0.117:
 ## Topical commands
 
 A [topical command](../../GLOSSARY.md#topical-command) takes the value piped into it,
-or `$_` when used alone. A routine becomes one with the `is topical` trait (planned):
+or `$_` when used alone. A routine becomes one with the `is topical` trait:
 
 ```rak
-sub top($n = 10) is topical { sort-by size -r | first $n }
+sub top($n = 10) is topical { sort-by size -r | { $_->head($n) } }
 ls | top 5
+given (ls) { top }              # $_
+top(5, :topic(ls))              # outside command position
 ```
 
 - A call in command position passes the piped value, else the call site's `$_`. This
@@ -107,13 +109,19 @@ ls | top 5
   needs no special signature, and topical commands inside its body get the input.
 - Called outside command position, the input is passed explicitly:
   `top(5, :topic(@rows))`.
+- In command position its words are arguments, as for any command, and each is an
+  allomorph as in `<…>`: `top 5` passes the `IntStr` 5. `(…)` after the name is a
+  plain call: `top(5)` gets no input.
+- A topical routine cannot be redirected: pipe it into `to-yaml` or a command.
 - Text from an external command arrives as lines until a `from-…` stage decodes it,
   unless the routine declares it reads a format: `is reads<yaml>`
-  ([command catalog](command-catalog.md#traits-for-rak-routines)) decodes YAML and
-  JSON.
+  ([command catalog](command-catalog.md#traits-for-rak-routines)) decodes YAML, and
+  `is reads<json>` or `is reads<jsonl>` JSON.
 
-The builtins below are wired into the compiler today; with the trait they become
-routines of the setting declared `is topical`.
+The builtins below are still wired into the compiler, not routines of the setting
+declared `is topical`; they act as if they were. `select`, `reject`, `sort-by` and
+`get` need rows, so they read YAML: `^curl -s url/rows.yaml | select name` works.
+`drop`, `table` and `into` keep lines, so `^seq 5 | drop 2` drops lines.
 
 | Command | Does |
 |---|---|
@@ -208,7 +216,6 @@ Encoding to JSON follows nushell's `to json`: a filesize is its number of bytes,
   the topical commands and `$*RAK-CONFIG` make ordered hashes so far. A plain hash's
   columns come sorted.
 - Unit literals (`10mb`, `90sec`), hence `say 1mb`.
-- The `is topical` trait: the topical commands are builtins only.
 - Filesize arithmetic (second slice).
 
 Notes on what is built:

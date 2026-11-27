@@ -1,0 +1,51 @@
+use Test;
+
+plan 12;
+
+# ---------------------------------------------------------------------------
+# `is topical` and `is reads<…>` (rak-plans/features/tables.md#topical-commands).
+# ---------------------------------------------------------------------------
+
+my @rows = (
+    { name => 'a', size => 3 },
+    { name => 'b', size => 1 },
+    { name => 'c', size => 2 },
+);
+
+sub top($n = 2) is topical { sort-by size -r | { $_->head($n) } }
+sub names is topical { $_->map(*<name>)->join(',') }
+
+# 1-4. The piped value, else $_, else :topic.
+given @rows { is (top 1 | names), 'a', '1: a topical routine starts and ends a pipeline' }
+$_ = @rows;
+is (top | names), 'a,c', '2: alone, it takes $_';
+is names(:topic(@rows)), 'a,b,c', '3: outside command position, :topic passes it';
+sub name is topical { $_<name> }
+my @n = @rows->map({ (name) });
+is @n->join(' '), 'a b c', '4: inside a map, $_ is the item';
+
+# 5. Its words are allomorphs.
+sub twice($n) is topical { $n + $n }
+is (twice 21), 42, '5: a word is an IntStr';
+
+# 6. Topical commands inside the body get its input.
+sub small is topical { sort-by size | get name }
+given @rows { is (small)->join(','), 'b,c,a', '6: the body pipes its $_' }
+
+# 7-8. Lines stay lines, unless the routine reads a format.
+sub kind is topical { $_->join('|') }
+is (^printf "x\ny\n" | kind), 'x|y', '7: a command gives lines';
+sub yaml-names is topical is reads<yaml> { $_->map(*<name>)->join(',') }
+is (^printf "- name: a\n- name: b\n" | yaml-names), 'a,b', '8: is reads<yaml> decodes';
+
+# 9. A plain routine as a stage, is reads<yaml>.
+sub count-them(\x) is reads<yaml> { x->elems }
+is (^printf "- name: a\n- name: b\n" | count-them), 2, '9: so does a plain routine';
+
+# 10-11. The builtins that need rows read YAML.
+is (^printf "- name: a\n- name: b\n" | get name)->join(','), 'a,b', '10: get decodes YAML';
+is (^printf '- {name: a, n: 1}\n' | select name)[0]->keys->join, 'name', '11: so does select';
+
+# 12. An unknown format is an error.
+throws-like { EVAL 'sub f is reads<xml> { }' }, Exception,
+  message => /'unknown format xml'/, '12: is reads<xml> is refused';

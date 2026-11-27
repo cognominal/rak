@@ -2378,9 +2378,50 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
             return 1 unless $*R.is-identifier-known($name)
               && !self.rak-is-setting-routine($name);
         }
+        return 1 if self.rak-is-topical-routine($name);
         return 0 if $*R.is-identifier-known($name);
         return 1 if $name eq 'cd' || $name eq 'type';
         self.rak-on-path($name)
+    }
+
+    # Whether &name here is a routine declared `is topical`, or `is reads<…>`.
+    method rak-is-topical-routine($name) { self.rak-routine-can($name, 'rak-topical') }
+    method rak-routine-reads($name)      { self.rak-routine-can($name, 'rak-reads') }
+    method rak-routine-can($name, $method) {
+        my $decl := $*R.resolve-lexical('&' ~ $name);
+        return 0 unless nqp::isconcrete($decl);
+        my $value := nqp::can($decl, 'maybe-compile-time-value')
+          ?? $decl.maybe-compile-time-value
+          !! nqp::can($decl, 'compile-time-value') ?? $decl.compile-time-value !! NQPMu;
+        nqp::isconcrete($value) && nqp::can($value, $method) ?? 1 !! 0
+    }
+
+    # `is topical` (rak-plans/features/tables.md#topical-commands) adds the
+    # named parameter `:topic($_) is raw`, so the body's $_ is the input.
+    method rak-topical-signature($traits) {
+        my $topical := 0;
+        for $traits -> $t {
+            $topical := 1 if ~$t ~~ /^ \s* 'is' \s+ 'topical' \s* $/;
+        }
+        return 0 unless $topical;
+        my $block  := $*BLOCK;
+        my $target := self.Nodify('ParameterTarget::Var').new(:name('$_'));
+        my $param  := self.Nodify('Parameter').new(:$target,
+          :traits([self.Nodify('Trait::Is').new(
+            :name(self.Nodify('Name').from-identifier('raw')))]));
+        $param.add-name('topic');
+        my $signature := $block.signature;
+        if nqp::isconcrete($signature) && $signature.parameters-initialized {
+            # The parsed signature is begun already: begin the parameter too.
+            $param.to-begin-time($*R, $*CU.context);
+            nqp::push(nqp::getattr($signature, self.Nodify('Signature'), '$!parameters'),
+              $param);
+        }
+        else {
+            $block.replace-signature(self.Nodify('Signature').new(:parameters([$param])));
+        }
+        $*R.declare-lexical($target);
+        1
     }
 
     # `ls` and the topical commands (rak-plans/features/tables.md).
@@ -5089,6 +5130,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         [ '(' <signature(:ON-ROUTINE(1))> ')' ]?
         <trait($*BLOCK)>* :!s
         { if $<signature> { $*BLOCK.replace-signature($<signature>.ast); } }
+        { $/.rak-topical-signature($<trait>) if $*RAK-SEMANTICS }
         { $*IN-DECL := ''; }
         [
           || ';'

@@ -2133,6 +2133,13 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
               if nqp::elems(@extra);
             $ast := rak-call($name, |@args);
         }
+        elsif !$forced && $/.rak-is-topical-routine($name) {
+            # A routine declared `is topical`: the piped value, else $_.
+            $/.panic("$name cannot be redirected") if nqp::elems(@redirs);
+            $ast := rak-call('RAK-TOPICAL-CALL', Nodify('Var::Lexical').new('&' ~ $name),
+              |@args, |@extra, Nodify('ColonPair::Value').new(:key('topic'),
+                :value(Nodify('Var::Lexical').new('$_'))));
+        }
         elsif !$forced && $name eq 'cd' {
             $ast := rak-call('RAK-CD', |@args);
         }
@@ -2310,6 +2317,11 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
                 else {
                     my $ast := $stage<EXPR>.ast;
                     if nqp::istype($ast, Nodify('Call::Name')) {
+                        # A routine `is reads<…>` decodes a command's lines.
+                        my $callee := $ast.name.canonicalize;
+                        $input := rak-call('RAK-PIPE-VALUE-FOR',
+                          Nodify('Var::Lexical').new('&' ~ $callee), $prev)
+                          if $ast.name.is-identifier && $stage.rak-routine-reads($callee);
                         $ast.args.push($input);       # input last, as with ==>
                         $prev := $ast;
                     }

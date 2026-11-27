@@ -624,11 +624,47 @@ sub RAK-LS-REDIRECTED($capture, *@args, *%redirs) is implementation-detail {
 }
 
 # The input of a topical command: what is piped into it, else the topic.
-sub RAK-TOPICAL-INPUT(Mu \stdin, Mu \topic) is raw is implementation-detail {
+sub RAK-TOPICAL-INPUT(Mu \stdin, Mu \topic, :$reads) is raw is implementation-detail {
     my \v = nqp::eqaddr(stdin, Rakudo::Internals::RakNoStdin)
       ?? topic
-      !! RAK-PIPE-VALUE(stdin);
+      !! RAK-PIPE-VALUE(stdin, :$reads);
     nqp::istype(v, Seq) ?? v.cache !! v<>
+}
+
+# `is topical` and `is reads<…>` (rak-plans/features/tables.md#topical-commands).
+# The compiler adds the hidden `:topic($_)` parameter; the traits mark the
+# routine so a call in command position passes the input.
+my role Rakudo::Internals::RakTopical {
+    method rak-topical(--> True) { }
+}
+my role Rakudo::Internals::RakReads {
+    has $.rak-reads;
+}
+multi sub trait_mod:<is>(Routine:D $r, :$topical!) is implementation-detail {
+    $r.^mixin(Rakudo::Internals::RakTopical) if $topical;
+}
+multi sub trait_mod:<is>(Routine:D $r, :$reads!) is implementation-detail {
+    my @formats = $reads.list.map(*.Str);
+    for @formats -> $f {
+        die "is reads: unknown format $f (lines, json, jsonl, yaml or text)"
+          unless $f eq any(<lines json jsonl yaml text>);
+    }
+    $r does Rakudo::Internals::RakReads(@formats.List);
+}
+
+# The input of a routine `is reads<…>` called as a pipeline stage.
+sub RAK-PIPE-VALUE-FOR(&routine, Mu \v) is raw is implementation-detail {
+    RAK-PIPE-VALUE(v, :reads(&routine.rak-reads))
+}
+
+# A topical routine called in command position: its words are allomorphs,
+# as in `<…>`, and its input the piped value, else the call site's $_.
+sub RAK-TOPICAL-CALL(&routine, **@args,
+  Mu :$stdin is raw = Rakudo::Internals::RakNoStdin, Mu :$topic is raw, :$piped
+) is raw is implementation-detail {
+    my $reads := nqp::can(&routine, 'rak-reads') ?? &routine.rak-reads !! Nil;
+    routine(|@args.map({ nqp::istype($_, Str) ?? val($_) !! $_ }),
+      :topic(RAK-TOPICAL-INPUT($stdin, $topic, :$reads)))
 }
 
 # A table's rows, or a lone hash as one row.
@@ -654,7 +690,9 @@ my sub rak-keys(Map:D $row) {
 sub RAK-TOPICAL(Str:D $name, *@args,
   Mu :$stdin is raw = Rakudo::Internals::RakNoStdin, Mu :$topic is raw, :$piped
 ) is implementation-detail {
-    my \input = RAK-TOPICAL-INPUT($stdin, $topic);
+    # The commands that need rows decode text piped into them as YAML.
+    my \input = RAK-TOPICAL-INPUT($stdin, $topic, :reads(
+      $name eq 'select' | 'reject' | 'sort-by' | 'get' ?? ('yaml',) !! Nil));
     my @a = @args.map(*.Str);
     my $lone = nqp::istype(input, Map) && nqp::isconcrete(input);
     given $name {
