@@ -35,7 +35,7 @@ The legacy frontend is `src/Perl6/*`. Upstream made RakuAST the default in
 November 2026, and rak follows.
 
 Inside the rak frontend, rak semantics stay off until something turns them on
-([ADR 0001](../docs/adr/0001-single-rak-gate.md)): a `.rak` file extension
+([ADR 0001](../docs/adr/0001-single-rak-gate.md)): a `.rak` or `.rakmod` file extension
 (`src/Perl6/Compiler.nqp` records the file name for this), or `RAKU_RAK_MODE=1`. A
 `.raku` file parsed by the rak frontend is still plain Raku.
 

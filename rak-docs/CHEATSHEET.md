@@ -15,13 +15,15 @@ holds unless a line below changes it. Words in **bold** are defined in
 | How | rak mode? |
 |---|---|
 | `./rak file.rak` | yes |
+| a `.rakmod` module `use`d under `./rak` | yes |
 | `./rak` (REPL), `./rak -e '…'`, stdin | yes. This is **irak**. |
 | any `file.rak`, run by `./rak` | yes |
 | `.raku`, `.rakumod`, `.pm6` files, even when run by `./rak` | no, plain Raku |
 | `RAKUDO_RAK_FRONTEND=1 RAKU_RAK_MODE=1 rakudo-m …` | same as `./rak` |
 
 The file extension decides. A file with no extension falls back to
-`RAKU_RAK_MODE`. Modules you `use` from a `.rak` file stay plain Raku.
+`RAKU_RAK_MODE`. A `.rakumod` module you `use` from a `.rak` file stays plain
+Raku; a `.rakmod` module is in rak mode, and only the rak frontend finds it.
 
 ### Environment variables
 

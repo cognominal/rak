@@ -58,9 +58,10 @@ Raku must not.
 ## Language
 
 <a id="rak-mode"></a>**rak mode**:
-The language mode a `.rak` source is compiled in, in which naked strings, the dotty
-subscript, the new sigils and redirection are available. A source with any other
-extension compiles as ordinary Raku, and the feature set must not leak into it.
+The language mode a `.rak` script or a `.rakmod` module is compiled in, in which naked
+strings, the dotty subscript, the new sigils and redirection are available. A source
+with any other extension compiles as ordinary Raku, and the feature set must not leak
+into it.
 _Avoid_: rak semantics, shell mode, extended Raku.
 
 <a id="plain-syntax"></a>**plain syntax**:

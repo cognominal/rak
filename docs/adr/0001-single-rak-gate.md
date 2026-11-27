@@ -27,6 +27,8 @@ the only boundary a reader can see.
   `docs/adr/0003-rak-keeps-its-own-grammar-and-actions.md` the fork must derive the same
   gate rather than hardcode it, so a `.rak` file that `use`s a `.rakumod` still does not
   drag the module into rak semantics.
+- A module is gated the same way: a `.rakmod` file is in rak mode, a `.rakumod` file is
+  not. Only the rak frontend looks for `.rakmod` files when resolving `use`.
 - `-e`, STDIN and the REPL have no file extension to read, so they fall back to
   `RAKU_RAK_MODE`, which the `rak` wrapper sets. That environment variable is the only
   place where rak mode comes from something other than the file name.

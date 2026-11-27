@@ -14,14 +14,16 @@ GLOSSARY.md.
 
 | How | rak mode? |
 |---|---|
-| [1m./rak file.rak[0m | yes |
-| [34m./rak[0m (REPL), [1m./rak -e '…'[0m, stdin | yes. This is [1mirak[0m. |
+| [1;32m./rak[0m file.rak | yes |
+| a [1m.rakmod[0m module [1muse[0md under [34m./rak[0m | yes |
+| [34m./rak[0m (REPL), [1;32m./rak[0m -e '…', stdin | yes. This is [1mirak[0m. |
 | any [1mfile.rak[0m, run by [34m./rak[0m | yes |
 | [1m.raku[0m, [1m.rakumod[0m, [1m.pm6[0m files, even when run by [34m./rak[0m | no, plain Raku |
 | [1mRAKUDO_RAK_FRONTEND=1 RAKU_RAK_MODE=1 rakudo-m …[0m | same as [34m./rak[0m |
 
 The file extension decides. A file with no extension falls back to
-[1mRAKU_RAK_MODE[0m. Modules you [1muse[0m from a [1m.rak[0m file stay plain Raku.
+[1mRAKU_RAK_MODE[0m. A [1m.rakumod[0m module you [1muse[0m from a [1m.rak[0m file stays plain
+Raku; a [1m.rakmod[0m module is in rak mode, and only the rak frontend finds it.
 
 [1mEnvironment variables[0m
 
@@ -361,7 +363,7 @@ set [1mIRAK_DEBUG[0m to keep it. After a submission fails, by an error or a no
 exit status, the next prompt is red.
 
 Before the first prompt, irak runs your startup file, [34m~/.config/rak/init.rak[0m: its
-routines and variables are seen by every submission. [1m./rak --no-init[0m skips it. The
+routines and variables are seen by every submission. [1;32m./rak[0m --no-init skips it. The
 ↑ / ↓ history is in [34m~/.local/state/rak/history[0m. [1mXDG_CONFIG_HOME[0m and
 [1mXDG_STATE_HOME[0m move them, on every platform; irak creates both folders when missing.
 
