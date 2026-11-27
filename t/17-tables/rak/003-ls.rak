@@ -1,6 +1,6 @@
 use Test;
 
-plan 9;
+plan 24;
 
 # `ls`, a builtin that returns a table.
 
@@ -10,6 +10,7 @@ $dir->add('b.txt')->spurt('hello');
 $dir->add('a.md')->spurt('x' x 1500);
 $dir->add('.hidden')->spurt('');
 $dir->add('sub')->mkdir;
+$dir->add('sub/c.json')->spurt('{}');
 run 'ln', '-s', 'b.txt', ~$dir->add('lnk');
 cd $dir
 
@@ -23,6 +24,38 @@ isa-ok @l[0]<modified>, DateTime, 'modified is a DateTime';
 is (ls -a)->map(*<name>)->head, '.hidden', '-a keeps dot files';
 is (ls -l)[2]<target>, 'b.txt', '-l: a symlink target';
 is (ls '*.txt')->map(*<name>), <b.txt>, 'a glob';
+
+# nushell's other flags
+is (ls -l)[0]->keys,
+  <name type target readonly mode num_links inode user group size created accessed modified>,
+  '-l: the columns of nushell';
+is (ls sub)->map(*<name>), <sub/c.json>, 'names keep their path';
+is (ls -s sub)->map(*<name>), <c.json>, '-s: names only';
+is (ls -f 'a.md')->map(*<name>), ("$*CWD/a.md",), '-f: full paths';
+is (ls -f 'sub/../a.md')->map(*<name>), ("$*CWD/a.md",), '-f: `..` resolved';
+is (ls -s -f sub)->map(*<name>), <c.json>, '-s wins over -f';
+is (ls -D sub)->map(*<name>), <sub>, '-D: the directory itself';
+is (ls -d)->first({ $_<name> eq 'sub' })<size>->Int, (ls -D sub)[0]<size>->Int + 2,
+  '-d: a directory is the size of it and all it holds';
+is (ls -m)->map(*<type>), <text/markdown text/plain symlink dir>,
+  '-m: MIME types for files, by name';
+is (ls --threads --all)->map(*<name>), (ls -a)->map(*<name>), '-t is accepted';
+dies-ok { ls -x }, 'an unknown flag dies';
+
+my $help = '';
+{
+    my $*OUT = class { method print(*@a) { $help ~= @a->join }; method t { False } }->new;
+    is (ls -h), Nil, '-h returns Nil';
+}
+ok $help->contains("Flags:\n  -h, --help: "), '-h: nushell-style flags, plain off a terminal';
+ok $help->contains("  ...pattern <oneof<glob, string>>: The glob pattern to use."),
+  '-h: the parameters';
+my $colored = Rakudo::Internals::RakTable->help(
+  %(description => 'd', usage => 'u', flags => (('a', 'all', 'All.'),),
+    examples => ('E.' => 'ls -a | get name',)), :color);
+ok $colored->contains("\e[32mFlags\e[0m:\n  \e[36m-a\e[0m\e[39m,\e[0m \e[36m--all\e[0m: All.")
+  && $colored->contains("> \e[36;1mls\e[0m \e[34;1m-a\e[0m \e[35;1m|\e[0m \e[36;1mget\e[0m"),
+  "on a terminal, nushell's help colors";
 
 cd /
 run 'rm', '-rf', ~$dir;

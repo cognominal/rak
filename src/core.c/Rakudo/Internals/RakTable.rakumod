@@ -61,7 +61,14 @@ my class Rakudo::Internals::RakTable is implementation-detail {
     method default-config() {
         ordered((
           'table' => (mode => 'rounded', index_mode => 'always'),
-          'color_config' => (header => 'green_bold', row_index => 'green_bold'),
+          'color_config' => (
+            header => 'green_bold', row_index => 'green_bold',
+            # the shapes a command's help is drawn with, as nushell's help
+            shape_string => 'green', shape_external => 'cyan',
+            shape_block => 'blue_bold', shape_internalcall => 'cyan_bold',
+            shape_flag => 'blue_bold', shape_globpattern => 'cyan_bold',
+            shape_pipe => 'purple_bold',
+          ),
           'filesize' => (unit => 'metric', precision => 1),
           'datetime_format' => (normal => Any, table => Any),
           'commands' => Rakudo::Internals::RakCatalog.load,
@@ -287,6 +294,81 @@ my class Rakudo::Internals::RakTable is implementation-detail {
             @codes.unshift: $_ with rgb($s, 38);
         }
         @codes ?? "\e[{@codes.join(';')}m" !! Nil
+    }
+
+    # --- help ---------------------------------------------------------------
+
+    # A command's help, laid out and colored as nushell's (nu-engine's
+    # documentation.rs): section names in shape_string, flags and parameter
+    # names in shape_external, types in shape_block, the examples
+    # highlighted by shape. %doc holds
+    #   description  search-terms  usage  type (`built-in`)
+    #   flags        Lists of short, long, description
+    #   parameters   Lists of name, type, description (`...name` for a rest)
+    #   io           Pairs of input => output
+    #   examples     Pairs of description => code
+    method help(%doc, :$color --> Str:D) {
+        my sub sgr-of(Str:D $shape, Str:D $default) {
+            $color ?? (self.sgr(self.setting('color_config', $shape) // $default) // '')
+                   !! ''
+        }
+        my $reset   = $color ?? "\e[0m"  !! '';
+        my $plain   = $color ?? "\e[39m" !! '';
+        my $section = sgr-of('shape_string',   'green');
+        my $one     = sgr-of('shape_external', 'cyan');
+        my $two     = sgr-of('shape_block',    'blue_bold');
+        my sub head(Str:D $name) { "$section$name$reset:" }
+
+        my @out = %doc<description>, '';
+        @out.push: head('Search terms') ~ " {$one}{%doc<search-terms>.join(', ')}$reset", ''
+          if %doc<search-terms>;
+        @out.push: head('Usage'), "  > %doc<usage> ";
+        if %doc<flags> -> @flags {
+            @out.push: '', head('Flags');
+            for @flags -> ($short, $long, $desc) {
+                @out.push: '  ' ~ ($short ?? "$one-$short$reset" !! '')
+                  ~ ($short && $long ?? "$plain,$reset " !! '')
+                  ~ ($long ?? "$one--$long$reset" !! '') ~ ": $desc";
+            }
+        }
+        @out.push: '', head('Command Type'), "  > {%doc<type> // 'built-in'}";
+        if %doc<parameters> -> @params {
+            @out.push: '', head('Parameters');
+            for @params -> ($name, $type, $desc) {
+                my $rest = $name.starts-with('...') ?? '...' !! '';
+                @out.push: "  {$rest}{$one}{$name.substr($rest.chars)}$reset"
+                  ~ " <$two$type$reset>: $desc";
+            }
+        }
+        if %doc<io> -> @io {
+            @out.push: '', head('Input/output types');
+            my @rows = @io.map({ my %r is Hash::Ordered = input => .key, output => .value; %r });
+            @out.append: self.render(@rows, :$color).lines.map({ "  $_" });
+        }
+        if %doc<examples> -> @examples {
+            @out.push: '', head('Examples');
+            for @examples {
+                @out.push: "  {.key}", "  > {self!highlight-example(.value, :$color)}", '';
+            }
+        }
+        @out.join("\n").subst(/\n+ $/, '') ~ "\n"
+    }
+
+    # An example as nushell highlights it, by shape: the command, its flags,
+    # its arguments, the pipes between commands.
+    method !highlight-example(Str:D $code, :$color --> Str:D) {
+        return $code unless $color;
+        my sub paint(Str:D $text, Str:D $shape, Str:D $default) {
+            (self.sgr(self.setting('color_config', $shape) // $default) // '')
+              ~ $text ~ "\e[0m"
+        }
+        my $command = True;
+        $code.split(/\s+/, :skip-empty).map({
+            when '|'               { $command = True; paint($_, 'shape_pipe', 'purple_bold') }
+            when $command          { $command = False; paint($_, 'shape_internalcall', 'cyan_bold') }
+            when /^ '-' <[\w-]> /  { paint($_, 'shape_flag', 'blue_bold') }
+            default                { paint($_, 'shape_globpattern', 'cyan_bold') }
+        }).join(' ')
     }
 
     # --- the grid -----------------------------------------------------------
@@ -515,25 +597,124 @@ my sub rak-mode-text(Int:D $mode) {
     (8, 7 ... 0).map({ $mode +& (1 +< $_) ?? @c[(8 - $_) % 3] !! '-' }).join
 }
 
+# `ls` takes nushell's flags (rak-plans/features/tables.md#ls); `ls -h`
+# shows this, as nushell's `ls -h` does.
+my constant RAK-LS-DOC = %(
+  description => 'List the filenames, sizes, and modification times of items in a directory.',
+  search-terms => ('dir',),
+  usage => 'ls {flags} ...(pattern)',
+  flags => (
+    ('h', 'help',        'Display the help message for this command'),
+    ('a', 'all',         'Show hidden files.'),
+    ('l', 'long',        'Get all available columns for each entry (slower; columns are platform-dependent).'),
+    ('s', 'short-names', 'Only print the file names, and not the path.'),
+    ('f', 'full-paths',  'Display paths as absolute paths.'),
+    ('d', 'du',          'Display the apparent directory size ("disk usage") in place of the directory metadata size.'),
+    ('D', 'directory',   'List the specified directory itself instead of its contents.'),
+    ('m', 'mime-type',   q[Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined).]),
+    ('t', 'threads',     'Accepted for nushell; rak lists in one thread.'),
+  ),
+  parameters => (('...pattern', 'oneof<glob, string>', 'The glob pattern to use.'),),
+  io => (nothing => 'table',),
+  examples => (
+    'List visible files in the current directory.' => 'ls',
+    'List visible files in a subdirectory.' => 'ls subdir',
+    'List visible files with full path in the parent directory.' => 'ls -f ..',
+    'List Rust files.' => 'ls *.rs',
+    'List the names (not paths) of the entries of a subdirectory.' => 'ls -s subdir | get name',
+    'List a directory itself instead of its contents.' => 'ls -D subdir',
+  ),
+);
+
+# The MIME types `ls -m` gives, by extension: those nushell gives, then
+# /etc/mime.types for the others.
+my constant RAK-MIME-TYPES = %(
+  '7z' => 'application/x-7z-compressed', bz2 => 'application/x-bzip2',
+  c => 'text/plain', conf => 'text/plain', cpp => 'text/plain', css => 'text/css',
+  csv => 'text/csv', gif => 'image/gif', gz => 'application/gzip', h => 'text/plain',
+  htm => 'text/html', html => 'text/html', ico => 'image/x-icon', ini => 'text/plain',
+  jpeg => 'image/jpeg', jpg => 'image/jpeg', js => 'text/javascript',
+  json => 'application/json', log => 'text/plain', md => 'text/markdown',
+  mp3 => 'audio/mpeg', mp4 => 'video/mp4', ogg => 'audio/ogg',
+  pdf => 'application/pdf', pl => 'application/x-perl', pm => 'application/x-perl',
+  png => 'image/png', py => 'text/plain', rs => 'text/x-rust', sh => 'application/x-sh',
+  svg => 'image/svg+xml', t => 'application/x-troff', tar => 'application/x-tar',
+  tgz => 'application/x-compressed', toml => 'text/x-toml',
+  tsv => 'text/tab-separated-values', ttf => 'font/ttf', txt => 'text/plain',
+  wasm => 'application/wasm', wav => 'audio/wav', webp => 'image/webp',
+  woff => 'application/font-woff', woff2 => 'font/woff2', xml => 'text/xml',
+  xz => 'application/x-xz', yaml => 'text/x-yaml', yml => 'text/x-yaml',
+  zip => 'application/zip',
+);
+my %RAK-SYSTEM-MIME;
+my sub rak-mime-type(Str:D $name --> Str:D) {
+    my $base = $name.substr(($name.rindex('/') // -1) + 1);
+    my $dot  = $base.rindex('.') // return 'unknown';
+    return 'unknown' if $dot == 0;
+    my $ext = $base.substr($dot + 1).lc;
+    RAK-MIME-TYPES{$ext} // do {
+        %RAK-SYSTEM-MIME ||= %(
+          (try '/etc/mime.types'.IO.lines.map({
+              my @w = .split(/\s+/, :skip-empty);
+              |@w.skip.map(* => @w[0]) if @w > 1 && !@w[0].starts-with('#')
+          })) // (), '' => ''
+        );
+        %RAK-SYSTEM-MIME{$ext} || 'unknown'
+    }
+}
+
+# $path made absolute, with `.` and `..` resolved without reading links
+my sub rak-full-path(Str:D $path --> Str:D) {
+    my @parts;
+    for ($path.starts-with('/') ?? $path !! "$*CWD/$path").split('/') {
+        when '' | '.' { }
+        when '..'     { @parts.pop }
+        default       { @parts.push: $_ }
+    }
+    '/' ~ @parts.join('/')
+}
+
+# The size of $path and of everything under it, links not followed
+my sub rak-du(Str:D $path --> Int:D) {
+    my str $p = $path;
+    my Int $size = nqp::lstat($p, nqp::const::STAT_FILESIZE);
+    if nqp::lstat($p, nqp::const::STAT_ISDIR) == 1
+      && nqp::lstat($p, nqp::const::STAT_ISLNK) == 0 {
+        $size += rak-du(~$_) for (try dir($path)) // ();
+    }
+    $size
+}
+
 # `ls`: a table of the entries of each path, a glob in the last component
-# matching names. `-a` keeps dot files, `-l` adds mode, user, group, target.
+# matching names.
 sub RAK-LS(*@args, *%) is implementation-detail {
-    my $all  = False;
-    my $long = False;
+    my ($all, $long, $short, $full, $du, $itself, $mime) = False xx 7;
+    my sub flag(Str:D $f, Str:D $shown) {
+        given $f {
+            when 'h' | 'help' {
+                print Rakudo::Internals::RakTable.help(RAK-LS-DOC, :color(?(try $*OUT.t)));
+                return 'help'
+            }
+            when 'a' | 'all'         { $all    = True }
+            when 'l' | 'long'        { $long   = True }
+            when 's' | 'short-names' { $short  = True }
+            when 'f' | 'full-paths'  { $full   = True }
+            when 'd' | 'du'          { $du     = True }
+            when 'D' | 'directory'   { $itself = True }
+            when 'm' | 'mime-type'   { $mime   = True }
+            when 't' | 'threads'     { }
+            default { X::Rak::Table.new(:command<ls>, :reason("unknown option $shown")).throw }
+        }
+        ''
+    }
     my @paths;
     for @args.map(*.Str) -> $a {
         if $a.starts-with('--') && $a.chars > 2 {
-            given $a {
-                when '--all'  { $all  = True }
-                when '--long' { $long = True }
-                default { X::Rak::Table.new(:command<ls>, :reason("unknown option $a")).throw }
-            }
+            return Nil if flag($a.substr(2), $a) eq 'help';
         }
         elsif $a.starts-with('-') && $a.chars > 1 {
             for $a.substr(1).comb {
-                when 'a' { $all  = True }
-                when 'l' { $long = True }
-                default { X::Rak::Table.new(:command<ls>, :reason("unknown option -$_")).throw }
+                return Nil if flag($_, "-$_") eq 'help';
             }
         }
         else { @paths.push: $a }
@@ -574,36 +755,51 @@ sub RAK-LS(*@args, *%) is implementation-detail {
               .grep({ glob-match($base, $_) })
               .map({ $dir eq '.' && !$p.starts-with('./') ?? $_ !! "$dir$_" });
         }
-        elsif nqp::lstat(nqp::unbox_s($p), nqp::const::STAT_ISDIR) == 1
+        elsif !nqp::lstat(nqp::unbox_s($p), nqp::const::STAT_EXISTS) {
+            # lstat's other questions die on a missing path
+            X::Rak::Table.new(:command<ls>, :reason("$p: no such file or directory")).throw;
+        }
+        elsif !$itself
+          && nqp::lstat(nqp::unbox_s($p), nqp::const::STAT_ISDIR) == 1
           && nqp::lstat(nqp::unbox_s($p), nqp::const::STAT_ISLNK) == 0 {
             @names.append: entries($p).grep({ $all || !.starts-with('.') })
               .map({ join-path($p, $_) });
         }
-        elsif nqp::lstat(nqp::unbox_s($p), nqp::const::STAT_EXISTS)
-          || nqp::lstat(nqp::unbox_s($p), nqp::const::STAT_ISLNK) {
-            @names.push: $p;
-        }
         else {
-            X::Rak::Table.new(:command<ls>, :reason("$p: no such file or directory")).throw;
+            @names.push: $p;
         }
     }
 
+    my sub time(str $n, int $which) {
+        my $t := try nqp::lstat_time($n, $which);
+        $t.defined && $t > 0 ?? DateTime.new(Instant.from-posix($t)).local !! Nil
+    }
     @names.sort.map(-> $name {
         my str $n = $name;
         my $link  = nqp::lstat($n, nqp::const::STAT_ISLNK) == 1;
+        my $isdir = !$link && nqp::lstat($n, nqp::const::STAT_ISDIR) == 1;
         my %row is Hash::Ordered;
-        %row<name> = $name;
-        %row<type> = $link ?? 'symlink'
-          !! nqp::lstat($n, nqp::const::STAT_ISDIR) == 1 ?? 'dir' !! 'file';
-        %row<size> = Rakudo::Internals::RakFilesize.new(nqp::lstat($n, nqp::const::STAT_FILESIZE));
-        %row<modified> = DateTime.new(
-          Instant.from-posix(nqp::lstat_time($n, nqp::const::STAT_MODIFYTIME))).local;
+        %row<name> = $short ?? $name.subst(/ '/'+ $/, '').subst(/^ .* '/' /, '')
+          !! $full ?? rak-full-path($name) !! $name;
+        %row<type> = $link ?? 'symlink' !! $isdir ?? 'dir'
+          !! $mime ?? rak-mime-type($name) !! 'file';
+        my $mode = nqp::lstat($n, nqp::const::STAT_PLATFORM_MODE);
         if $long {
-            %row<mode>  = rak-mode-text(nqp::lstat($n, nqp::const::STAT_PLATFORM_MODE));
-            %row<user>  = RAK-ID-NAME('/etc/passwd', nqp::lstat($n, nqp::const::STAT_UID));
-            %row<group> = RAK-ID-NAME('/etc/group', nqp::lstat($n, nqp::const::STAT_GID));
-            %row<target> = $link ?? nqp::readlink($n) !! Nil;
+            %row<target>    = $link ?? nqp::readlink($n) !! Nil;
+            %row<readonly>  = !($mode +& 0o222);
+            %row<mode>      = rak-mode-text($mode);
+            %row<num_links> = nqp::lstat($n, nqp::const::STAT_PLATFORM_NLINKS);
+            %row<inode>     = nqp::lstat($n, nqp::const::STAT_PLATFORM_INODE);
+            %row<user>      = RAK-ID-NAME('/etc/passwd', nqp::lstat($n, nqp::const::STAT_UID));
+            %row<group>     = RAK-ID-NAME('/etc/group', nqp::lstat($n, nqp::const::STAT_GID));
         }
+        %row<size> = Rakudo::Internals::RakFilesize.new(
+          $du && $isdir ?? rak-du($name) !! nqp::lstat($n, nqp::const::STAT_FILESIZE));
+        if $long {
+            %row<created>  = time($n, nqp::const::STAT_CREATETIME);
+            %row<accessed> = time($n, nqp::const::STAT_ACCESSTIME);
+        }
+        %row<modified> = time($n, nqp::const::STAT_MODIFYTIME);
         %row
     }).Array
 }

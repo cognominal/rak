@@ -146,8 +146,28 @@ A builtin that returns a table, one row per entry, sorted by name. `^ls` still r
 GNU ls.
 
 - Columns `name type size modified`; `type` is `file`, `dir` or `symlink`.
-- Arguments: paths and globs; `-a` includes dot files; `-l` adds
-  `mode user group target`.
+- Arguments: paths and globs, and nushell's flags, short or long:
+  - `-a`, `--all`: dot files too.
+  - `-l`, `--long`: nushell's columns, `name type target readonly mode num_links
+    inode user group size created accessed modified`.
+  - `-s`, `--short-names`: the name without its path. It wins over `-f`.
+  - `-f`, `--full-paths`: the absolute path, `.` and `..` resolved without
+    reading links.
+  - `-d`, `--du`: a directory's size is that of all it holds, itself included,
+    links not followed (as nushell counts it).
+  - `-D`, `--directory`: a directory argument is listed itself, not its entries.
+  - `-m`, `--mime-type`: a file's `type` is its MIME type, from its extension:
+    nushell's for the common ones, else `/etc/mime.types`, else `unknown`.
+  - `-t`, `--threads`: accepted, but rak lists in one thread.
+  - `-h`, `--help`: prints the help and returns `Nil`. It has nushell's sections
+    (search terms, usage, flags, command type, parameters, input/output types,
+    examples) and, on a terminal, nushell's colors, taken from `color_config`'s
+    shapes: section names `shape_string`, flags and parameters `shape_external`,
+    types `shape_block`, and in the examples the command `shape_internalcall`, flags
+    `shape_flag`, arguments `shape_globpattern` and pipes `shape_pipe`.
+    `RakTable.help` draws it from a hash, ready for other builtins.
+
+  Any other flag dies with `unknown option`.
 
 ## Settings
 
