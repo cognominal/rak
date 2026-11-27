@@ -376,9 +376,10 @@ Keys of irak's line editor:
 - Ctrl-R opens `atuin search` with the line as its query; the entry you pick
   replaces the line, and ENTER runs it. It does nothing when atuin is not on
   `PATH` or `RAKUDO_DISABLE_ATUIN` is set.
-- TAB completes the selector or `->` method under the cursor. One candidate is
-  inserted at once; several open fzf, which previews the value each one leads
-  to. Esc leaves the line as it was.
+- TAB completes the selector, `->` method or file path under the cursor. A
+  command's argument, a word after `<` or `>`, and a word with a `/` are paths.
+  One candidate is inserted at once; several open fzf, which previews the value
+  each one leads to, or the file. Esc leaves the line as it was.
 - Alt-b and Alt-f move by word, Alt-d deletes a word forward. The other keys are
   the usual shell ones.
 

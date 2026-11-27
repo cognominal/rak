@@ -4,7 +4,7 @@ use Test;
 # cursor, the dotty chain that leads to its subject, the candidates, the
 # YAML previews, and a session where a fake `fzf` makes the choice.
 
-plan 46;
+plan 58;
 
 my $e = REPL::Completions::Engine.new;
 
@@ -209,6 +209,55 @@ SKIP: {
 
     $out = session([$topic, ".kXYZ\e[D\e[D\e[D\t"], 'key1', :until(*.&printed(1)));
     ok printed($out, 1), 'the rest of the selector right of the cursor is replaced';
+}
+
+# File paths
+{
+    my $d = $root.add('paths');
+    $d.add('src/deep').mkdir;
+    $d.add('.hidden').mkdir;
+    $d.add('a b.md').spurt: '';
+    $d.add('notes.txt').spurt: "hello\nworld\n";
+    $d.add('src/x.rak').spurt: '';
+    $d.add('blob').spurt: Blob.new(0, 1, 2);
+    my &cmd = -> $w { $w eq 'ls' | 'cat' };
+    my sub path(Str:D $marked) {
+        my $pos  = $marked.index('█');
+        $e.path-site($marked.subst('█', ''), $pos, :is-command(&cmd))
+    }
+    my sub texts(Str:D $prefix) {
+        ($e.path-candidates($prefix)<items> // ()).map(*<text>).List
+    }
+    my $p = "$d/";
+
+    is-deeply (path('ls src/x█')<from to prefix command>), (3, 8, 'src/x', True),
+      "a command's argument is a path";
+    nok path('say no█'), 'a word that is no argument of a command is no path…';
+    ok path('say ./no█'), '… unless it contains a `/`';
+    ok path('my $x <no█'), '… or follows `<`';
+    nok path('ls -l█'), 'a flag is no path';
+    nok path('ls $x█'), 'nor a variable';
+    is-deeply path('ls no█ more')<to>, 5, 'the word right of the cursor is replaced';
+    is-deeply texts($p), ("{$p}a b.md".raku.subst('"', "'", :g), "{$p}blob", "{$p}notes.txt", "{$p}src/"),
+      'the entries: directories end in `/`, odd names are quoted, hidden ones left out';
+    is-deeply texts("{$p}."), ("{$p}.hidden/",), 'hidden entries once a `.` is typed';
+    my %items = $e.path-candidates($p)<items>.map({ .<text> => .<preview> });
+    is %items{"{$p}notes.txt"}, "hello\nworld", "a text file's preview is its first lines";
+    is %items{"{$p}src/"}, "deep\nx.rak", "a directory's preview is its entries";
+}
+
+my $paths = $root.add('paths-session');
+$paths.mkdir;
+$paths.add('only-one.txt').spurt: "pathok\n";
+
+PATHS: {
+    unless $script && $editor {
+        skip 'script(1) and Terminal::LineEditor are needed for a session', 1;
+        last PATHS;
+    }
+    my $out = session(["cat $paths/on\t\r"], '', :until(*.contains("pathok\n")));
+    ok $out.contains("pathok\n") && !$log.e,
+      "`cat dir/on` TAB: the one file is inserted, and cat runs on it";
 }
 
 # The real fzf, without its interface

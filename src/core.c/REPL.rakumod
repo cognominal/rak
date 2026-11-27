@@ -742,6 +742,14 @@ do {
         # the dotty chain left of them leads to, never by running code.
         method irak-completion(Str:D $line, Int:D $pos) {
             my $engine := REPL::Completions::Engine.new;
+            # A path: a command's argument comes first, since `ls .gi` is
+            # no selector; other paths come after selectors and methods.
+            my $path = $engine.path-site($line, $pos, :is-command(&irak-is-command));
+            my sub path-completion() {
+                my $c = $engine.path-candidates($path<prefix>) or return Nil;
+                Map.new: (|$path, |$c, from => $path<from>, to => $path<to>)
+            }
+            return path-completion() if $path && $path<command>;
             with $engine.selector-site($line, $pos) -> $site {
                 my \subject = self!irak-chain($engine, $site);
                 return Nil if nqp::istype(subject, Nil);
@@ -755,6 +763,7 @@ do {
                 return Map.new: (|$site,
                   |$engine.method-candidates(subject, $site<prefix>));
             }
+            return path-completion() if $path;
             # Other positions: the words the REPL already knows, without a
             # preview. In rak mode a word after `.` is a selector, never a
             # method: a selector that selector-site rejected gets nothing.
@@ -823,6 +832,18 @@ do {
             my $choice = $proc.out.slurp(:close);
             return Nil unless $proc.exitcode == 0;
             $choice ~~ /^ (\d+) \t / ?? +$0 !! Nil
+        }
+
+        # Whether a word in command position names a command: a rak
+        # builtin, or an executable on $PATH (as the Rak grammar decides).
+        sub irak-is-command(Str:D $name --> Bool:D) {
+            return True if $name eq any(<ls cd type>)
+              || (CORE::{"&RAK-BUILTIN-$name"}:exists);
+            return False if $name.contains('/');
+            so (%*ENV<PATH> // '').split(':').first({
+                my $f = ($_ || '.').IO.add($name);
+                $f.e && !$f.d
+            })
         }
 
         # irak: the REPL of the rak frontend (see GLOSSARY.md).

@@ -338,6 +338,81 @@ class REPL::Completions::Engine {
                   root => $chain<root>, steps => $chain<steps>)
     }
 
+    # The file path under the cursor: Nil, or a Map with from, to (the
+    # word's range), prefix (what is typed before the cursor) and command
+    # (whether the word is a command's argument). A word is a path when it
+    # follows `<` or `>` (a load or a redirection), contains a `/` or starts
+    # with `~`, or is an argument of a command, one for which &is-command is
+    # true. A word starting with a sigil or `-` is no path.
+    method path-site(Str:D $line, Int:D $cursor, :&is-command = -> $ { False }) {
+        my $before = $line.substr(0, $cursor);
+        return Nil if self.is-comment-at-cursor($before);
+        $before ~~ / $<w>=[ <-[\s ; | ( ) { } < > ' "]>* ] $ / or return Nil;
+        my $from   = $/.from;
+        my $prefix = ~$<w>;
+        my $to     = $cursor + ($line.substr($cursor) ~~ /^ <-[\s ; | ( ) { } < > ' "]>* /).chars;
+        return Nil if $prefix ~~ /^ <[$@%&\-^]> /;
+        my $left    = $before.substr(0, $from);
+        # The statement's first word: after the last `;`, `|`, `(` or `{`.
+        my $stmt    = ($left ~~ / <-[; | ( {]>* $ /).Str;
+        my $first   = ($stmt ~~ /^ \h* '^'? $<c>=[ <[\w\-./]>+ ] \h /) ?? ~$<c> !! '';
+        my $command = so $first && is-command($first);
+        return Nil unless $command
+          || $left ~~ / <[<>]> $ /
+          || $prefix.contains('/') || $prefix.starts-with('~');
+        Map.new: (:$from, :$to, :$prefix, :$command)
+    }
+
+    # The entries a path prefix may complete to: a Map of header and items
+    # (text and preview), Nil when the directory cannot be read. Directories
+    # end in `/`; hidden entries only show once a `.` is typed; a name that
+    # a naked word cannot hold is quoted.
+    method path-candidates(Str:D $prefix, Int :$max = 200) {
+        my $slash = $prefix.rindex('/');
+        my $dir   = $slash.defined ?? $prefix.substr(0, $slash + 1) !! '';
+        my $base  = $slash.defined ?? $prefix.substr($slash + 1) !! $prefix;
+        if !$slash.defined && $prefix.starts-with('~') {
+            return Nil;     # `~user` is not completed
+        }
+        my $real = $dir.starts-with('~/') ?? $*HOME.add($dir.substr(2)).Str !! $dir;
+        my $io   = ($real || '.').IO;
+        return Nil unless $io.d;
+        my @names = (try $io.dir(:test({ $_ ne '.' && $_ ne '..' }))) // return Nil;
+        @names .= map(*.basename);
+        @names .= grep({ .starts-with($base) && ($base.starts-with('.') || !.starts-with('.')) });
+        @names .= sort;
+        my $n = @names.elems;
+        my @items = @names.head($max).map(-> $name {
+            my $path = $io.add($name);
+            my $d    = so try $path.d;
+            my $word = $dir ~ $name ~ ($d ?? '/' !! '');
+            Map.new: (
+              text    => $word ~~ /^ <[\w . / ~ + , @ % : = \-]>+ $/ ?? $word
+                           !! "'" ~ $word.subst("'", "\\'", :g) ~ "'",
+              preview => self.path-preview($path, $d),
+            )
+        }).List;
+        my $where = $dir || './';
+        Map.new: (items => @items,
+          header => "$where · $n {$n == 1 ?? 'entry' !! 'entries'}"
+            ~ ($n > $max ?? " · showing $max" !! ''))
+    }
+
+    # What fzf previews for a path: a directory's entries, a text file's
+    # first lines, or the size of another file.
+    method path-preview(IO::Path:D $path, Bool:D $dir --> Str:D) {
+        return (try $path.dir.map(*.basename).sort.head(100).join("\n")) // '<unreadable>'
+          if $dir;
+        my $fh = (try $path.open(:bin)) // return '<unreadable>';
+        my $blob = $fh.read(8192);
+        $fh.close;
+        my $text = $blob.elems && !$blob.list.first(0).defined
+          ?? (try $blob.decode('utf8-c8')) !! Nil;
+        $text.defined
+          ?? $text.lines.head(60).join("\n")
+          !! "binary file, {(try $path.s) // '?'} bytes"
+    }
+
     # A value whose elements must not be enumerated: undefined, lazy, or a
     # Seq that enumerating would use up
     method opaque(Mu \v --> Bool:D) {

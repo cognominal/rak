@@ -1,7 +1,7 @@
 # Completion: TAB in irak
 
-Status: WIP — selectors and `->` methods are implemented; other positions still use
-the old word completion, through fzf. Replaces the "Navigating data with TAB and
+Status: WIP — selectors, `->` methods and file paths are implemented; other
+positions still use the old word completion, through fzf. Replaces the "Navigating data with TAB and
 SHIFT-TAB" design formerly in [irak.md](irak.md).
 
 At the [irak prompt](../../GLOSSARY.md#irak-prompt), TAB completes the word under the
@@ -70,6 +70,43 @@ irak's `IrakEditor` role binds TAB to its own action, as it does for Ctrl-R.
   element.
 - **Missing fzf.** TAB says `irak: fzf not found`. There is no cycling fallback.
 
+## Completing a file path
+
+```
+ls sr█           TAB  →  src/
+cat src/█        TAB  →  fzf lists src/x.rak, src/deep/, …
+my $d <data/c█   TAB  →  data/config.yaml
+```
+
+### When a word is a path
+
+The word under the cursor runs back to whitespace, `;`, `|`, a bracket, a quote, `<` or
+`>`. It is a path when:
+
+- it is an argument of a command: the statement's first word (after the last `;`, `|`,
+  `(` or `{`) is `ls`, `cd`, `type`, a rak builtin such as `get`, or an executable on
+  `PATH`, with or without `^`;
+- it follows `<` or `>`: a [load](../../GLOSSARY.md#load) or a redirection;
+- it contains a `/` or starts with `~/`.
+
+A word that starts with a sigil, `-` or `^` is never a path, so `ls -l` and `ls $x`
+get no files. A command's argument is a path before anything else, since `ls .gi`
+names a file, not a selector of the topic. The other cases come after selectors and
+`->` methods.
+
+### The candidates
+
+- **Entries.** The entries of the directory typed so far (the current one when no `/`
+  is typed) whose name starts with the rest. `~/` is the home directory, and stays
+  `~/` in the line.
+- **Directories** end in `/`, so a second TAB goes inside.
+- **Hidden entries** only show once the name starts with `.`.
+- **Quoting.** A path that a naked word cannot hold (`a b.md`) is inserted quoted:
+  `'a b.md'`.
+- **Limit and header.** At most 200, with a header such as `src/ · 3 entries`.
+- **Previews.** A directory shows its entries, a text file its first 60 lines, a
+  binary file its size.
+
 ## Other positions
 
 Every TAB goes through fzf, one position at a time after selectors:
@@ -78,10 +115,10 @@ Every TAB goes through fzf, one position at a time after selectors:
    their signatures. The subject is found as for selectors.
 2. **Variables, identifiers, `use` and types,** which `REPL-COMPLETIONS.rakumod`
    already recognises.
-3. **Commands and their arguments** in the
+3. **Command names** in the
    [shell strategy](../../GLOSSARY.md#shell-strategy): aliases, routines, builtins and
-   `$PATH`, then file paths, then
-   [redirection targets](../../GLOSSARY.md#redirection-target).
+   `$PATH`. Their arguments and
+   [redirection targets](../../GLOSSARY.md#redirection-target) are file paths, above.
 
 ## Scope
 
