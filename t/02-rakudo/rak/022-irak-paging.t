@@ -10,7 +10,7 @@ use Test;
 my $script = run(<sh -c>, 'command -v script', :out, :err).out.slurp(:close).trim;
 plan :skip-all('script(1) is needed to give the REPL a tty') unless $script;
 
-plan 14;
+plan 15;
 
 my $paged = $*TMPDIR.add("irak-paged-$*PID.txt");
 
@@ -67,3 +67,8 @@ $out = session :pager(''), 'for ^8 { say $_ }', '!p';
 like $out, /'for ^8 { say $_ }' \n '0' \n [\d \n]+ '7' \n/,
   'an empty RAK_PAGER turns paging off';
 like $out, /'!p' \n 'irak: paging is off'/, '!p says paging is off';
+
+# A table's summary skips its top border for its header row.
+$out = session :pager('cat > /dev/null'), 'ls';
+like $out, /"\e[2mtable · " \d+ ' lines' <-[\n]>* \n <-[\n╭]>*? '│'/,
+  "a table's summary starts at its header, not its top border";

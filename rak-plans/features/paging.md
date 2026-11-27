@@ -35,11 +35,13 @@ JSON · 112 lines · 5.3 kB
   nothing while it waits, such as a load from a slow URL, is still paged when long.
 - **The summary.** Line 1, dimmed: `<format> · <N> lines · <size>`. The format is `JSON`
   for the formatter's output, the value's type when irak shows a value, else what
-  `file -b` says about the text. Line 2: the text from its first non-blank line,
-  folded on one line: each line break shows as a dimmed `\n`, and the lines after the
+  `file -b` says about the text. Line 2: the text from its first line that is
+  neither blank nor only box drawing (so a table starts at its header row, past its
+  top border), folded on one line: each line break shows as a dimmed `\n`, and the lines after the
   first lose their indentation. It is cut at 80 columns, or the terminal's width when
   narrower, colors kept, ending in `…` when cut.
 - **`!p`** pages the last output again, whether it was paged or not. With paging off, it
   says so.
-- **Errors** are printed in full, never paged, after the output. **`$*ERR`** (warnings,
-  `note`) is not held: it stays live and on screen.
+- **Errors** are printed after the output, never paged (without their backtrace unless
+  `IRAK_DEBUG` is set). **`$*ERR`** (warnings, `note`) is not held: it stays live and
+  on screen.

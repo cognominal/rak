@@ -560,7 +560,8 @@ do {
         }
 
         # Line 1, dimmed: format, lines, size. Line 2: the text from its
-        # first line that is not blank, folded on one line, colors kept: each
+        # first line that is neither blank nor only box drawing (a table's
+        # top border: its header row says more), folded on one line, colors kept: each
         # line break is a dimmed \n, and the lines after the first lose their
         # indentation. It stops at 80 columns, or the terminal's width.
         method summary(Str:D $text, $format --> Str:D) {
@@ -568,7 +569,9 @@ do {
             my $n     = $plain.lines.elems;
             my $width = min 80, terminal-size()[1];
             my @lines = $text.lines;
-            my $from  = @lines.first({ plain($_).trim.chars }, :k) // 0;
+            my $from  = @lines.first({
+                plain($_) ~~ / <-[\s \x[2500]..\x[257F]]> /
+            }, :k) // 0;
             my $fold  = @lines[$from ..^ min(@lines.elems, $from + $width)]
               .map({ $++ ?? .subst(/^ \h+/, '') !! $_ })
               .join("\e[2m\\n\e[22m");
