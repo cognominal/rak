@@ -421,6 +421,16 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         nqp::isconcrete($file) ?? $file !! ''
     }
 
+    # Is this the source name of a rak file: a .rak script or a .rakmod module?
+    # A module compiled for loading is named "<path> (<Name>)".
+    method rak-source-file(str $file) {
+        my int $paren := nqp::rindex($file, " (");
+        $file := nqp::substr($file, 0, $paren) if $paren > 0 && nqp::eqat($file, ")", nqp::chars($file) - 1);
+        my int $n := nqp::chars($file);
+        ($n >= 4 && nqp::eqat($file, ".rak", $n - 4))
+          || ($n >= 7 && nqp::eqat($file, ".rakmod", $n - 7))
+    }
+
     # Is this the source name of a module? Installed modules are named like
     # "vendor#sources/<id> (Name)"; others by their .rakumod / .pm6 / .pm path.
     method rak-module-file(str $file) {
@@ -442,8 +452,8 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         # Be ready to report locations in the source.
         $*ORIGIN-SOURCE := Nodify('Origin::Source').new(:orig($/.target()));
 
-        # Set the .rak extension gate: source files ending in .rak get
-        # rak semantics (new sigils, dotty sugar, redirection, naked strings,
+        # Set the .rak extension gate: source files ending in .rak or .rakmod
+        # get rak semantics (new sigils, dotty sugar, redirection, naked strings,
         # etc.). Every other extension (.raku, .rakumod, .pm6, .nqp, or
         # -e/STDIN with no filename) keeps today's behavior exactly, unless
         # RAKU_RAK_MODE=1 is set (REPL use via the `rak` executable).
@@ -452,8 +462,7 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         my int $is-real-file := $name-len
           && !nqp::eqat($source-name, '-', 0);
 
-        my int $is-rak := $name-len >= 4
-          && nqp::eqat($source-name, '.rak', $name-len - 4);
+        my int $is-rak := self.rak-source-file($source-name);
 
         if $is-rak {
             $*RAK-SEMANTICS := 1;
@@ -469,7 +478,7 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
             my str $caller := self.rak-caller-file(%*OPTIONS<outer_ctx>);
             my int $caller-len := nqp::chars($caller);
             $*RAK-SEMANTICS :=
-                $caller-len >= 4 && nqp::eqat($caller, '.rak', $caller-len - 4) ?? 1
+                self.rak-source-file($caller)                                 ?? 1
              !! nqp::existskey(nqp::getenvhash(), 'RAKUDO_PRECOMP_WITH')     ?? 0
              !! self.rak-module-file($caller)                               ?? 0
              !! 1;

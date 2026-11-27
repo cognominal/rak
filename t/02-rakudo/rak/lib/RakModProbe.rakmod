@@ -1,0 +1,11 @@
+# Used by 034-rakmod.rak: a .rakmod module is compiled in rak mode.
+unit module RakModProbe;
+
+sub words(*@args) { @args }
+
+sub naked() is export { words(foo bar)->join(',') }
+
+sub dotty() is export { my %h = a => 42; %h.a }
+
+# Code a .rakmod module EVALs is rak too.
+sub evaled() is export { EVAL 'my %h = b => 7; %h.b' }

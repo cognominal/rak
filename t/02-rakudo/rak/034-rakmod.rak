@@ -1,0 +1,11 @@
+use Test;
+use lib $?FILE->IO->parent->add('lib');
+use RakModProbe;
+
+plan 3;
+
+# `use` finds a .rakmod module and compiles it in rak mode, as a .rak file.
+
+is naked(),  'foo,bar', 'naked strings in a .rakmod module';
+is dotty(),  42,        'dotty subscript in a .rakmod module';
+is evaled(), 7,         'EVAL in a .rakmod module is rak';

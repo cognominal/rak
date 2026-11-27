@@ -27,7 +27,10 @@ class CompUnit::Repository::FileSystem
         else {
             @!extensions := nqp::getcomp('Raku').language_revision < 3
               ?? <rakumod pm6 pm>
-              !! <rakumod pm6>
+              !! <rakumod pm6>;
+            # Under the rak frontend, a .rakmod file is a rak module.
+            @!extensions := (@!extensions.head, "rakmod", |@!extensions.skip).List
+              if nqp::atkey(nqp::getenvhash(),"RAKUDO_RAK_FRONTEND");
         }
     }
 
