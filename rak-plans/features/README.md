@@ -7,9 +7,9 @@ directory and is included here.
 - **WIP** — implemented, or partly implemented, on the branch; the document names the
   missing parts. No version has been released yet.
 - **TBD** — not implemented and not assigned to a version. The plan is
-  [ROADMAP.md](../../ROADMAP.md).
+  [ROADMAP.md](../ROADMAP.md).
 - **PLANNED <version>** — not implemented; scheduled for that rak version in
-  [ROADMAP.md](../../ROADMAP.md).
+  [ROADMAP.md](../ROADMAP.md).
 - **NEEDSPEC** — the specification is incomplete or inconsistent; the document names the
   open questions. It can be combined with another status, most often with PLANNED.
 

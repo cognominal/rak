@@ -1,7 +1,7 @@
 # Cutting a rak release
 
 rak versions are its own, `0.0.1` and up, unrelated to Rakudo's `2026.11`-style
-versions (see [ROADMAP.md](../../ROADMAP.md) for what each version is meant to hold).
+versions (see [ROADMAP.md](../ROADMAP.md) for what each version is meant to hold).
 A release is a `vVERSION` git tag, a GitHub release with a self-contained source
 tarball, and the `rak` package in [`packaging/aur/rak/`](../../packaging/aur/rak/),
 which builds from that tarball. Releases before 0.1 are GitHub *pre-releases*, and the
@@ -68,7 +68,7 @@ installs the tree as `/usr/lib/rak`.
 
 1. Set `RAK_VERSION`, and `pkgver` in `packaging/aur/rak/PKGBUILD`.
 2. Write the release notes, `rak-docs/releases/VERSION.md`, and update
-   [ROADMAP.md](../../ROADMAP.md) and [status.md](../status.md).
+   [ROADMAP.md](../ROADMAP.md) and [status.md](../status.md).
 3. Check: `make rak-test`, and `make test` against the previous baseline.
 4. Commit, then tag: `git tag -a vVERSION -m 'rak VERSION'`.
 5. Make the tarball: `tools/build/rak-dist.sh VERSION OUTDIR`.

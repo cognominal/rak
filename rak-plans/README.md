@@ -10,6 +10,7 @@ Build and test instructions are in `CLAUDE.md`.
 
 - [Status](status.md): what is implemented, what is planned, cleanup still to do.
 - [Unsettled](unsettled.md): the open design questions, at a glance.
+- [Roadmap](ROADMAP.md): the planned versions and what each is meant to hold.
 - [Architectural note](architectural-note.md): how rak differs from Rakudo, what it
   changes and adds, and what it depends on outside Raku and Rakudo Star.
 
