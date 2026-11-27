@@ -106,3 +106,33 @@ gh api repos/rakudo/rakudo | .stargazers_count
 - The raw text comes back with a `to-text` stage, which joins the lines:
   `gh api repos/rakudo/rakudo | to-text`. `^cmd` keeps its one meaning, the external
   command rather than a builtin or routine of that name, and still uses the catalog.
+
+## TBD: commands whose flags pick the format
+
+`gh` shows that one entry per command is not enough. `gh api` emits JSON, but most of
+`gh` prints text for a human unless given a flag:
+
+- `--json fields` emits JSON (`gh repo view`, `repo list`, `pr list`, `issue list`…).
+- `-q`/`--jq expr` filters that JSON with jq, so it emits what jq prints, often lines.
+- `-t`/`--template string` formats it with a Go template, so it emits text.
+- `gh api -i` prints the HTTP headers before the body, so it emits text.
+
+The flag rules above cannot say this yet. Three proposals, not settled:
+
+- A flag with any value: `--json *` matches `--json name,url` and `--json=name`.
+- Several flags given (`--json name --jq .name`): the flag that comes later in the
+  entry wins, so `--jq` and `--template` are listed after `--json`.
+- Both `gh` and `gh api` match `gh api …`: only the entry with the most words applies;
+  it replaces the shorter one rather than merging with it.
+
+With them, a single `gh` entry would cover the subcommands:
+
+```yaml
+gh:
+  flags: {--json *: {emits: json}, -q *: {emits: lines}, --jq *: {emits: lines},
+          -t *: {emits: text}, --template *: {emits: text}}
+gh api:
+  emits: json
+  flags: {-q *: {emits: lines}, --jq *: {emits: lines}, -t *: {emits: text},
+          --template *: {emits: text}, -i: {emits: text}, --include: {emits: text}}
+```
