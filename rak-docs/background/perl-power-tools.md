@@ -10,7 +10,7 @@ the *shell* into the language, and commands become optional.
 |---|---|---|
 | **What is reimplemented** | The commands (`cat`, `ls`, `grep`…), one script each | The shell: words, pipes, redirections, aliases, as syntax of the language |
 | **Unit of reuse** | A process: run `cat` from `$PATH` | A routine, method or block called in-process; external commands remain possible stages |
-| **Who owns the pipe** | The host shell (`sh`, `cmd.exe`) | rak: `\|` is the [pipe](../../GLOSSARY.md#pipe) in the [shell strategy](../../GLOSSARY.md#shell-strategy) |
+| **Who owns the pipe** | The host shell (`sh`, `cmd.exe`) | rak: `\|` is the [pipe](../../GLOSSARY.md#pipe) in [shell syntax](../../GLOSSARY.md#shell-syntax) |
 | **Data between stages** | Bytes and lines, parsed again by every program | Typed values (lazy `Seq` or `Supply`); bytes only where a stage is an external command |
 | **Redirection** | The host shell's, moving bytes | In the language, and format-aware: `@a >a.json`, `my %h <h.json` |
 | **Goal** | Portability: wherever Perl runs, Unix's tools run | Expressivity: a shell's brevity and a language's power in one statement |

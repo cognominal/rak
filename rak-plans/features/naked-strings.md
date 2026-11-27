@@ -3,7 +3,7 @@
 A [naked string](../../GLOSSARY.md#naked-string) is an unquoted word that denotes a string
 literal. The glossary gives the exact rule and the
 [cheat sheet](../../rak-docs/CHEATSHEET.md#words-routine-calls-and-naked-strings) shows it in use.
-Naked strings work in both the standard and the shell strategy.
+Naked strings work in both plain and shell syntax.
 
 Status: WIP, NEEDSPEC — implemented for words; escapes, interpolation and globbing are
 planned, and the interpolation rule is open.
@@ -40,7 +40,7 @@ the result visible.
 - **Interpolation.** A naked string should interpolate variables, possibly subscripted:
   `https://api.github.com/users/$user`. Which characters end such a variable is an open
   question (see [URL targets](url-targets.md)).
-- **Globbing.** `ls *.rak` should expand in both strategies.
+- **Globbing.** `ls *.rak` should expand in both syntaxes.
 - **Compile-time warnings.** A `sub` or `alias` added earlier in the file can still turn
   a naked string into a call, so the compiler should warn when a word that was a string
   in one place becomes a call in a later one.

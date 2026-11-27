@@ -4,7 +4,7 @@ Status: WIP.
 
 [Pipelines](../../GLOSSARY.md#pipeline) in rak and irak: Unix pipes between
 [commands](commands.md), and pipes à la jq between rak stages, mixed freely. The
-background is in [strategies](strategies.md#pipes-a-stage-can-still-be-a-command).
+background is in [syntaxes](syntaxes.md#pipes-a-stage-can-still-be-a-command).
 
 ```rak
 git log --format=%an | ^sort | ^uniq -c    # all commands: a plain Unix pipe
@@ -26,7 +26,7 @@ get name`, `@rows->head(3) | select name`. A junction with a command word on the
 right is written `$x | foo()` or `any($x, foo)`. Everywhere else `|` keeps its Raku
 meanings, and `|@a` is a slip.
 
-Any other expression starts a pipeline with `|-`, the pipe the standard strategy
+Any other expression starts a pipeline with `|-`, the pipe plain syntax
 cannot spell `|`: `[ 'b', 'c' ] |- ->elems` is 2.
 
 - `|-` must have whitespace on both sides. It is the loosest operator: `say $x |-

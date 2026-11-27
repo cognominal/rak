@@ -18,7 +18,7 @@ Build and test instructions are in `CLAUDE.md`.
 The per-feature status and one-line definitions are in
 [features/README.md](features/README.md).
 
-- [The standard and shell strategies](features/strategies.md): commands, pipes, `type`.
+- [Plain and shell syntax](features/syntaxes.md): commands, pipes, `type`.
 - [Naked strings](features/naked-strings.md): unquoted words as strings.
 - [Spacing as syntax](features/spacing.md): spacing tells operators from redirections.
 - [Indentation as syntax](features/indentation.md): indentation in place of braces.

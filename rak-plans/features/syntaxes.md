@@ -1,25 +1,25 @@
-# The standard and shell strategies
+# Plain and shell syntax
 
 In [rak mode](../../GLOSSARY.md#rak-mode), every statement or parenthesized group parses in
-one of two strategies:
+one of two syntaxes:
 
-- the [standard strategy](../../GLOSSARY.md#standard-strategy): Raku syntax, plus naked
+- [plain syntax](../../GLOSSARY.md#plain-syntax): Raku syntax, plus naked
   strings, dotty subscripts, the new sigils and redirection;
-- the [shell strategy](../../GLOSSARY.md#shell-strategy): a command line, in which the first
+- [shell syntax](../../GLOSSARY.md#shell-syntax): a command line, in which the first
   word names what to run and the words after it are its arguments.
 
-The strategy is recognized per statement or parenthesized group, so one statement can mix
-both. Naked strings, globbing and redirection work in both. The shell strategy takes the
+The syntax is chosen per statement or parenthesized group, so one statement can mix
+both. Naked strings, globbing and redirection work in both. Shell syntax takes the
 slot that Raku reports as the error "two terms in a row", so no valid Raku program changes
 meaning.
 
-Status: WIP, NEEDSPEC — the standard strategy is implemented, and so are
+Status: WIP, NEEDSPEC — plain syntax is implemented, and so are
 [commands](commands.md), [pipelines](pipelines.md) and [aliases](aliases.md); the open
 questions below remain.
 
 ## Running commands
 
-In the shell strategy, a command runs without spelling out `run`, `shell`, `fork` or
+In shell syntax, a command runs without spelling out `run`, `shell`, `fork` or
 `exec`, as in any Unix shell:
 
 ```rak
@@ -57,9 +57,9 @@ lazy `Seq` (or a `Supply` when the stream is asynchronous), so pipelines stream 
 of collecting everything first. Raku's feed operators (`==>`) already point in this
 direction.
 
-In the shell strategy, `|` is the [pipe](../../GLOSSARY.md#pipe). In the standard strategy
+In shell syntax, `|` is the [pipe](../../GLOSSARY.md#pipe). In plain syntax
 it keeps its Raku meanings, the `any` junction (`1 | 2`) and the slip (`|@a`). Unlike `>`
-and `<`, spacing can't separate the two uses, so the strategy decides.
+and `<`, spacing can't separate the two uses, so the syntax decides.
 
 ```rak
 git log --format=%an | ^sort | ^uniq -c  # all commands: a plain Unix pipe
@@ -100,10 +100,10 @@ rak's `type` also reports rak routines, builtins and methods.
 - **Name resolution.** Settled in [aliases](aliases.md): keyword, alias, rak routine,
   builtin, `$PATH`, as `type` shows. Whether rak's own builtins are Raku routines or
   something else is still open.
-- **Choosing the strategy, and quoting.** scsh, psh, xonsh, Oil/YSH, PowerShell and
-  Nushell all ran into these two problems. rak chooses between the strategies per
+- **Choosing the syntax, and quoting.** scsh, psh, xonsh, Oil/YSH, PowerShell and
+  Nushell all ran into these two problems. rak chooses between the syntaxes per
   statement or parenthesized group, with explicit escapes (`\(`). This is the area to
   test most thoroughly.
 - **Calling a routine with no arguments.** A bare word that names a known routine calls
   it; a word that names nothing known is a naked string. Whether a routine *must* be
-  called with parentheses in the shell strategy, to tell it from a command, is undecided.
+  called with parentheses in shell syntax, to tell it from a command, is undecided.

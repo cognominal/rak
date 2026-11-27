@@ -116,7 +116,7 @@ Every TAB goes through fzf, one position at a time after selectors:
 2. **Variables, identifiers, `use` and types,** which `REPL-COMPLETIONS.rakumod`
    already recognises.
 3. **Command names** in the
-   [shell strategy](../../GLOSSARY.md#shell-strategy): aliases, routines, builtins and
+   [shell syntax](../../GLOSSARY.md#shell-syntax): aliases, routines, builtins and
    `$PATH`. Their arguments and
    [redirection targets](../../GLOSSARY.md#redirection-target) are file paths, above.
 

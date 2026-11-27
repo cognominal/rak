@@ -35,12 +35,12 @@ Raku must not.
 [pipe](#pipe) ·
 [pipeline](#pipeline) ·
 [pipeline stage](#pipeline-stage) ·
+[plain syntax](#plain-syntax) ·
 [rak mode](#rak-mode) ·
 [redirection](#redirection) ·
 [redirection target](#redirection-target) ·
 [selector](#selector) ·
-[shell strategy](#shell-strategy) ·
-[standard strategy](#standard-strategy) ·
+[shell syntax](#shell-syntax) ·
 [startup file](#startup-file) ·
 [table](#table) ·
 [tag](#tag) ·
@@ -63,21 +63,21 @@ subscript, the new sigils and redirection are available. A source with any other
 extension compiles as ordinary Raku, and the feature set must not leak into it.
 _Avoid_: rak semantics, shell mode, extended Raku.
 
-<a id="standard-strategy"></a>**standard strategy**:
-The default way a statement parses in rak mode: Raku syntax, plus naked strings, the
+<a id="plain-syntax"></a>**plain syntax**:
+The default way a statement parses in rak mode: Raku syntax plus naked strings, the
 dotty subscript, the new sigils and redirection. Where rak mode is chosen per source
-file, a strategy is chosen per statement or parenthesized group.
-_Avoid_: standard mode, normal mode, Raku mode.
+file, plain or shell syntax is chosen per statement or parenthesized group.
+_Avoid_: standard strategy, standard mode, normal mode, Raku syntax.
 
-<a id="shell-strategy"></a>**shell strategy**:
+<a id="shell-syntax"></a>**shell syntax**:
 The way a statement or parenthesized group parses when it reads as a command line: the
 first word names what to run (an alias, a routine, a builtin or an external command)
 and the words after it are its arguments. It takes the slot that Raku reports as the
 error "two terms in a row", so no valid Raku program changes meaning.
-_Avoid_: shell mode, command mode.
+_Avoid_: shell strategy, shell mode, command mode.
 
 <a id="command"></a>**command**:
-What the first word of a shell-strategy statement names: a rak routine, a builtin or an
+What the first word of a shell-syntax statement names: a rak routine, a builtin or an
 external command. A word on its own at statement level that names an external
 command is a command, not a naked string. A rak name wins over an external command of
 the same name.
@@ -117,7 +117,7 @@ _Avoid_: return code, error code.
 <a id="irak"></a>**irak**:
 An interactive rak session: the execution context in which rak evaluates statements with
 no source file (REPL, `-e`, standard input). An execution context, not a mode: its
-statements still parse in the standard or shell strategy. Pronounced "eye-rak".
+statements still parse in plain or shell syntax. Pronounced "eye-rak".
 _Avoid_: interactive mode, irak mode, REPL mode.
 
 <a id="irak-prompt"></a>**irak prompt**:
@@ -277,9 +277,9 @@ stream is asynchronous.
 _Avoid_: filter, step, command (for a rak stage).
 
 <a id="pipe"></a>**pipe**:
-The operator joining two pipeline stages, spelled `|` in the shell strategy. In the
-standard strategy, `|` keeps its Raku meanings (the `any` junction infix, the slip
-prefix), so the strategy, not spacing, decides what `|` is; there the pipe is
+The operator joining two pipeline stages, spelled `|` in shell syntax. In plain
+syntax, `|` keeps its Raku meanings (the `any` junction infix, the slip
+prefix), so the syntax, not spacing, decides what `|` is; there the pipe is
 spelled `|-`. Values pass between
 rak stages unchanged; where an external command meets a rak stage, bytes become lines
 (or decoded values when a format is given) and values become text (or are encoded in a

@@ -2,7 +2,7 @@ use Test;
 
 plan 10;
 
-# `|-`: the pipe after any expression, where the standard strategy keeps `|`
+# `|-`: the pipe after any expression, where plain syntax keeps `|`
 # a junction.
 
 is ([ 'b', 'c' ] |- ->elems), 2, 'an array literal starts a pipeline';

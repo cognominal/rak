@@ -37,7 +37,7 @@ and its status line says which.
 | [The new sigils](sigils.md) | `~` and `#`: native `str` and `int`, no boxing. | WIP, NEEDSPEC |
 | [Spacing](spacing.md) | Spacing tells operators from redirections. | WIP |
 | [The startup file](startup-file.md) | `init.rak`, and rak's XDG config and state folders. | WIP |
-| [Strategies](strategies.md) | The standard and shell strategies, and how a statement is read. | WIP, NEEDSPEC |
+| [Syntaxes](syntaxes.md) | Plain and shell syntax, and how a statement is read. | WIP, NEEDSPEC |
 | [YAML](yaml.md) | YAML loads and targets, with nushell's tags for typed values. | WIP |
 | [Tables](tables.md) | Lists of hashes shown as grids; `ls`, filesizes, `select`. | WIP |
 | [Tree expressions](tree-exprs.md) | A multi-line expression's layout is its tree. | TBD, NEEDSPEC |

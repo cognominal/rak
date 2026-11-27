@@ -7,8 +7,8 @@ Status: needs-triage
 parenthesized command can be an argument of another command, the way `$(…)` is in a
 POSIX shell.
 
-**Today:** in the shell strategy, `(` cannot start an argument (`rak-piece` excludes
-`(` and `)`), so the statement falls back to the standard strategy and fails:
+**Today:** in shell syntax, `(` cannot start an argument (`rak-piece` excludes
+`(` and `)`), so the statement falls back to plain syntax and fails:
 
 ```
 $ ./rak -e 'cd (echo /tmp)'
@@ -25,7 +25,7 @@ spelling. The same goes for `vim (fzf)`, `cd (git rev-parse --show-toplevel)`.
 
 **Open points:**
 - Is `(…)` in argument position a captured command, a rak expression, or both (decided
-  by the strategy of what is inside, as at statement level)?
+  by the syntax of what is inside, as at statement level)?
 - Does `(…)` glued to other text interpolate, as `foo-(date +%F).log`?
 - Depends on 04: without trimming, `cd (echo /tmp)` would get `"/tmp\n"`.
 

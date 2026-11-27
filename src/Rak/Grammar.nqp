@@ -2345,7 +2345,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     # Pipelines (.rak syntax), see rak-plans/features/pipelines.md. A statement is
     # a pipeline when it starts with a command, a load or a leading dotty
     # subscript and has a spaced `|` on its line; `|` is then the pipe. Any
-    # expression starts one before `|-`, the pipe the standard strategy
+    # expression starts one before `|-`, the pipe plain syntax
     # cannot spell `|`: `['b', 'c'] |- ->elems`.
     token rak-pipeline {
         :my $*RAK-PIPE := 1;
@@ -2448,7 +2448,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     # What a word in command position names, in rak's lookup order: a
     # keyword, an alias, a rak routine, a builtin, then $PATH
     # (rak-plans/features/aliases.md). A rak routine is no command: it is
-    # called in the standard strategy.
+    # called in plain syntax.
     method rak-is-command($name) {
         return 0 if nqp::existskey(self.rak-keywords, $name);
         return 1 if nqp::isconcrete(self.rak-alias-words($name));

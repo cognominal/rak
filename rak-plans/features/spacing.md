@@ -23,7 +23,7 @@ spaced unary token is read as binary.
 
 Perl could not have had redirection syntax, because `>` and `<` were already comparison
 operators. In [rak mode](../../GLOSSARY.md#rak-mode), spacing decides. The
-[shell strategy](../../GLOSSARY.md#shell-strategy) takes the slot that Raku reports as the
+[shell syntax](../../GLOSSARY.md#shell-syntax) takes the slot that Raku reports as the
 error "two terms in a row", so adding it breaks no valid Raku program.
 
 ## Spacing and precedence

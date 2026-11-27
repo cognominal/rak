@@ -46,7 +46,7 @@ it shortens what the conversation uses most.
 | `my %h = from-json slurp 'f.json'` | `my %h <f.json` | load |
 
 Planned huffs include one-letter variables without sigils, indentation
-in place of braces, and pipes in the shell strategy.
+in place of braces, and pipes in shell syntax.
 
 ## What huffing costs
 

@@ -40,7 +40,7 @@ signatures, data structures), and it uses syntax to settle the conflicts between
 - [naked strings](../rak-plans/features/naked-strings.md) let words be strings without Perl's
   `strict 'subs'` trap;
 - [spacing](../rak-plans/features/spacing.md) tells redirection from comparison;
-- the [standard and shell strategies](../rak-plans/features/strategies.md) let a statement be Raku or a
+- [plain and shell syntax](../rak-plans/features/syntaxes.md) let a statement be Raku or a
   command line, and pipes mix commands with rak stages;
 - [redirection](../rak-plans/features/redirection.md) moves typed values, not only bytes, and
   [URL targets](../rak-plans/features/url-targets.md) extend it to the web;
@@ -70,8 +70,8 @@ rak follows Larry Wall in borrowing mechanisms from natural language, in a very 
 setting. Where possible, concision wins over regularity: the language is harder to learn,
 but no less expressive. Concision comes from [huffing](background/huffing.md): giving
 frequent constructs short spellings. Natural languages have registers, spoken and written,
-the written one being more formal; rak's shell and standard strategies play the same
-roles, and the interactive shell strategy is the spoken one. The full argument is in
+the written one being more formal; rak's shell and plain syntaxes play the same
+roles, and interactive shell syntax is the spoken one. The full argument is in
 [Larry Wall, natural language and pragmatics](background/larry-wall.md).
 
 ## Related implementations

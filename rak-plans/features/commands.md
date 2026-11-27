@@ -3,7 +3,7 @@
 Status: WIP.
 
 Running [commands](../../GLOSSARY.md#command) in rak and irak, through the
-[shell strategy](../../GLOSSARY.md#shell-strategy). Commands joined by pipes are
+[shell syntax](../../GLOSSARY.md#shell-syntax). Commands joined by pipes are
 [pipelines](pipelines.md).
 
 ## What runs
@@ -85,7 +85,7 @@ Globbing, environment assignments (`FOO=1 cmd`), `pushd` and `popd`.
 ## Implementation notes
 
 - Grammar and actions in `src/Rak/*` only; plain Raku is unchanged.
-- The shell strategy takes the "two terms in a row" slot; a lone word becomes a command
+- Shell syntax takes the "two terms in a row" slot; a lone word becomes a command
   when it names a `$PATH` program at compile time: when a `.rak` file is compiled, and
   in irak when each submission is compiled.
 - The program to run is looked up on `$PATH` again when the statement runs.
