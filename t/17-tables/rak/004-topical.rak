@@ -1,6 +1,6 @@
 use Test;
 
-plan 13;
+plan 17;
 
 # Topical commands: alone they work on $_, in a pipeline on the piped value.
 
@@ -23,3 +23,19 @@ is (select n | drop 1 | get n), <a b>, 'a longer pipeline';
     sub get($x) { "mine $x" }
     is (get n), 'mine n', 'a routine the program declares beats the builtin';
 }
+
+{
+    sub select($x) is topical { "topical $x of {+$_}" }
+    is (select n), 'topical n of 3', 'so does a topical routine of that name';
+}
+
+{
+    sub no-input { select n }           # a sub's own $_ is undefined
+    throws-like { no-input }, X::Rak::Table,
+      message => 'select: no input (nothing piped, and $_ is undefined)',
+      'an undefined $_ is an error naming the command';
+}
+
+is (type sort-by), ('sort-by is a shell builtin',), 'type: a builtin';
+throws-like 'get', X::Rak::Table, message => /'get: needs a column'/,
+  'the builtins keep their own errors';

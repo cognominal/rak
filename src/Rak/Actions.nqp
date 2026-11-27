@@ -2150,11 +2150,12 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
               ?? rak-call('RAK-LS-REDIRECTED', $capture, |@args, |@redirs, |@extra)
               !! rak-call('RAK-LS', |@args);
         }
-        elsif !$forced && $name ne 'ls' && nqp::existskey($/.rak-table-builtins, $name) {
-            # A topical command: the piped value, else $_.
+        elsif !$forced && $/.rak-is-builtin($name) {
+            # A builtin topical command, the setting's &RAK-BUILTIN-name.
             $/.panic("$name cannot be redirected") if nqp::elems(@redirs);
-            $ast := rak-call('RAK-TOPICAL', Nodify('StrLiteral').new($name), |@args,
-              |@extra, Nodify('ColonPair::Value').new(:key('topic'),
+            $ast := rak-call('RAK-TOPICAL-CALL',
+              Nodify('Var::Lexical').new('&RAK-BUILTIN-' ~ $name),
+              |@args, |@extra, Nodify('ColonPair::Value').new(:key('topic'),
                 :value(Nodify('Var::Lexical').new('$_'))));
         }
         elsif !$forced && $name eq 'type' {

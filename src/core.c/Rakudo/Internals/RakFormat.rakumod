@@ -1181,7 +1181,8 @@ sub RAK-TYPE(@names, @known, $capture, @aliases = ()) is implementation-detail {
         my $before = +@lines;
         @lines.push: "$name is aliased to `@aliases[$i]'" if @aliases[$i];
         @lines.push: "$name is a rak routine" if @known[$i];
-        @lines.push: "$name is a shell builtin" if $name eq 'cd' | 'type';
+        @lines.push: "$name is a shell builtin"
+          if $name eq 'cd' | 'type' | 'ls' || ::("&RAK-BUILTIN-$name") !~~ Failure;
         for $*SPEC.path -> $dir {
             my $p = $dir.IO.add($name);
             @lines.push: "$name is $p" if $p.f && $p.x;

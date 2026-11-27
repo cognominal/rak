@@ -32,8 +32,8 @@ type ll                     # ll is aliased to `ls -l', then ll's other meanings
   declared twice in one scope; an inner block can hide it.
 - **Where it applies.** A word in command position: the start of a statement, of a
   `(…)` group, or of a pipe stage. `name(…)`, `&name` and `^name` never see aliases.
-- **Lookup order** of such a word: keyword, alias, rak routine, builtin (`cd`, `type`),
-  `$PATH`. Keywords cannot be aliased, nor be an alias's first word: `alias a=alias`
+- **Lookup order** of such a word: keyword, alias, rak routine, builtin (`cd`, `type`, `ls`,
+  the [topical commands](tables.md#topical-commands)), `$PATH`. Keywords cannot be aliased, nor be an alias's first word: `alias a=alias`
   and `alias a=if x` are compile errors. An alias hides a routine of the same name.
 - **Expansion.** The alias's first word is looked up where the alias is used, by the
   same order, without that alias: `alias ls=ls -1` runs the routine or `$PATH` program

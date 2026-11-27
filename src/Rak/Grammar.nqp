@@ -2398,7 +2398,7 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     method rak-is-command($name) {
         return 0 if nqp::existskey(self.rak-keywords, $name);
         return 1 if nqp::isconcrete(self.rak-alias-words($name));
-        if nqp::existskey(self.rak-table-builtins, $name) {
+        if $name eq 'ls' || self.rak-is-builtin($name) {
             # A table builtin beats a setting routine of the same name
             # (`get`), not one the program declares.
             return 1 unless $*R.is-identifier-known($name)
@@ -2450,14 +2450,11 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
         1
     }
 
-    # `ls` and the topical commands (rak-plans/features/tables.md).
-    my %rak-table-builtins;
-    method rak-table-builtins() {
-        unless %rak-table-builtins {
-            %rak-table-builtins{$_} := 1
-              for <ls select reject drop sort-by get table into>;
-        }
-        %rak-table-builtins
+    # Whether the setting has the builtin topical command `name`: the routine
+    # `&RAK-BUILTIN-name` (rak-plans/features/tables.md#topical-commands).
+    method rak-is-builtin($name) {
+        nqp::isconcrete($*R.resolve-lexical-constant-in-setting('&RAK-BUILTIN-' ~ $name))
+          ?? 1 !! 0
     }
 
     # Whether &name here is the setting's own routine.

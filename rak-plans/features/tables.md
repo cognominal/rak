@@ -118,10 +118,12 @@ top(5, :topic(ls))              # outside command position
   ([command catalog](command-catalog.md#traits-for-rak-routines)) decodes YAML, and
   `is reads<json>` or `is reads<jsonl>` JSON.
 
-The builtins below are still wired into the compiler, not routines of the setting
-declared `is topical`; they act as if they were. `select`, `reject`, `sort-by` and
+The builtins below are routines of the setting declared `is topical`, seen only in
+rak: in plain Raku `get` is still the routine that reads a line. A routine the
+program declares hides a builtin of the same name. `select`, `reject`, `sort-by` and
 `get` need rows, so they read YAML: `^curl -s url/rows.yaml | select name` works.
-`drop`, `table` and `into` keep lines, so `^seq 5 | drop 2` drops lines.
+`drop`, `table` and `into` keep lines, so `^seq 5 | drop 2` drops lines. `type
+select` says `select is a shell builtin`.
 
 | Command | Does |
 |---|---|

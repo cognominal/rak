@@ -1,7 +1,6 @@
 # Tables (rak-plans/features/tables.md): a list of hashes shown as a grid, as
 # nushell does, the typed values its cells hold, and the builtins that make a
-# nushell-like `ls`: `ls`, the topical commands `select`, `reject`, `drop`,
-# `sort-by`, `get`, `table`, `into`. Settings come from `$*RAK-CONFIG`, which
+# nushell-like `ls`: `ls` and the builtin topical commands `RAK-BUILTIN-…`. Settings come from `$*RAK-CONFIG`, which
 # uses the names of nushell's `$env.config`.
 
 my class Rakudo::Internals::RakTable { ... }
@@ -624,9 +623,12 @@ sub RAK-LS-REDIRECTED($capture, *@args, *%redirs) is implementation-detail {
 }
 
 # The input of a topical command: what is piped into it, else the topic.
-sub RAK-TOPICAL-INPUT(Mu \stdin, Mu \topic, :$reads) is raw is implementation-detail {
+sub RAK-TOPICAL-INPUT(Mu \stdin, Mu \topic, :$reads, :$command) is raw is implementation-detail {
     my \v = nqp::eqaddr(stdin, Rakudo::Internals::RakNoStdin)
-      ?? topic
+      ?? (nqp::isconcrete(topic) || !$command
+           ?? topic
+           !! X::Rak::Table.new(:$command,
+                :reason('no input (nothing piped, and $_ is undefined)')).throw)
       !! RAK-PIPE-VALUE(stdin, :$reads);
     nqp::istype(v, Seq) ?? v.cache !! v<>
 }
@@ -664,7 +666,8 @@ sub RAK-TOPICAL-CALL(&routine, **@args,
 ) is raw is implementation-detail {
     my $reads := nqp::can(&routine, 'rak-reads') ?? &routine.rak-reads !! Nil;
     routine(|@args.map({ nqp::istype($_, Str) ?? val($_) !! $_ }),
-      :topic(RAK-TOPICAL-INPUT($stdin, $topic, :$reads)))
+      :topic(RAK-TOPICAL-INPUT($stdin, $topic, :$reads,
+        :command(&routine.name.subst(/^ 'RAK-BUILTIN-' /, '')))))
 }
 
 # A table's rows, or a lone hash as one row.
@@ -676,6 +679,9 @@ my sub rak-rows(Str:D $command, Mu \v) {
         !! X::Rak::Table.new(:$command, :reason("needs a table, got {v.^name}")).throw
 }
 
+# Whether the input is a lone hash: one row, given back as one.
+my sub rak-lone(Mu \v) { nqp::istype(v, Map) && nqp::isconcrete(v) }
+
 my sub rak-copy(Map:D $row, @keys) {
     my %h is Hash::Ordered;
     %h{$_} = $row{$_} for @keys;
@@ -686,95 +692,104 @@ my sub rak-keys(Map:D $row) {
     nqp::istype($row, Hash::Ordered) ?? $row.keys !! $row.keys.sort
 }
 
-# The topical commands (rak-plans/features/tables.md#topical-commands).
-sub RAK-TOPICAL(Str:D $name, *@args,
-  Mu :$stdin is raw = Rakudo::Internals::RakNoStdin, Mu :$topic is raw, :$piped
-) is implementation-detail {
-    # The commands that need rows decode text piped into them as YAML.
-    my \input = RAK-TOPICAL-INPUT($stdin, $topic, :reads(
-      $name eq 'select' | 'reject' | 'sort-by' | 'get' ?? ('yaml',) !! Nil));
+# The builtin topical commands (rak-plans/features/tables.md#topical-commands).
+# In rak mode a command word `name` finds `&RAK-BUILTIN-name` here, unless the
+# program declares a routine of that name; plain Raku never sees them. The
+# setting is no rak code, so each spells out the `:topic($_)` parameter that
+# `is topical` adds in rak.
+sub RAK-BUILTIN-select(*@columns, :topic($_) is raw)
+  is topical is reads<yaml> is implementation-detail {
+    my @a = @columns.map(*.Str);
+    my @rows = rak-rows('select', $_).map({ rak-copy($_, @a) });
+    rak-lone($_) ?? @rows[0] !! @rows
+}
+
+sub RAK-BUILTIN-reject(*@columns, :topic($_) is raw)
+  is topical is reads<yaml> is implementation-detail {
+    my @a = @columns.map(*.Str);
+    my @rows = rak-rows('reject', $_).map({ rak-copy($_, rak-keys($_).grep(* ∉ @a)) });
+    rak-lone($_) ?? @rows[0] !! @rows
+}
+
+sub RAK-BUILTIN-drop(*@args, :topic($_) is raw) is topical is implementation-detail {
     my @a = @args.map(*.Str);
-    my $lone = nqp::istype(input, Map) && nqp::isconcrete(input);
-    given $name {
-        when 'select' | 'reject' {
-            my @rows = rak-rows($name, input).map(-> $row {
-                rak-copy($row, $name eq 'select'
-                  ?? @a
-                  !! rak-keys($row).grep(* ∉ @a))
-            });
-            $lone ?? @rows[0] !! @rows
+    my @rows = rak-rows('drop', $_);
+    if @a && @a[0] eq 'column' {
+        my $n = (@a[1] // 1).Int;
+        my @columns = Rakudo::Internals::RakTable.columns(@rows);
+        my @keep = @columns.head(max 0, @columns - $n);
+        my @out = @rows.map(-> $row { rak-copy($row, @keep.grep({ $row{$_}:exists })) });
+        rak-lone($_) ?? @out[0] !! @out
+    }
+    else {
+        my $n = (@a[0] // 1).Int;
+        @rows.head(max 0, @rows - $n).Array
+    }
+}
+
+sub RAK-BUILTIN-sort-by(*@args, :topic($_) is raw)
+  is topical is reads<yaml> is implementation-detail {
+    my @a = @args.map(*.Str);
+    my $reverse = so @a.grep('-r' | '--reverse');
+    my @columns = @a.grep({ !.starts-with('-') });
+    X::Rak::Table.new(:command<sort-by>, :reason('needs a column')).throw unless @columns;
+    my @rows = rak-rows('sort-by', $_).sort(-> $x, $y {
+        [||] @columns.map(-> $c {
+            my \l = $x{$c};
+            my \r = $y{$c};
+            !l.defined && !r.defined ?? Same
+              !! !l.defined ?? More
+              !! !r.defined ?? Less
+              !! l cmp r
+        })
+    });
+    ($reverse ?? @rows.reverse !! @rows).Array
+}
+
+sub RAK-BUILTIN-get(*@args, :topic($_) is raw)
+  is topical is reads<yaml> is implementation-detail {
+    X::Rak::Table.new(:command<get>, :reason('needs a column')).throw unless @args;
+    my $c = @args[0].Str;
+    rak-lone($_) ?? $_{$c} !! rak-rows('get', $_).map({ .{$c} }).Array
+}
+
+sub RAK-BUILTIN-table(*@args, :topic($_) is raw) is topical is implementation-detail {
+    my @a = @args.map(*.Str);
+    my $width;
+    for @a.kv -> $i, $w {
+        $width = @a[$i + 1].Int if $w eq '-w' | '--width';
+    }
+    my @rows = rak-lone($_) ?? ($_,) !! rak-rows('table', $_);
+    Rakudo::Internals::RakTableText.from-rows(@rows, $width)
+}
+
+sub RAK-BUILTIN-into(*@args, :topic($input) is raw) is topical is implementation-detail {
+    my @a = @args.map(*.Str);
+    my $type = @a.shift
+      // X::Rak::Table.new(:command<into>, :reason('needs filesize, duration or datetime')).throw;
+    my &conv = do given $type {
+        when 'filesize' { -> \v { Rakudo::Internals::RakTable.to-filesize(v) } }
+        when 'duration' { -> \v { Rakudo::Internals::RakTable.to-duration(v) } }
+        when 'datetime' { -> \v { Rakudo::Internals::RakTable.to-datetime(v) } }
+        default {
+            X::Rak::Table.new(:command<into>, :reason("cannot convert into $type")).throw
         }
-        when 'drop' {
-            my @rows = rak-rows($name, input);
-            if @a && @a[0] eq 'column' {
-                my $n = (@a[1] // 1).Int;
-                my @columns = Rakudo::Internals::RakTable.columns(@rows);
-                my @keep = @columns.head(max 0, @columns - $n);
-                my @out = @rows.map({ rak-copy($_, @keep.grep(-> $k { .{$k}:exists })) });
-                $lone ?? @out[0] !! @out
+    };
+    my &opt = -> \v { nqp::isconcrete(v) ?? conv(v) !! v };
+    if @a {
+        my @rows = rak-rows("into $type", $input).map(-> $row {
+            my %h is Hash::Ordered;
+            for rak-keys($row) -> $k {
+                %h{$k} = $k ∈ @a ?? opt($row{$k}) !! $row{$k};
             }
-            else {
-                my $n = (@a[0] // 1).Int;
-                @rows.head(max 0, @rows - $n).Array
-            }
-        }
-        when 'sort-by' {
-            my $reverse = so @a.grep('-r' | '--reverse');
-            my @columns = @a.grep({ !.starts-with('-') });
-            X::Rak::Table.new(:command<sort-by>, :reason('needs a column')).throw unless @columns;
-            my @rows = rak-rows($name, input).sort(-> $x, $y {
-                [||] @columns.map(-> $c {
-                    my \l = $x{$c};
-                    my \r = $y{$c};
-                    !l.defined && !r.defined ?? Same
-                      !! !l.defined ?? More
-                      !! !r.defined ?? Less
-                      !! l cmp r
-                })
-            });
-            ($reverse ?? @rows.reverse !! @rows).Array
-        }
-        when 'get' {
-            X::Rak::Table.new(:command<get>, :reason('needs a column')).throw unless @a;
-            my $c = @a[0];
-            $lone ?? input{$c} !! rak-rows($name, input).map({ .{$c} }).Array
-        }
-        when 'table' {
-            my $width;
-            for @a.kv -> $i, $w {
-                $width = @a[$i + 1].Int if $w eq '-w' | '--width';
-            }
-            my @rows = $lone ?? (input,) !! rak-rows($name, input);
-            Rakudo::Internals::RakTableText.from-rows(@rows, $width)
-        }
-        when 'into' {
-            my $type = @a.shift
-              // X::Rak::Table.new(:command<into>, :reason('needs filesize, duration or datetime')).throw;
-            my &conv = do given $type {
-                when 'filesize' { -> \v { Rakudo::Internals::RakTable.to-filesize(v) } }
-                when 'duration' { -> \v { Rakudo::Internals::RakTable.to-duration(v) } }
-                when 'datetime' { -> \v { Rakudo::Internals::RakTable.to-datetime(v) } }
-                default {
-                    X::Rak::Table.new(:command<into>, :reason("cannot convert into $type")).throw
-                }
-            };
-            my &opt = -> \v { nqp::isconcrete(v) ?? conv(v) !! v };
-            if @a {
-                my @rows = rak-rows("into $type", input).map(-> $row {
-                    my %h is Hash::Ordered;
-                    for rak-keys($row) -> $k {
-                        %h{$k} = $k ∈ @a ?? opt($row{$k}) !! $row{$k};
-                    }
-                    %h
-                });
-                $lone ?? @rows[0] !! @rows
-            }
-            elsif nqp::istype(input, Positional) || nqp::istype(input, Iterable) && !nqp::istype(input, Str) {
-                input.list.map({ opt($_) }).Array
-            }
-            else {
-                conv(input)
-            }
-        }
+            %h
+        });
+        rak-lone($input) ?? @rows[0] !! @rows
+    }
+    elsif nqp::istype($input, Positional) || nqp::istype($input, Iterable) && !nqp::istype($input, Str) {
+        $input.list.map({ opt($_) }).Array
+    }
+    else {
+        conv($input)
     }
 }
