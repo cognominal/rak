@@ -8,6 +8,8 @@ language is, true to Larry Wall's
 [natural language principles](https://gist.github.com/uzluisf/9ef7a3ede109b32e15085a6beccfa7c4).
 Like Perl, rak finds "no shame in borrowing" from the shell, but
 [leaves behind more than it takes](https://www.perl.com/pub/1999/03/pm.html).
+irak lets me prototype rak; with its rich feedback (TBD), it will let users learn rak
+interactively.
 See [CHEATSHEET](rak-docs/CHEATSHEET.md) for a quick presentation intended for raku connoisseurs.
 See [Glossary](./GLOSSARY.md) for new concepts.
 See [ROADMAP](rak-plans/ROADMAP.md) for the planned versions.
