@@ -24,7 +24,7 @@ sub has-module($name) {
 plan :skip-all('Terminal::LineEditor is needed for the marks')
   unless has-module('Terminal::LineEditor');
 
-plan 17;
+plan 22;
 
 sub mark($m) { "\e]133;{$m}\e\\" }
 my $A  = mark('A');
@@ -98,6 +98,21 @@ like $out, / $D0 $A '[1] >' $B /, 'the next prompt gets A and B';
 
 $out = session('die "boom"', :until(*.contains($D1)));
 like $out, / $C .*? boom .*? $D1 /, 'a thrown error ends with D;1';
+nok $out.contains('in block'), 'an error shows without its backtrace';
+
+$out = session('die "boom"', :until(*.contains("$D1$A")));
+like $out, / $D1 $A "\e[31m[" \d+ "] >\e[0m" $B /, 'the prompt after a failure is red';
+
+$out = session('sh -c "exit 3"', :until(*.contains("$D3$A")));
+like $out, / $D3 $A "\e[31m[" \d+ "] >\e[0m" $B /, '… also after a failed command';
+
+$out = session('1 + 1', :until(*.contains("$D0$A")));
+like $out, / $D0 $A '[' \d+ '] >' $B /, '… not after a success';
+
+%*ENV<IRAK_DEBUG> = 1;
+$out = session('die "boom"', :until(*.contains($D1)));
+%*ENV<IRAK_DEBUG>:delete;
+ok $out.contains('in block'), 'IRAK_DEBUG keeps the backtrace';
 
 $out = session('sh -c "exit 3"', :until(*.contains('133;D')));
 like $out, / $C .*? 'exit 3' .*? $D3 /, q[a command ends with its exit status, from $?];

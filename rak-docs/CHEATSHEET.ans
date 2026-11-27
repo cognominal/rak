@@ -355,6 +355,10 @@ Output longer than 5 lines (or the terminal) goes to a pager, [1;32mless[0m -R
 When the pager quits, a summary stays: format, lines and size, then the start of
 the first line. Errors, [3m$*ERR[0m and external commands are never paged.
 
+An error shows its message without the backtrace (the [1min … at … line n[0m lines);
+set [1mIRAK_DEBUG[0m to keep it. After a submission fails, by an error or a non-zero
+exit status, the next prompt is red.
+
 Before the first prompt, irak runs your startup file, [34m~/.config/rak/init.rak[0m: its
 routines and variables are seen by every submission. [1m./rak --no-init[0m skips it. The
 ↑ / ↓ history is in [34m~/.local/state/rak/history[0m. [1mXDG_CONFIG_HOME[0m and

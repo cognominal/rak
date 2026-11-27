@@ -145,6 +145,9 @@ Each mark is `ESC ] 133 ; <mark> ESC \`.
 - **When marks are sent.** Only in irak, only with
   [Terminal::LineEditor](../build/AUR.md) as the line editor, and only when standard
   input and output are both a tty. `RAKUDO_DISABLE_OSC133=1` turns them off.
+- **The failure color.** With the same line editor on a tty, the prompt after a
+  submission whose `D` status is not 0 is red (`ESC [31m` inside `A` and `B`).
+  Continuation prompts keep their color.
 
 Terminal::LineEditor 0.0.23 lets `A` and `B` go inside the prompt string. Its `prompt`
 method prints the string once, as is. Then `read-input` asks the terminal for the cursor

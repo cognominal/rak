@@ -604,6 +604,8 @@ do {
         # irak: a pinned topic changes only on `! ` or `!!n`; a lone `-`
         # toggles it.
         has Bool $!irak-pinned = False;
+        # irak: the last submission failed, so the next prompt is red.
+        has Bool $!irak-failed = False;
         my constant IRAK-KEEP = 1000;
         # irak: rak's config and state folders were looked at this session.
         has Bool $!irak-dirs-made;
@@ -1519,14 +1521,16 @@ do {
                 CATCH {
                     default {
                         self!osc133-output;
-                        say $_;
+                        say self.irak-error-text(.gist);
                         self!osc133-done(1);
+                        $!irak-failed = True;
                         reset
                     }
                 }
                 $!irak-before = $code;
                 $!osc133-fresh = $code !~~ /\S/;
-                $newcode = self.repl-read(~$prompt);
+                $newcode = self.repl-read(
+                  $!osc133-fresh ?? self.irak-prompt(~$prompt) !! ~$prompt);
                 last if $no-exit and $newcode and $newcode eq 'exit';
 
                 $stopped = 0;
@@ -1667,6 +1671,7 @@ do {
                     .end with $page;
                     say "Control flow commands not allowed in toplevel";
                     self!osc133-done(1);
+                    $!irak-failed = True;
                     self!atuin-record($topic-prefix ~ $code.chomp, 1, $eval-ns);
                     reset;
                     next;
@@ -1694,7 +1699,7 @@ do {
                 my $format;
                 if $exception.DEFINITE {
                     .end with $page;
-                    self.repl-print($exception);
+                    self.irak-print-error($exception);
                 }
                 elsif irak() && nqp::istype($output, Rakudo::Internals::RakProc) {
                     # a command's Proc prints nothing and leaves $_ alone
@@ -1753,7 +1758,7 @@ do {
                 }
                 elsif nqp::istype($output, Failure) and not $output.handled {
                     .end with $page;
-                    self.repl-print($output);
+                    self.irak-print-error($output);
                     $previous-evals.push: $output<>;
                 }
                 elsif $initial_out_position + $!osc133-bytes == $*OUT.tell
@@ -1794,6 +1799,7 @@ do {
                 # the submission threw or returned an unhandled Failure.
                 my int $status = $command-exit || ($failed ?? 1 !! 0);
                 self!osc133-done($status);
+                $!irak-failed = $status != 0;
                 self!atuin-record($topic-prefix ~ $code.chomp, $status, $eval-ns);
                 reset;
             }
@@ -1842,6 +1848,36 @@ do {
             else {
                 say "(low-level object `$value.^name()`)";
             }
+        }
+
+        # irak shows an error without its backtrace (the `in … at … line n`
+        # lines) unless IRAK_DEBUG is set.
+        method irak-error-text(Str:D $text --> Str:D) {
+            return $text if !irak() || %*ENV<IRAK_DEBUG>;
+            $text.lines.grep({
+                $_ !~~ /^ \h* 'in ' \S+ .*? ' at ' .+ ' line ' \d+ \h* $/
+                  && $_ !~~ /^ \h* 'Actually thrown at:' \h* $/
+            }).join("\n")
+        }
+
+        # Says an exception or an unhandled Failure, as repl-print does.
+        method irak-print-error(Mu $value --> Nil) {
+            if !irak() || %*ENV<IRAK_DEBUG> {
+                self.repl-print($value);
+                return;
+            }
+            my $method := %*ENV<RAKU_REPL_OUTPUT_METHOD> // "gist";
+            my $text = (try $value."$method"()) // (try $value.exception.gist) // '';
+            say self.irak-error-text(~$text);
+        }
+
+        # The prompt to read: red after a failed submission, in irak on a
+        # terminal whose line editor takes escapes in the prompt.
+        method irak-prompt(Str:D $prompt --> Str:D) {
+            $!irak-failed && irak() && $prompt.ends-with(' ')
+              && so(self.?osc133-capable) && (try $*OUT.t)
+              ?? "\e[31m" ~ $prompt.chop ~ "\e[0m "
+              !! $prompt
         }
 
         # irak: make rak's config and state folders when they are missing,
