@@ -402,8 +402,29 @@ class REPL::Completions::Engine {
         Map.new: (:$header, items => @items.List)
     }
 
+    # Can the candidate $c be called on $s, judging by its invocant alone?
+    method invocant-accepts(Mu $c, Mu \s --> Bool:D) {
+        my $p = (try $c.signature.params[0]) // return True;
+        return True unless $p.invocant;
+        return False unless $p.type.ACCEPTS(s);
+        given $p.modifier {
+            when ':D' { s.DEFINITE }
+            when ':U' { !s.DEFINITE }
+            default   { True }
+        }
+    }
+
+    # Is $m a method that no user calls: an implementation detail (the
+    # fail-*, throw-* and no-zero-arg helpers among them), a dispatcher, or
+    # an all-caps internal
+    method internal-method(Mu $m, Str:D $name --> Bool:D) {
+        so $name.starts-with('!') || $name.starts-with('dispatch:')
+          || $name ~~ /^ <:Lu+[_-]>+ $/
+          || (try $m.is-implementation-detail)
+    }
+
     # The methods that `->` can call on $subject: Maps of text and preview,
-    # the method's signatures
+    # the signatures of the candidates whose invocant takes $subject
     method method-candidates(Mu \subject, Str:D $prefix, Int :$max = 200) {
         my Mu $s := subject<>;
         my %seen;
@@ -411,9 +432,26 @@ class REPL::Completions::Engine {
         for $s.^methods(:all) -> $m {
             my $name = try $m.name;
             next unless $name && $name.starts-with($prefix);
-            next if $name.starts-with('!') || $name ~~ /^ <:Lu+[-]>+ $/;
             next if %seen{$name}++;
-            my @sigs = (try $m.candidates) // ($m,);
+            # the method dispatch finds, not one an ancestor's shadowed
+            my $found := (try $s.^find_method($name)) // $m;
+            next if self.internal-method($found, $name);
+            my @sigs = ((try $found.candidates) // ($found,))
+              .grep({ self.invocant-accepts($_, $s) });
+            next unless @sigs;
+            # of candidates that differ only by invocant, dispatch picks the
+            # narrowest: keep it alone
+            my %narrowest;
+            for @sigs.kv -> $i, $c {
+                my @p    = (try $c.signature.params) // ();
+                my $rest = @p.skip.map({ (try .raku) // '' }).join(', ');
+                my $t    = @p ?? @p[0].type !! Mu;
+                %narrowest{$rest} = $i
+                  unless %narrowest{$rest}:exists
+                    && !nqp::istype($t, @sigs[%narrowest{$rest}].signature.params[0].type);
+            }
+            my %keep is SetHash = %narrowest.values;
+            @sigs = @sigs[%keep.keys.sort];
             @items.push: Map.new: (text => $name,
               preview => @sigs.map({ (try .signature.raku) // '' }).join("\n"));
         }

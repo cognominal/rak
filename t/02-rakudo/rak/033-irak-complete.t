@@ -4,7 +4,7 @@ use Test;
 # cursor, the dotty chain that leads to its subject, the candidates, the
 # YAML previews, and a session where a fake `fzf` makes the choice.
 
-plan 43;
+plan 46;
 
 my $e = REPL::Completions::Engine.new;
 
@@ -88,6 +88,13 @@ is $e.selector-text(q{don't go}), q{'don\'t go'}, 'a quote in a quoted key is es
     nok $e.selector-candidates(42, '', 'any'), 'a number has no selectors';
     ok $e.method-candidates([1, 2], 'ele')<items>.first(*<text> eq 'elems')<preview>
       .contains('List'), '`->` candidates preview their signatures';
+    my @names = $e.method-candidates('abc', '')<items>.map(*<text>);
+    nok @names.grep(/^ [fail|throw] '-' | ^ 'no-zero-arg' | ^ 'dispatch:'/),
+      '`->` offers no error helpers nor dispatchers';
+    is $e.method-candidates({ a => 1 }, 'keys')<items>.first(*<text> eq 'keys')<preview>,
+      ':(Map:D $:: *%_ --> Seq:D)', '… only the candidate dispatch picks';
+    nok $e.method-candidates(42, 'elems')<items>.first(*<text> eq 'elems')<preview>
+      .contains(':U'), '… and none for type objects when the subject is defined';
 }
 
 # The YAML preview
