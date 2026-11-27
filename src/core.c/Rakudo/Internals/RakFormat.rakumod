@@ -319,23 +319,33 @@ my class Rakudo::Internals::RakCapture is IO::Handle is implementation-detail {
     method text() { $!bytes.decode('utf8') }
 }
 
+my class Rakudo::Internals::RakYAML { ... }
+
 my class Rakudo::Internals::RakFormat is implementation-detail {
 
-    # The format a target's extension selects, ignoring case, or Nil.
+    # The format a target's extension selects, ignoring case, or Nil. A
+    # `.yml` target is a `.yaml` one.
     method of(Str:D $target) {
         my str $lc = nqp::lc($target);
-        nqp::eqat($lc, '.json', nqp::chars($lc) - 5) && nqp::chars($lc) > 5
-          ?? 'json'
-          !! nqp::eqat($lc, '.jsonl', nqp::chars($lc) - 6) && nqp::chars($lc) > 6
-            ?? 'jsonl'
-            !! Nil
+        my sub ends(str $ext) {
+            nqp::chars($lc) > nqp::chars($ext)
+              && nqp::eqat($lc, $ext, nqp::chars($lc) - nqp::chars($ext))
+        }
+        ends('.json') ?? 'json'
+          !! ends('.jsonl') ?? 'jsonl'
+          !! ends('.yaml') || ends('.yml') ?? 'yaml'
+          !! Nil
     }
 
     # JSON is written pretty. JSON Lines is one compact record per line: an
     # array (or other list) is one record per element, anything else is one
     # record.
     method encode(Str:D $format, \value, Str:D $target --> Str:D) {
-        if $format eq 'jsonl' {
+        if $format eq 'yaml' {
+            Rakudo::Internals::RakYAML.encode(
+              nqp::istype(value, Failure) ?? value.throw !! value, $target)
+        }
+        elsif $format eq 'jsonl' {
             my \v = nqp::istype(value, Failure) ?? value.throw !! value;
             nqp::isconcrete(v) && !nqp::istype(v, Map)
               && (nqp::istype(v, List) || nqp::istype(v, Seq) || nqp::istype(v, Range))
@@ -350,7 +360,10 @@ my class Rakudo::Internals::RakFormat is implementation-detail {
     # JSON Lines decodes to the array of records; blank lines are skipped. A
     # record holds no newline, so a decode error's line is the file's line.
     method decode(Str:D $format, Str:D $text, Str:D $target) {
-        if $format eq 'jsonl' {
+        if $format eq 'yaml' {
+            Rakudo::Internals::RakYAML.decode($text, $target)
+        }
+        elsif $format eq 'jsonl' {
             my @records;
             my int $line = 0;
             for $text.lines -> $record {
@@ -679,6 +692,18 @@ my class Rakudo::Internals::RakHTTP is implementation-detail {
         $mt eq 'application/json' || $mt.ends-with('+json')
     }
 
+    # A YAML media type (rak-plans/features/yaml.md).
+    method is-yaml(Str:D $type) {
+        my $mt := nqp::lc($type.split(';')[0].trim);
+        $mt eq 'application/yaml' || $mt eq 'application/x-yaml' || $mt eq 'text/yaml'
+          || $mt.ends-with('+yaml')
+    }
+
+    # The format a response's media type selects, or Nil.
+    method format-of(Str:D $type) {
+        self.is-json($type) ?? 'json' !! self.is-yaml($type) ?? 'yaml' !! Nil
+    }
+
     method which(Str:D $name) {
         $*SPEC.path.map({ .IO.add($name) }).first({ .f && .x })
     }
@@ -803,8 +828,9 @@ my class Rakudo::Internals::RakHTTP is implementation-detail {
     # The decoded value of a response body: JSON by its media type, else the
     # text; Nil for an empty body.
     method value(Str:D $url, Str:D $type, Str:D $content) {
-        $content.chars == 0      ?? Nil
-          !! self.is-json($type) ?? Rakudo::Internals::RakFormat.decode('json', $content, $url)
+        my $format := self.format-of($type);
+        $content.chars == 0 ?? Nil
+          !! $format        ?? Rakudo::Internals::RakFormat.decode($format, $content, $url)
           !! $content
     }
 
@@ -928,7 +954,10 @@ sub RAK-REDIRECT-OUT(Str() $target, Str:D $mode, &code, $?) is implementation-de
             $target);
         if $mode eq 'a' {
             # Appending JSON Lines: the records are complete before any is
-            # written, so a failure leaves the file as it was.
+            # written, so a failure leaves the file as it was. Appending YAML
+            # adds a document.
+            $content := "---\n" ~ $content
+              if $format eq 'yaml' && $target.IO.e && $target.IO.s;
             my $fh := open($target, :a);
             $fh.throw if nqp::istype($fh, Failure);
             $fh.print($content);
@@ -963,7 +992,7 @@ sub RAK-LOAD(Str() $target, Str:D $sigil, Str:D $name) is raw is implementation-
     my $text;
     if Rakudo::Internals::RakHTTP.is-url($target) {
         my ($, $type, $content) = Rakudo::Internals::RakHTTP.request('GET', $target);
-        $format = Rakudo::Internals::RakHTTP.is-json($type) ?? 'json' !! Nil;
+        $format = Rakudo::Internals::RakHTTP.format-of($type);
         $text   = $content;
     }
     else {

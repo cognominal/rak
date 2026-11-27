@@ -1,7 +1,8 @@
 # YAML
 
-Status: PLANNED. How a value piped to a command is encoded is still being settled in
-[Pipelines](pipelines.md).
+Status: WIP. Loads, targets, `>>` and `from-yaml` work. Not built yet: YAML on pipes
+to commands ([Pipelines](pipelines.md#encoding-a-value-for-a-command-planned)) and the
+YAML literals of [myaml](#myaml).
 
 YAML as a [format](../../GLOSSARY.md#format), next to JSON: loads and targets with a
 `.yaml` or `.yml` extension, and the `from-yaml` pipeline stage. Unlike JSON, YAML can
@@ -44,6 +45,8 @@ in [Tables](tables.md#converting): nushell's encoding on the wire, Raku types in
 - A float loads as the JSON decoder does: `1.5` is a `Rat`, `1.5e3` a `Num`.
 - A mapping keeps its key order
   ([ADR 0009](../../docs/adr/0009-rak-hashes-keep-insertion-order.md)).
+- `>>f.yaml` appends a document, after a `---` when the file is not empty, so the file
+  then loads as a list of documents.
 - A `.yml` target is a `.yaml` one; case is ignored. A [URL](url-targets.md) load
   decodes YAML when the server declares `application/yaml`, `application/x-yaml` or
   `text/yaml`.

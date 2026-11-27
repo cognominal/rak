@@ -2136,9 +2136,12 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
         elsif !$forced && $name eq 'cd' {
             $ast := rak-call('RAK-CD', |@args);
         }
-        elsif !$forced && $name eq 'ls' && !nqp::elems(@redirs) {
-            # Redirected, `ls` stays GNU ls: a table has no text form yet.
-            $ast := rak-call('RAK-LS', |@args);
+        elsif !$forced && $name eq 'ls' {
+            # Redirected to a target without a format, `ls` is GNU ls: a
+            # table has no text form yet.
+            $ast := nqp::elems(@redirs)
+              ?? rak-call('RAK-LS-REDIRECTED', $capture, |@args, |@redirs, |@extra)
+              !! rak-call('RAK-LS', |@args);
         }
         elsif !$forced && $name ne 'ls' && nqp::existskey($/.rak-table-builtins, $name) {
             # A topical command: the piped value, else $_.
@@ -2283,8 +2286,14 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
                     $prev := rak-call('RAK-FORMAT', $prev);
                 }
                 elsif $stage<decode> {
-                    $prev := rak-call(~$stage<decode> eq 'from-json'
-                      ?? 'RAK-FROM-JSON' !! 'RAK-FROM-JSONL', $input);
+                    my str $decode := ~$stage<decode>;
+                    $prev := $decode eq 'from-yaml'
+                      ?? ($stage<ignore-tags>
+                           ?? rak-call('RAK-FROM-YAML', $input,
+                                Nodify('ColonPair::True').new('ignore-tags'))
+                           !! rak-call('RAK-FROM-YAML', $input))
+                      !! rak-call($decode eq 'from-json'
+                           ?? 'RAK-FROM-JSON' !! 'RAK-FROM-JSONL', $input);
                 }
                 else {
                     my $ast := $stage<EXPR>.ast;

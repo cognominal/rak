@@ -215,7 +215,8 @@ Notes on what is built:
 
 - A topical command or `ls` is a command only in command position: `say get name`
   calls Raku's `get`; write `say (get name)`.
-- Redirected, `ls` runs GNU ls (`ls > out`): a table has no text form for files yet.
+- Redirected to a target without a format, `ls` runs GNU ls (`ls > out`): a table
+  has no text form for files yet. `ls >files.yaml` and `ls >files.json` write the table.
 - `ls` and the topical commands are found before setting routines of the same name
   (`get`), but after routines the program declares.
 

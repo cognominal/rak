@@ -608,6 +608,20 @@ sub RAK-LS(*@args, *%) is implementation-detail {
     }).Array
 }
 
+# A redirected `ls`: a target with a format (`ls >files.yaml`) gets the
+# table, encoded; any other redirection runs GNU ls.
+sub RAK-LS-REDIRECTED($capture, *@args, *%redirs) is implementation-detail {
+    my $target := %redirs<out> // %redirs<append>;
+    if %redirs.elems == 1 && $target.defined
+      && Rakudo::Internals::RakFormat.of(~$target) {
+        RAK-REDIRECT-OUT(~$target, %redirs<append>:exists ?? 'a' !! 'w',
+          { RAK-LS(|@args) })
+    }
+    else {
+        RAK-RUN-COMMAND('ls', $capture, |@args, |%redirs)
+    }
+}
+
 # The input of a topical command: what is piped into it, else the topic.
 sub RAK-TOPICAL-INPUT(Mu \stdin, Mu \topic) is raw is implementation-detail {
     my \v = nqp::eqaddr(stdin, Rakudo::Internals::RakNoStdin)

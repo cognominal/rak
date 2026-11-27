@@ -2357,7 +2357,8 @@ grammar Rak::Grammar is HLL::Grammar does Rak::Common {
     }
 
     token rak-stage {
-        || $<decode>=['from-jsonl' | 'from-json'] <!before <[\w\-']>>
+        || $<decode>=['from-jsonl' | 'from-json' | 'from-yaml'] <!before <[\w\-']>>
+           [ <?{ ~$<decode> eq 'from-yaml' }> \h+ $<ignore-tags>='--ignore-tags' <!before <[\w\-]>> ]?
         || '.' <?before <.rak-format-end>> $<format>=<?>
         || <rak-command>
         || <EXPR>

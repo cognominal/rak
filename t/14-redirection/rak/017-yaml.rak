@@ -1,0 +1,118 @@
+use Test;
+
+plan 22;
+
+# ---------------------------------------------------------------------------
+# YAML (rak-plans/features/yaml.md): .yaml and .yml targets and loads, typed
+# values through nushell's tags, the core schema, errors, and `from-yaml`.
+# ---------------------------------------------------------------------------
+
+# 1-2. Value mode writes nushell's style; key order is kept.
+{
+    my %h is Hash::Ordered;
+    %h<b> = [1, 'x'];
+    %h<a> = { k => 'v' };
+    %h<s> = "two\nlines";
+    %h >y_write.yaml;
+    is 'y_write.yaml'->IO->slurp,
+      "b:\n- 1\n- x\na:\n  k: v\ns: |-\n  two\n  lines\n",
+      '1: block style, a sequence at its key, a |- block';
+    my $back <y_write.yaml;
+    is $back->keys->join(' '), 'b a s', '2: a load keeps the key order';
+    'y_write.yaml'->IO->unlink;
+}
+
+# 3-8. Tags give typed values back.
+{
+    'y_tags.yml'->IO->spurt(q:to/END/);
+        size: !filesize 1500
+        took: !duration 90000000000
+        when: !!timestamp 2026-01-02T03:04:05Z
+        r: !range 1..<3
+        s: !range 1..3..9
+        bin: !!binary Af8=
+        END
+    my %t <y_tags.yml;
+    is %t<size>, 1500, '3: !filesize is a number of bytes';
+    is %t<took>, Duration->new(90), '4: !duration is nanoseconds';
+    is %t<when>, DateTime->new('2026-01-02T03:04:05Z'), '5: !!timestamp is a DateTime';
+    is-deeply %t<r>, 1..^3, '6: !range 1..<3 is a Range';
+    is %t<s>->list, (1, 3, 5, 7, 9), '7: a stepped !range is a sequence';
+    is %t<bin>->list, (1, 255), '8: !!binary is a Blob';
+    'y_tags.yml'->IO->unlink;
+}
+
+# 9. Typed values round-trip.
+{
+    my %h = size => Rakudo::Internals::RakFilesize->new(42), took => Duration->new(1.5);
+    %h >y_round.yaml;
+    my %b <y_round.yaml;
+    ok %b<size> ~~ Rakudo::Internals::RakFilesize && %b<took> == 1.5,
+      '9: a filesize and a duration survive a round trip';
+    'y_round.yaml'->IO->unlink;
+}
+
+# 10-13. The core schema: untagged dates stay strings, quoted numbers too.
+{
+    'y_core.yaml'->IO->spurt(qq[d: 2026-01-02\nn: 12\nf: 1.5\nq: "12"\nb: yes\nz: ~\n]);
+    my %c <y_core.yaml;
+    is %c<d>, '2026-01-02', '10: an untagged date is a string';
+    ok %c<n> ~~ Int && %c<f> ~~ Rat, '11: an int and a float';
+    ok %c<q> ~~ Str && %c<b> eq 'yes', '12: a quoted number and yes are strings';
+    nok %c<z>->defined, '13: ~ is null';
+    'y_core.yaml'->IO->unlink;
+}
+
+# 14-16. Errors: line and column, unknown tags, unsupported features.
+{
+    'y_bad.yaml'->IO->spurt(qq[a: 1\nb: !foo 2\n]);
+    my $e;
+    try { my %h <y_bad.yaml; CATCH { default { $e = $_ } } }
+    isa-ok $e, X::Rak::Format::Decode, '14: an unknown tag is a decode error';
+    is $e->message,
+      'y_bad.yaml: unknown tag !foo at line 2, column 4 (from-yaml --ignore-tags loads it untagged)',
+      '15: it names the tag and the way around it';
+    'y_bad.yaml'->IO->spurt(qq[a: &x 1\n<<: *x\n]);
+    $e = Nil;
+    try { my %h <y_bad.yaml; CATCH { default { $e = $_ } } }
+    ok $e && $e->message->contains('merge keys'), '16: merge keys are an error';
+    'y_bad.yaml'->IO->unlink;
+}
+
+# 17-18. Several documents load as a list; >> appends a document.
+{
+    my %r = n => 1;
+    %r >>y_append.yaml;
+    %r = n => 2;
+    %r >>y_append.yaml;
+    is 'y_append.yaml'->IO->slurp, "n: 1\n---\nn: 2\n", '17: >> appends a document';
+    my @d <y_append.yaml;
+    is @d->map(*<n>)->join(','), '1,2', '18: several documents load as a list';
+    'y_append.yaml'->IO->unlink;
+}
+
+# 19-20. from-yaml decodes what a command prints.
+{
+    'y_pipe.yaml'->IO->spurt(qq[- name: a\n  size: !filesize 3\n- name: b\n  size: !filesize 4\n]);
+    my @rows = (cat y_pipe.yaml | from-yaml);
+    is @rows->map(*<name>)->join(','), 'a,b', '19: cat f.yaml | from-yaml';
+    'y_pipe.yaml'->IO->spurt("x: !foo 1\n");
+    my %x = (cat y_pipe.yaml | from-yaml --ignore-tags);
+    is %x<x>, 1, '20: --ignore-tags loads the untagged value';
+    'y_pipe.yaml'->IO->unlink;
+}
+
+# 21-22. ls to a format target writes the table, not GNU ls's text.
+{
+    'y_ls'->IO->mkdir;
+    'y_ls/f.txt'->IO->spurt('hello');
+    ls y_ls >y_ls.yaml;
+    my @f <y_ls.yaml;
+    is @f[0]<name>, 'y_ls/f.txt', '21: ls >f.yaml writes the table';
+    ok @f[0]<size> ~~ Rakudo::Internals::RakFilesize, '22: with its sizes as filesizes';
+    'y_ls/f.txt'->IO->unlink;
+    'y_ls'->IO->rmdir;
+    'y_ls.yaml'->IO->unlink;
+}
+
+done-testing();
