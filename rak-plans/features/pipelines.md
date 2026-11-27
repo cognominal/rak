@@ -58,12 +58,25 @@ Raku's `==>`, not one value at a time as in jq. Per-value work is explicit, thro
 ## Where commands meet rak stages
 
 - **Command → rak stage:** the command's output becomes a lazy `Seq` of lines, newlines
-  removed. Decode it with a `from-json` or `from-jsonl` stage.
+  removed. Decode it with a `from-yaml`, `from-json` or `from-jsonl` stage.
 - **Rak stage → command:** a `Str` or a number is written as one line; a list or a `Seq`
   one element per line; a hash, or a hash or list inside a list, as a JSON Lines record.
   Planned: the [command catalog](command-catalog.md) picks the encoding instead, see
   below.
 - **Command → command:** a real OS pipe; the commands run at the same time.
+
+`cat` with a single file argument whose extension has a format (`cat f.yaml`) is
+decoded by that extension, as a load of the file would be, with a warning that the
+redirection is preferred:
+
+```rak
+cat files.yaml | select name size  # cat files.yaml: the redirection <files.yaml is preferred
+<files.yaml | select name size     # the same, no warning
+cat a.yaml b.yaml | from-yaml      # several files, or none: decode explicitly
+```
+
+- A decode stage gets the lines: `cat f.yaml | from-yaml --ignore-tags` still works.
+- Between two commands the bytes pass untouched: `cat f.yaml | ^head`.
 
 ## Encoding a value for a command (planned)
 

@@ -2287,6 +2287,9 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
                 }
                 elsif $stage<decode> {
                     my str $decode := ~$stage<decode>;
+                    # A decode stage gets the lines, even of `cat f.yaml`.
+                    $input := rak-call('RAK-PIPE-VALUE', $prev,
+                      Nodify('ColonPair::True').new('raw'));
                     $prev := $decode eq 'from-yaml'
                       ?? ($stage<ignore-tags>
                            ?? rak-call('RAK-FROM-YAML', $input,

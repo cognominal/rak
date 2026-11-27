@@ -100,6 +100,8 @@ gh api repos/rakudo/rakudo | .stargazers_count
 ```
 
 - A command without an entry gives lines, as before; rak never guesses from the text.
+- `cat` with one file argument emits the format of its extension
+  ([Pipelines](pipelines.md#where-commands-meet-rak-stages)).
 - Between two commands, bytes pass untouched.
 - The raw text comes back with a `to-text` stage, which joins the lines:
   `gh api repos/rakudo/rakudo | to-text`. `^cmd` keeps its one meaning, the external

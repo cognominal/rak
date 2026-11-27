@@ -12,7 +12,7 @@ say what type a value has, with a [tag](../../GLOSSARY.md#tag), so a filesize, a
 ```rak
 ls >files.yaml               # sizes as !filesize, dates as !!timestamp
 my @files <files.yaml        # back as filesizes and DateTimes
-cat files.yaml | from-yaml | select name size
+<files.yaml | select name size
 ```
 
 ## Nushell's conventions, Raku's types

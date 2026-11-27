@@ -1197,11 +1197,30 @@ sub RAK-ALIASES($capture, *@names) is implementation-detail {
     @lines
 }
 
-# A rak stage's input: a piped command's output becomes its lines.
-sub RAK-PIPE-VALUE(Mu \v) is raw is implementation-detail {
+# `cat` with one argument naming a file with a format (`cat f.yaml`): the
+# format, else Nil. Its output is decoded as a load of that file would be,
+# with a warning that the redirection is preferred (rak-plans/features/pipelines.md).
+sub RAK-CAT-FORMAT(Mu \v) is implementation-detail {
+    my @c = v.command;
+    return Nil unless @c.elems == 2 && @c[0] eq 'cat';
+    my $path := @c[1].Str;
+    my $format := Rakudo::Internals::RakFormat.of($path);
+    return Nil unless $format && $path.IO.f;
+    note "cat $path: the redirection <$path is preferred";
+    $format
+}
+
+# A rak stage's input: a piped command's output becomes its lines, unless it
+# is `cat f.yaml` (or another format); `:raw` keeps the lines for a decode
+# stage.
+sub RAK-PIPE-VALUE(Mu \v, :$raw) is raw is implementation-detail {
     if nqp::istype(v, Rakudo::Internals::RakProc) {
         %RAK-PIPE-READ{v.WHICH} = True;
-        v.out.lines
+        my $format := $raw ?? Nil !! RAK-CAT-FORMAT(v);
+        $format
+          ?? Rakudo::Internals::RakFormat.decode($format,
+               v.out.slurp(:close), v.command[1].Str)
+          !! v.out.lines
     }
     else { v<> }
 }
@@ -1222,7 +1241,11 @@ sub RAK-FORMAT(Mu \v) is implementation-detail {
     my @docs;
     if nqp::istype(v, Rakudo::Internals::RakProc) {
         %RAK-PIPE-READ{v.WHICH} = True;
-        @docs.append: text(v.out.lines.join("\n"));
+        my $format := RAK-CAT-FORMAT(v);
+        $format
+          ?? @docs.push(Rakudo::Internals::RakFormat.decode($format,
+               v.out.slurp(:close), v.command[1].Str))
+          !! @docs.append(text(v.out.lines.join("\n")));
     }
     elsif nqp::istype(v, Seq) {
         for v<> -> \e {

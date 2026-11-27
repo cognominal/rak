@@ -1,6 +1,6 @@
 use Test;
 
-plan 22;
+plan 26;
 
 # ---------------------------------------------------------------------------
 # YAML (rak-plans/features/yaml.md): .yaml and .yml targets and loads, typed
@@ -113,6 +113,28 @@ plan 22;
     'y_ls/f.txt'->IO->unlink;
     'y_ls'->IO->rmdir;
     'y_ls.yaml'->IO->unlink;
+}
+
+# 23-26. cat with one file decodes by its extension, with a warning; with
+# several files it gives lines.
+{
+    'y_cat.yaml'->IO->spurt(qq[- name: a\n- name: b\n]);
+    my $err = $*TMPDIR->add("rak-cat-$*PID.err");
+    my @n;
+    {
+        my $*ERR = $err->open(:w);
+        @n = (cat y_cat.yaml | get name);
+        $*ERR->close;
+    }
+    is @n->join(','), 'a,b', '23: cat f.yaml | get name decodes';
+    is $err->slurp, "cat y_cat.yaml: the redirection <y_cat.yaml is preferred\n",
+      '24: with a warning that the redirection is preferred';
+    my @l = (cat y_cat.yaml y_cat.yaml | { $_ });
+    is +@l, 4, '25: several files give lines';
+    my @y = (cat y_cat.yaml y_cat.yaml | from-yaml);
+    is +@y, 4, '26: which from-yaml decodes';
+    $err->unlink;
+    'y_cat.yaml'->IO->unlink;
 }
 
 done-testing();
