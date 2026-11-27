@@ -65,6 +65,7 @@ my class Rakudo::Internals::RakTable is implementation-detail {
           'color_config' => (header => 'green_bold', row_index => 'green_bold'),
           'filesize' => (unit => 'metric', precision => 1),
           'datetime_format' => (normal => Any, table => Any),
+          'commands' => Rakudo::Internals::RakCatalog.load,
         ))
     }
 

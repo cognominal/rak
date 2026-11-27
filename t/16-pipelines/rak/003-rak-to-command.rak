@@ -2,7 +2,8 @@ use Test;
 
 plan 5;
 
-# rak stage | command: values become text on the command's standard input.
+# rak stage | command: values become text on the command's standard input,
+# YAML for structured data (rak-plans/features/pipelines.md).
 
 my @n = <b a>;
 $_ = @n;
@@ -12,6 +13,6 @@ is (.[0] | ^cat), "one\n", 'a Str: one line';
 $_ = 42;
 is (.[0] | ^cat), "42\n", 'a number: one line';
 $_ = { users => [{ name => 'ann' }, { name => 'bob' }] };
-is (.users | ^cat), qq|\{"name":"ann"}\n\{"name":"bob"}\n|,
-  'hashes: one JSON Lines record each';
+is (.users | ^cat), "- name: ann\n- name: bob\n",
+  'hashes: one YAML document, a block sequence';
 is (.users | ^wc -l)->trim, '2', 'a pipeline ending in a command';

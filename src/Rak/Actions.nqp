@@ -2285,6 +2285,15 @@ class Rak::Actions is HLL::Actions does Rak::CommonActions {
                     # The formatter reads a command's output itself.
                     $prev := rak-call('RAK-FORMAT', $prev);
                 }
+                elsif $stage<encode> {
+                    # to-text gives a command's raw lines back.
+                    my str $format := nqp::substr(~$stage<encode>, 3);
+                    $prev := rak-call('RAK-TO', Nodify('StrLiteral').new($format),
+                      $format eq 'text'
+                        ?? rak-call('RAK-PIPE-VALUE', $prev,
+                             Nodify('ColonPair::True').new('raw'))
+                        !! $input);
+                }
                 elsif $stage<decode> {
                     my str $decode := ~$stage<decode>;
                     # A decode stage gets the lines, even of `cat f.yaml`.

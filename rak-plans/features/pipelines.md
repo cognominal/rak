@@ -53,16 +53,21 @@ Raku's `==>`, not one value at a time as in jq. Per-value work is explicit, thro
 | `name args`        | `name(args, input)`: input last, as with `==>`  |
 | `from-json`        | decodes the input as one JSON document          |
 | `from-jsonl`       | decodes the input as JSON Lines, a `Seq`        |
+| `from-yaml`        | decodes the input as YAML                       |
+| `to-yaml`          | encodes the input as YAML, a `Str`              |
+| `to-json`          | idem, as one JSON document                      |
+| `to-jsonl`         | idem, as JSON Lines                             |
+| `to-text`          | a command's raw text; a value's `Str`           |
 | `.`                | shows the input as JSON ([formatter](formatter.md)) |
 
 ## Where commands meet rak stages
 
 - **Command → rak stage:** the command's output becomes a lazy `Seq` of lines, newlines
   removed. Decode it with a `from-yaml`, `from-json` or `from-jsonl` stage.
-- **Rak stage → command:** a `Str` or a number is written as one line; a list or a `Seq`
-  one element per line; a hash, or a hash or list inside a list, as a JSON Lines record.
-  Planned: the [command catalog](command-catalog.md) picks the encoding instead, see
-  below.
+- **Rak stage → command:** a `Str` or a number is written as one line, a flat list one
+  element per line, and structured data as YAML, unless the
+  [command catalog](command-catalog.md) says otherwise; see
+  [below](#encoding-a-value-for-a-command).
 - **Command → command:** a real OS pipe; the commands run at the same time.
 
 `cat` with a single file argument whose extension has a format (`cat f.yaml`) is
@@ -78,18 +83,19 @@ cat a.yaml b.yaml | from-yaml      # several files, or none: decode explicitly
 - A decode stage gets the lines: `cat f.yaml | from-yaml --ignore-tags` still works.
 - Between two commands the bytes pass untouched: `cat f.yaml | ^head`.
 
-## Encoding a value for a command (planned)
+## Encoding a value for a command
 
 Values pass between rak stages as values, and bytes between commands as bytes; only
 where the two meet is there an encoding to pick. For a rak stage feeding a command:
 
-- An explicit `to-yaml`, `to-json` or `to-jsonl` stage always wins.
+- An explicit `to-yaml`, `to-json`, `to-jsonl` or `to-text` stage always wins: the
+  command gets that text as is.
 - A `Str`, a number or a flat list stays as lines, so `ls | get name | ^grep md` works.
   A filesize in it is its number of bytes, a `Duration` its nanoseconds, a `DateTime`
   RFC 3339.
 - A hash, or a list holding a hash or a list, is [YAML](yaml.md) with nushell's tags:
   one document holding a block sequence, written item by item so a lazy `Seq` stays
-  lazy.
+  lazy. For a lazy `Seq`, its first item decides between YAML and lines.
 - When the [command catalog](command-catalog.md) says the command does not read YAML,
   rak picks the first format it does read among `jsonl` and `json`; `json` gets a
   whole list as one array. `ls | ^jq .name` works this way.

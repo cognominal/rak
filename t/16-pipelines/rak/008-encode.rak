@@ -1,0 +1,27 @@
+use Test;
+
+plan 10;
+
+# What a rak stage sends a command without a catalog entry, and the to-…
+# stages (rak-plans/features/pipelines.md#encoding-a-value-for-a-command-planned).
+
+$_ = { users => [{ name => 'ann' }, { name => 'bob' }] };
+is (.users | to-yaml), "- name: ann\n- name: bob\n", '1: to-yaml is the YAML text';
+is (.users | to-jsonl | ^cat), qq|\{"name":"ann"}\n\{"name":"bob"}\n|,
+  '2: to-jsonl wins over YAML';
+is (.users | to-json | ^cat), qq|[\n  \{\n    "name": "ann"\n  },\n  \{\n    "name": "bob"\n  }\n]\n|,
+  '3: to-json is one document';
+is (.[] | ^cat), "users:\n- name: ann\n- name: bob\n", '4: a lone hash is a YAML mapping';
+
+$_ = [1, [2, 3]];
+is (.[] | ^cat), "- 1\n- - 2\n  - 3\n", '5: a list holding a list is YAML';
+
+$_ = (Rakudo::Internals::RakFilesize->new(1500), Duration->new(2));
+is (.[] | ^cat), "1500\n2000000000\n", '6: a filesize is bytes, a Duration nanoseconds';
+
+$_ = (1..*)->map({ %(n => $_) });
+is (.[] | ^head -2), "- n: 1\n- n: 2\n", '7: a lazy Seq is written item by item';
+
+is (^printf 'a\nb\n' | to-text), "a\nb", '8: to-text joins a command\'s lines';
+is (^printf 'a\nb\n' | to-text | ^wc -l)->trim, '2', '9: and a command gets it whole';
+is (^printf 'x: 1\n' | from-yaml | to-text), 'x	1', '10: to-text of a value is its Str';

@@ -1,6 +1,7 @@
 # The command catalog
 
-Status: PLANNED.
+Status: WIP. The shipped entries, `commands.yaml`, flags, choosing a format and
+decoding a command's output work. Not built yet: the `is reads<yaml>` trait.
 
 The [command catalog](../../GLOSSARY.md#command-catalog) records what formats
 [external commands](../../GLOSSARY.md#external-command) read and emit, so a
@@ -31,7 +32,7 @@ A capability says that a command **reads** a format on its standard input, or
   decoder decodes `json` output.
 - `jsonl` stays apart: several JSON documents, one per line, are not valid YAML.
 - A command without an entry reads `lines`, and YAML for structured values
-  ([Pipelines](pipelines.md#encoding-a-value-for-a-command-planned)); it emits `lines`.
+  ([Pipelines](pipelines.md#encoding-a-value-for-a-command)); it emits `lines`.
 
 ## Where the catalog lives
 
@@ -50,7 +51,9 @@ gh api: {emits: json}
 ```
 
 - A key of several words, such as `gh api`, matches a command and its subcommand.
-- The shipped entries cover `jq`, `yq`, `gh api`, `kubectl` and a few more.
+- The shipped entries are `jq` (also `jaq`, `gojq`), `yq`, `gh api`, `kubectl get`,
+  `docker inspect`, `jc`, `gron` and `fx`. A path names the entry of its base name:
+  `/usr/bin/jq` is `jq`.
 
 ## Flags
 
@@ -68,6 +71,10 @@ jq:
 - `--output=yaml` matches as `--output yaml`.
 - Bundled short flags (`-rc`) are split into `-r -c` only for an entry that says
   `bundling: true`: `find -name` is not `-n -a -m -e`.
+- When several flags given match, they apply in the entry's order, so the one listed
+  later wins whatever their order on the command line: jq's `-r` is listed after `-c`,
+  so `jq -rc` emits lines, as jq does.
+- A broken `commands.yaml` is reported on standard error and ignored.
 
 ## Traits for rak routines
 
@@ -86,7 +93,8 @@ On a rak stage feeding a command:
 3. A structured value goes as `yaml` when the command reads it, else `jsonl`, else
    `json`.
 4. A flat value to a command reading only `json` or `jsonl` is encoded as JSON: a `Str`
-   is a JSON string, a list an array, or one value per line for `jsonl`.
+   is a JSON string, a list an array, or one value per line for `jsonl`. To a command
+   reading only `yaml`, it is a YAML document.
 5. When no format fits, such as a table to a command reading only `lines`, it is an
    error naming the command and the formats it reads.
 
@@ -100,6 +108,8 @@ gh api repos/rakudo/rakudo | .stargazers_count
 ```
 
 - A command without an entry gives lines, as before; rak never guesses from the text.
+- `json` may be several documents, as jq prints one per input: one decodes as itself,
+  several as a list. Objects decode to hashes, as for a `.json` load.
 - `cat` with one file argument emits the format of its extension
   ([Pipelines](pipelines.md#where-commands-meet-rak-stages)).
 - Between two commands, bytes pass untouched.
@@ -120,8 +130,8 @@ gh api repos/rakudo/rakudo | .stargazers_count
 The flag rules above cannot say this yet. Three proposals, not settled:
 
 - A flag with any value: `--json *` matches `--json name,url` and `--json=name`.
-- Several flags given (`--json name --jq .name`): the flag that comes later in the
-  entry wins, so `--jq` and `--template` are listed after `--json`.
+- Several flags given (`--json name --jq .name`): settled, the flag later in the entry
+  wins (see [Flags](#flags)), so `--jq` and `--template` go after `--json`.
 - Both `gh` and `gh api` match `gh api …`: only the entry with the most words applies;
   it replaces the shorter one rather than merging with it.
 

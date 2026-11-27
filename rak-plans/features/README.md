@@ -21,7 +21,7 @@ and its status line says which.
 | [atuin](atuin.md) | Record irak submissions in atuin, and import its history. | WIP |
 | [Aliases](aliases.md) | `alias ll=ls -l`: a name for a command and its first words. | WIP |
 | [Completion](completion.md) | TAB completes through fzf, previewing values. | PLANNED |
-| [Command catalog](command-catalog.md) | What formats commands read and emit, for pipes. | PLANNED |
+| [Command catalog](command-catalog.md) | What formats commands read and emit, for pipes. | WIP |
 | [Commands](commands.md) | Running routines and external commands: `$?`, `cd`, `type`. | WIP |
 | [Dotty subscripts](dotty-subscripts.md) | Subscripts without brackets: `%h.users.1.name`, `->meth`. | WIP |
 | [The formatter](formatter.md) | A lone `.` shows its input as JSON. | WIP, NEEDSPEC |

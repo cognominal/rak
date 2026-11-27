@@ -1,0 +1,50 @@
+use Test;
+
+plan 13;
+
+# The command catalog (rak-plans/features/command-catalog.md): what commands
+# read and emit. Entries are set through $*RAK-CONFIG<commands>, so the tests
+# need nothing but cat.
+
+my &caps = -> $name, @args { Rakudo::Internals::RakCatalog->caps($name, @args) };
+
+# 1-5. Matching an entry and its flags.
+is caps('jq', ['.x'])<emits>, 'json', '1: jq emits JSON';
+is caps('jq', <-rc .x>)<emits>, 'lines', '2: -rc is -r -c; -r, later in the entry, wins';
+is caps('/usr/bin/jq', <-c .x>)<emits>, 'jsonl', '3: a path is its basename';
+is caps('kubectl', <get pods --output=yaml>)<emits>, 'yaml', '4: two words and --flag=value';
+is-deeply caps('grep', ['md']), Map->new((:reads(<lines yaml>), :emits<lines>)),
+  '5: no entry reads lines and YAML, emits lines';
+
+$*RAK-CONFIG<commands><cat> = { reads => ['jsonl'], emits => 'yaml' };
+
+# 6-8. Writing to a command by what it reads.
+$_ = [{ n => 1 }, { n => 2 }];
+is (.[] | ^cat | to-text), qq|\{"n":1}\n\{"n":2}|, '6: JSON Lines for a command reading jsonl';
+$_ = <a b>;
+is (.[] | ^cat | to-text), qq|"a"\n"b"|, '7: a flat list is one JSON value per line';
+$*RAK-CONFIG<commands><cat> = { reads => ['lines'] };
+$_ = [{ n => 1 }];
+throws-like { (.[] | ^cat) }, X::Rak::Pipe::Format,
+  message => /'cat reads only lines'/, '8: a table to a command reading only lines';
+
+# 9-11. Decoding what a command emits.
+$*RAK-CONFIG<commands><cat> = { emits => 'yaml' };
+is (^printf 'n: 1\n' | ^cat | .<n>), 1, '9: a command emitting YAML is decoded';
+is (^printf 'n: 1\n' | ^cat | to-text), 'n: 1', '10: to-text gives the raw text back';
+$*RAK-CONFIG<commands><cat> = { emits => 'json' };
+is (^printf '{"n":1}\n{"n":2}\n' | ^cat | map *<n>), (1, 2), '11: several JSON documents are a list';
+
+# 12-13. A user's commands.yaml is merged over the shipped entries.
+{
+    my $dir = $*TMPDIR->add("rak-catalog-$*PID");
+    $dir->add('rak')->mkdir;
+    $dir->add('rak/commands.yaml')->spurt("mytool: \{emits: json}\njq: \{emits: text}\n");
+    temp %*ENV<XDG_CONFIG_HOME> = ~$dir;
+    my $c = Rakudo::Internals::RakCatalog->load;
+    is $c<mytool><emits>, 'json', '12: a user entry is added';
+    ok $c<jq><emits> eq 'text' && !$c<jq><reads>, '13: and replaces the shipped one';
+    $dir->add('rak/commands.yaml')->unlink;
+    $dir->add('rak')->rmdir;
+    $dir->rmdir;
+}

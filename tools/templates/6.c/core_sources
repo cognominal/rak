@@ -207,6 +207,7 @@ src/core.c/Rakudo/Internals/JSON.rakumod
 src/core.c/Rakudo/Internals/RakFormat.rakumod
 src/core.c/Rakudo/Internals/RakTable.rakumod
 src/core.c/Rakudo/Internals/RakYAML.rakumod
+src/core.c/Rakudo/Internals/RakCatalog.rakumod
 src/core.c/Distribution.rakumod
 src/core.c/Distribution/Locally.rakumod
 src/core.c/Distribution/Hash.rakumod

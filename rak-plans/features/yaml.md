@@ -1,7 +1,7 @@
 # YAML
 
-Status: WIP. Loads, targets, `>>` and `from-yaml` work. Not built yet: YAML on pipes
-to commands ([Pipelines](pipelines.md#encoding-a-value-for-a-command-planned)) and the
+Status: WIP. Loads, targets, `>>`, `from-yaml`, `to-yaml` and YAML on pipes to
+commands ([Pipelines](pipelines.md#encoding-a-value-for-a-command)) work. Not built yet: the
 YAML literals of [myaml](#myaml).
 
 YAML as a [format](../../GLOSSARY.md#format), next to JSON: loads and targets with a

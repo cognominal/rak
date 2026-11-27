@@ -25,6 +25,22 @@ my class X::Rak::Format::Decode is X::Rak::Format {
     }
 }
 
+# A value piped to a command that reads no format able to carry it
+# (rak-plans/features/command-catalog.md#choosing-a-format).
+my class X::Rak::Pipe::Format is Exception {
+    has Str $.name;
+    has @.reads;
+    has Str $.what;
+    method message() {
+        $!what eq 'lines'
+          ?? "$!name reads only {@!reads.join(', ')}: it cannot be sent lines; "
+               ~ "pipe them through to-text first"
+          !! "$!name reads only {@!reads.join(', ')}: it cannot be sent a table "
+               ~ "or other structured data; pipe it through table, to-yaml or "
+               ~ "to-json first"
+    }
+}
+
 # Load found content whose shape does not fit the left-hand side's sigil.
 my class X::Rak::Format::Shape is X::Rak::Format {
     has Str $.name;
@@ -320,6 +336,7 @@ my class Rakudo::Internals::RakCapture is IO::Handle is implementation-detail {
 }
 
 my class Rakudo::Internals::RakYAML { ... }
+my class Rakudo::Internals::RakCatalog { ... }
 
 my class Rakudo::Internals::RakFormat is implementation-detail {
 
@@ -1034,6 +1051,7 @@ sub RAK-LOAD(Str() $target, Str:D $sigil, Str:D $name) is raw is implementation-
 # Commands (see rak-plans/features/commands.md). The value of a command run at
 # statement level is its Proc, which is not an error when sunk.
 my class Rakudo::Internals::RakProc is Proc {
+    has $.emits is rw = 'lines';    # from the command catalog
     method sink(--> Nil) { }
 }
 
@@ -1109,7 +1127,14 @@ sub RAK-RUN-COMMAND(Str:D $name, $capture is copy, *@args,
     $out = $capture || $piped ?? True !! '-' without $out;
     # irak holds what rak code prints: show it before the command writes.
     $*OUT.flush if nqp::istype($out, Str) && $out eq '-';
+    # The command catalog: what the command reads and emits. A value fed to
+    # it is encoded now, so that a value it cannot read is an error before
+    # it runs.
+    my %caps = Rakudo::Internals::RakCatalog.caps($name, @args);
+    my $text := $feed && $in ~~ Bool
+      ?? RAK-PIPE-TEXT($stdin, $name, %caps<reads>) !! Nil;
     my $proc := Rakudo::Internals::RakProc.new(:$in, :$out, :$err, :merge(?$merge));
+    $proc.emits = %caps<emits>;
     $proc.spawn($name, |@args.map(*.Str), :cwd($*CWD));
     # Fed by a command: when this one exits, the writer gets the SIGPIPE a
     # kernel pipe would give it (rakudo keeps the pipe's read end open).
@@ -1118,10 +1143,9 @@ sub RAK-RUN-COMMAND(Str:D $name, $capture is copy, *@args,
          && nqp::isconcrete(nqp::getattr($proc, Proc, '$!finished'));
     @RAK-PIPE-PROCS.push($proc) if $feed || $piped;
     if $feed && $in ~~ Bool {
-        my \v := $stdin;
         start {
             CATCH { default { } }      # the reader went away: stop writing
-            $proc.in.print($_) for RAK-PIPE-TEXT(v);
+            $proc.in.print($_) for $text;
             $proc.in.close;
         }
     }
@@ -1216,13 +1240,36 @@ sub RAK-CAT-FORMAT(Mu \v) is implementation-detail {
 sub RAK-PIPE-VALUE(Mu \v, :$raw) is raw is implementation-detail {
     if nqp::istype(v, Rakudo::Internals::RakProc) {
         %RAK-PIPE-READ{v.WHICH} = True;
-        my $format := $raw ?? Nil !! RAK-CAT-FORMAT(v);
-        $format
-          ?? Rakudo::Internals::RakFormat.decode($format,
+        return v.out.lines if $raw;
+        my $cat := RAK-CAT-FORMAT(v);
+        $cat
+          ?? Rakudo::Internals::RakFormat.decode($cat,
                v.out.slurp(:close), v.command[1].Str)
-          !! v.out.lines
+          !! RAK-PIPE-DECODE(v)
     }
     else { v<> }
+}
+
+# A command's output as the catalog says it emits: lines, one string, or
+# decoded. JSON may be several documents, as jq prints: one is itself,
+# several a list.
+sub RAK-PIPE-DECODE(Mu \v) is raw is implementation-detail {
+    my $emits := v.emits;
+    my $target := v.command[0].IO.basename;
+    if $emits eq 'json' {
+        my @docs = Rakudo::Internals::RakJSONDecoder.stream(
+          v.out.slurp(:close), $target);
+        @docs.elems == 1 ?? @docs[0] !! @docs.List
+    }
+    elsif $emits eq 'jsonl' || $emits eq 'yaml' {
+        Rakudo::Internals::RakFormat.decode($emits, v.out.slurp(:close), $target)
+    }
+    elsif $emits eq 'text' {
+        v.out.slurp(:close)
+    }
+    else {
+        v.out.lines
+    }
 }
 
 # The formatter, `.` (rak-plans/features/formatter.md): its input as JSON
@@ -1245,7 +1292,9 @@ sub RAK-FORMAT(Mu \v) is implementation-detail {
         $format
           ?? @docs.push(Rakudo::Internals::RakFormat.decode($format,
                v.out.slurp(:close), v.command[1].Str))
-          !! @docs.append(text(v.out.lines.join("\n")));
+          !! v.emits eq 'yaml' || v.emits eq 'jsonl'
+            ?? @docs.push(RAK-PIPE-DECODE(v))
+            !! @docs.append(text(v.out.lines.join("\n")));
     }
     elsif nqp::istype(v, Seq) {
         for v<> -> \e {
@@ -1276,19 +1325,86 @@ sub RAK-REDIRECT-FORMATTED(Mu \r) is raw is implementation-detail {
 
 sub RAK-PIPE-CALL(&stage, Mu \v) is raw is implementation-detail { stage(v) }
 
-# A value written to a command: a Str or a number is a line, a list one line
-# per element, and a hash (or a list inside a list) a JSON Lines record.
-sub RAK-PIPE-TEXT(Mu \v) is implementation-detail {
-    my sub line(Mu \e) {
-        nqp::istype(e, Associative) || nqp::istype(e, Positional)
-          ?? Rakudo::Internals::RakFormat.encode('jsonl', (e,), 'pipe')
-          !! e.Str ~ "\n"
+# The text of a `to-yaml`, `to-json`, `to-jsonl` or `to-text` stage: a Str,
+# which a command gets verbatim (rak-plans/features/pipelines.md).
+my class Rakudo::Internals::RakEncoded is Str is implementation-detail { }
+
+sub RAK-TO(Str:D $format, Mu \v) is implementation-detail {
+    my str $text = $format eq 'text'
+      ?? (nqp::istype(v, Iterable) ?? v.join("\n") !! v.Str)
+      !! Rakudo::Internals::RakFormat.encode($format, v, 'to-' ~ $format);
+    nqp::box_s($text, Rakudo::Internals::RakEncoded)
+}
+
+# A value written to a command, as text chunks (rak-plans/features/
+# command-catalog.md#choosing-a-format), given the formats it reads. A
+# `to-…` stage's text goes verbatim. A Str, a number or a flat list is lines:
+# a filesize its bytes, a Duration its nanoseconds, a DateTime RFC 3339. A
+# hash, or a list holding a hash or a list, is YAML, else JSON Lines, else
+# JSON; a lazy Seq is written item by item, so its first item decides. A
+# flat value to a command that does not read lines is encoded too.
+sub RAK-PIPE-TEXT(Mu \v, Str:D $name = 'pipe', $reads = ('lines', 'yaml')) is implementation-detail {
+    my sub structured(Mu \e) {
+        nqp::isconcrete(e)
+          && (nqp::istype(e, Associative) || nqp::istype(e, Positional))
     }
-    nqp::istype(v, Associative) || nqp::not_i(nqp::isconcrete(v))
-      ?? (line(v),)
-      !! nqp::istype(v, Iterable)
-        ?? v.map(&line)
-        !! (line(v),)
+    my sub flat(Mu \e) {
+        (nqp::isconcrete(e)
+          ?? nqp::istype(e, Duration)
+            ?? (e.Rat * 1_000_000_000).round.Str
+            !! nqp::istype(e, Instant)
+              ?? DateTime.new(e).Str
+              !! e.Str
+          !! '') ~ "\n"
+    }
+    my sub json(Mu \e) {
+        Rakudo::Internals::RakFormat.encode('jsonl', (e,), $name)
+    }
+    my sub yaml(Mu \e) { Rakudo::Internals::RakYAML.encode((e,), $name) }
+    if nqp::istype(v, Rakudo::Internals::RakEncoded) {
+        my str $t = v;
+        return ($t.ends-with("\n") || $t eq '' ?? $t !! $t ~ "\n",);
+    }
+    my @reads = $reads.list;
+    my $list := nqp::isconcrete(v) && nqp::istype(v, Iterable)
+      && nqp::not_i(nqp::istype(v, Str)) && nqp::not_i(nqp::istype(v, Associative));
+    my $iter;
+    my \first = $list ?? ($iter := v.iterator).pull-one !! v;
+    return () if $list && nqp::eqaddr(first, IterationEnd);
+    my $data := $list
+      ?? (nqp::istype(v, List) && nqp::not_i(v.is-lazy)
+           ?? v.first(&structured, :k).defined
+           !! structured(first))
+      !! structured(v);
+    my $format := $data
+      ?? @reads.first({ $_ eq 'yaml' || $_ eq 'jsonl' || $_ eq 'json' })
+      !! @reads.first({ $_ eq 'lines' || $_ eq 'jsonl' || $_ eq 'json' || $_ eq 'yaml' });
+    X::Rak::Pipe::Format.new(:$name, :@reads,
+      :what($data ?? 'structured data' !! 'lines')).throw
+      unless $format.defined;
+    # One document: JSON, or a lone value.
+    if $format eq 'json' {
+        return (Rakudo::Internals::RakFormat.encode('json', v, $name),) unless $list;
+        my @all = first;
+        loop {
+            my \e = $iter.pull-one;
+            last if nqp::eqaddr(e, IterationEnd);
+            @all[@all.elems] = e;
+        }
+        return (Rakudo::Internals::RakFormat.encode('json', @all, $name),);
+    }
+    return ($format eq 'yaml'
+      ?? Rakudo::Internals::RakYAML.encode(v, $name)
+      !! $format eq 'jsonl' ?? json(v) !! flat(v),) unless $list;
+    my &chunk := $format eq 'yaml' ?? &yaml !! $format eq 'jsonl' ?? &json !! &flat;
+    gather {
+        take chunk(first);
+        loop {
+            my \e = $iter.pull-one;
+            last if nqp::eqaddr(e, IterationEnd);
+            take chunk(e);
+        }
+    }
 }
 
 sub RAK-FROM-JSON(Mu \v) is implementation-detail {
